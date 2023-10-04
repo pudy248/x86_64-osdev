@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "memory.h": "c",
+        "pic.h": "c",
+        "math.h": "c",
+        "beep.h": "c",
+        "taskstructs.h": "c",
+        "serial_console.h": "c",
+        "typedefs.h": "c",
+        "graphics.h": "c",
+        "idt.h": "c",
+        "assembly.h": "c"
+    }
+}

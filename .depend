@@ -1,0 +1,32 @@
+: src/io/string.c include/typedefs.h include/string.h include/arith64.h
+: src/io/console.c include/console.h include/typedefs.h \
+  include/assembly.h include/string.h
+: src/io/keyboard.c include/idt.h include/typedefs.h include/assembly.h \
+  include/console.h
+: src/io/beep.c include/typedefs.h include/assembly.h include/beep.h
+: src/io/serial_console.c include/serial_console.h include/string.h \
+  include/typedefs.h include/assembly.h
+: src/sys/memory.c include/typedefs.h include/taskStructs.h \
+  include/memory.h
+: src/sys/idt.c include/typedefs.h include/idt.h include/pic.h \
+  include/assembly.h include/string.h include/serial_console.h
+: src/sys/pic.c include/typedefs.h include/idt.h include/pic.h \
+  include/assembly.h
+: src/sys/kernel.c include/kernel.h include/typedefs.h \
+  include/taskStructs.h include/assembly.h include/console.h \
+  include/string.h
+: src/graphics/vector.c include/vector.h include/math.h \
+  include/typedefs.h
+: src/graphics/vesa.c include/vesa.h include/typedefs.h include/memory.h \
+  include/assembly.h include/serial_console.h
+: src/graphics/graphics.c include/math.h include/typedefs.h \
+  include/vector.h include/vesa.h include/graphics.h include/kernel.h
+: src/graphics/vesa_console.c include/vesa.h include/typedefs.h \
+  include/vesa_console.h include/string.h
+: src/arith64.c
+: src/math.c include/math.h include/typedefs.h
+: src/main.c include/taskStructs.h include/typedefs.h include/kernel.h \
+  include/memory.h include/idt.h include/pic.h include/assembly.h \
+  include/console.h include/serial_console.h include/vesa_console.h \
+  include/vesa.h include/math.h include/graphics.h include/vector.h \
+  include/beep.h include/string.h
