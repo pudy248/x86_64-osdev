@@ -146,6 +146,22 @@ void buffer_insert_char(TextBuffer* this, char c) {
     else if(c == 0x1C) { //enter
         buffer_newline(this);
     }
+    else if(c == 0x49) { // pgup
+        if(shift) {
+            this->topLine = this->topLine >= CONSOLE_H ? this->topLine - CONSOLE_H : 0;
+        }
+        else {
+            this->topLine = this->topLine >= 1 ? this->topLine - 1 : 0;
+        }
+    }
+    else if(c == 0x51) { // pgdown
+        if(shift) {
+            this->topLine += CONSOLE_H;
+        }
+        else {
+            this->topLine++;
+        }
+    }
     else if(c == 0x53) { //delete
         if(this->cursorLine == this->lineCount - 1 && this->cursorOffset == buffer_lineLength(this, this->cursorLine)) return;
         buffer_right(this);
