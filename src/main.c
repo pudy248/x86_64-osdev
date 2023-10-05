@@ -216,6 +216,10 @@ void text_editor() {
 }
 
 int main() {
+    beep(1000);
+    delay(1 << 28);
+    beep_off();
+
     pic_init();
     idt_init();
     gks->pgWaterline = 0;
