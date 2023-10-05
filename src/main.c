@@ -17,7 +17,9 @@
 #include <beep.h>
 #include <string.h>
 
-void DrawLoop() {
+#include <vim.h>
+
+void draw_loop() {
     vesa_init();
     clearscreen();
 
@@ -201,17 +203,24 @@ void elephant() {
     beep_off();
 }
 
-int main() {
+void text_editor() {
     console_init();
     clearconsole();
 
+    Heap* h = AllocPages(256);
+    globalBuffer = (TextBuffer){(char*)h};
+    buffer_init(&globalBuffer);
+
+    outb(0x21, 1);
+    //outb(0xa1, 0);
+}
+
+int main() {
     pic_init();
     idt_init();
     gks->pgWaterline = 0;
-    outb(0x21, 1);
-    //outb(0xa1, 0);
 
-    //DrawLoop();
+    text_editor();
 
     while(1);
 }
