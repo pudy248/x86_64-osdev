@@ -172,7 +172,7 @@ void buffer_insert_char(TextBuffer* this, char c) {
     }
     else {
         #define tmpStrAddr ((char*)0x50000)
-        sprintf(tmpStrAddr, "[%x]", (int)c);
+        sprintf(tmpStrAddr, "[%x]", *(uint8_t*)&c);
         for(int i = 0; tmpStrAddr[i] != 0; i++) {
             buffer_insert(this, tmpStrAddr[i]);
         }

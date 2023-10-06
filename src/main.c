@@ -213,6 +213,8 @@ void text_editor() {
 
     outb(0x21, 1);
     //outb(0xa1, 0);
+    inb(0x60);
+    inb(0x60);
 }
 
 int main() {

@@ -3,7 +3,7 @@ ENTRY(start);
 SECTIONS
 {
     .bootloader 0x7C00: AT(0) {
-        tmp/bootloader.o(.text);
+        tmp/sys/bootloader.o(.text);
     }
 
     .sig 0x7DFE: AT(0x1FE) {

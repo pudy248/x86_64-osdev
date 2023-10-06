@@ -97,7 +97,6 @@ void line3(Vec3 v1, Vec3 v2, Vec3 color) {
 }
 void tri3(Vec3 v1, Vec3 v2, Vec3 v3, Vec3 color)
 {
-    float depth = (v1.z + v2.z + v3.z) / 3;
     Vec2 p1 = pixelSpace(project(v1), SCREEN_W, SCREEN_H);
     Vec2 p2 = pixelSpace(project(v2), SCREEN_W, SCREEN_H);
     Vec2 p3 = pixelSpace(project(v3), SCREEN_W, SCREEN_H);
@@ -118,6 +117,7 @@ void tri3(Vec3 v1, Vec3 v2, Vec3 v3, Vec3 color)
 	line3(v1, v3, color);
 	line3(v2, v3, color);
     #else
+    float depth = (v1.z + v2.z + v3.z) / 3;
     float dy12 = p2.y - p1.y;
     float dy13 = p3.y - p1.y;
     float dy23 = p3.y - p2.y;

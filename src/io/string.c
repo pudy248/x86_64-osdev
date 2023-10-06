@@ -10,7 +10,7 @@ void strcpy(char* dest, char* source) {
 }
 
 void memset(char* dest, char source, uint32_t size) {
-    for(int i = 0; i < size; i++) dest[i] = source;
+    for(uint32_t i = 0; i < size; i++) dest[i] = source;
 }
 
 void itoa(char* dest, int source) {
@@ -70,7 +70,6 @@ void xtoa(char* dest, uint32_t source) {
 }
 void xtoa_zeroes(char* dest, int source, int leadingZeroes)
 {
-	int tmp = source;
     int ctr = leadingZeroes;
     dest[ctr] = '\0';
     while (ctr >= 0) {
@@ -123,10 +122,7 @@ void ftoa(char* dest, float source, int decimals) {
 void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
     int bIdx = 0;
     int sIdx = 0;
-    int n;
-    uint32_t u;
     double d;
-    float f;
     for(int i = 0; format[i] != '\0'; i++) {
         if(format[i] == '%') {
             i++;

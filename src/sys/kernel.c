@@ -10,7 +10,7 @@ void task_init() {
 }
 
 char MakeTask(uint32_t entry, char core) {
-    char idx;
+    uint16_t idx;
     for(idx = 0; idx < 64; idx++) if ((gks->tasks[idx].flags & 1) == 0) break;
     if(idx == 64) return -1;
     uint32_t stackAddr = 0x20000 + 0x1000 * idx;

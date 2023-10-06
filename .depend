@@ -16,8 +16,7 @@
   include/taskStructs.h include/assembly.h include/console.h \
   include/string.h
 : src/graphics/vim.c include/keyboard.h include/vim.h include/console.h \
-  include/typedefs.h include/string.h include/memory.h \
-  include/serial_console.h
+  include/typedefs.h include/string.h include/memory.h
 : src/graphics/vector.c include/vector.h include/math.h \
   include/typedefs.h
 : src/graphics/vesa.c include/vesa.h include/typedefs.h include/memory.h \

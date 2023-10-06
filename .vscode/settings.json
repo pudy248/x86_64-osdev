@@ -9,6 +9,7 @@
         "typedefs.h": "c",
         "graphics.h": "c",
         "idt.h": "c",
-        "assembly.h": "c"
+        "assembly.h": "c",
+        "keyboard.h": "c"
     }
 }
