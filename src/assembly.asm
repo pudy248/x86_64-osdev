@@ -10,12 +10,40 @@ inb:
     mov edx, [esp + 4]
     in al, dx
     ret
+    
+global inw
+inw:
+    xor eax, eax
+    mov edx, [esp + 4]
+    in ax, dx
+    ret
+    
+global inl
+inl:
+    xor eax, eax
+    mov edx, [esp + 4]
+    in eax, dx
+    ret
 
 global outb
 outb:
     mov edx, [esp + 4]
     mov eax, [esp + 8]
     out dx, al
+    ret
+    
+global outw
+outw:
+    mov edx, [esp + 4]
+    mov eax, [esp + 8]
+    out dx, ax
+    ret
+    
+global outl
+outl:
+    mov edx, [esp + 4]
+    mov eax, [esp + 8]
+    out dx, eax
     ret
 
 global rdtscp_low

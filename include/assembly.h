@@ -2,7 +2,12 @@
 #include <typedefs.h>
 
 extern uint32_t inb(uint32_t port);
+extern uint32_t inw(uint32_t port);
+extern uint32_t inl(uint32_t port);
 extern void outb(uint32_t port, uint32_t data);
+extern void outw(uint32_t port, uint32_t data);
+extern void outl(uint32_t port, uint32_t data);
+
 extern uint32_t rdtscp_low();
 extern uint32_t rdtscp_high();
 uint64_t rdtscp();

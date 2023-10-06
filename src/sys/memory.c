@@ -2,38 +2,56 @@
 #include <taskStructs.h>
 #include <memory.h>
 
-typedef struct HeapFreeBlock {
-    uint32_t offset;
-    uint32_t size;
-} HeapFreeBlock;
-
-Heap* AllocPages(uint32_t count) {
+void* AllocHeap(uint32_t count) {
     uint32_t start = gks->pgWaterline;
     gks->pgWaterline += count;
-    Heap* h = (Heap*)(0x40000000 + 0x1000 * start);
-    h->numPages = count;
-    h->numFreeBlocks = 1;
-    HeapFreeBlock* end = (HeapFreeBlock*)(h + h->numPages * 0x1000);
-    end[-1].offset = 8;
-    end[-1].size = (count * 0x1000) - 16;
+    void* h = (void*)(0x40000000 + 0x1000 * start);
+    uint32_t* htable = (uint32_t*)h;
+    htable[0] = count * 0x1000 - 8;
+    htable[1] = (uint32_t)h + 8;
+    htable[3] = 0;
     return h;
 }
 
-void* malloc(uint32_t size, Heap* heap) {
-    HeapFreeBlock* end = (HeapFreeBlock*)(heap + heap->numPages * 0x1000);
-    int i;
-    for(i = -heap->numFreeBlocks; i < 0; i++) {
-        if(end[i].size >= size) break;
+void* malloc(uint32_t size, void* heap) {
+    uint32_t adjSize = size + 4 < 8 ? 8 : size + 4;
+    uint32_t* htable = (uint32_t*)heap;
+
+    while(htable[1] != 0) {
+        uint32_t blkSize = htable[0];
+        if(blkSize < adjSize) {
+            htable = (uint32_t*)(htable[1]);
+            continue;
+        }
+        uint32_t blkPtr = htable[1];
+        uint32_t allocSize = adjSize;
+        if(blkSize - adjSize < 8) {
+            htable[0] = ((uint32_t*)blkPtr)[0];
+            htable[1] = ((uint32_t*)blkPtr)[1];
+            allocSize = blkSize;
+        }
+        else {
+            uint32_t nSize = blkSize - adjSize;
+            uint32_t nPtr = blkPtr - adjSize;
+            ((uint32_t*)nPtr)[0] = ((uint32_t*)blkPtr)[0];
+            ((uint32_t*)nPtr)[1] = ((uint32_t*)blkPtr)[1];
+            htable[0] = nSize;
+            htable[1] = nPtr;
+        }
+        *(uint32_t*)blkPtr = allocSize;
+        return (void*)(blkPtr + 4);
     }
-    if(i == 0) return 0;
-    uint32_t ptr = (uint32_t)heap + end[i].offset;
-    end[i].offset += size;
-    end[i].size -= size;
-    return (void*)ptr;
+    return 0;
 }
 
-void free(void* ptr, Heap* heap) {
-    //TODO MAKE FREE DO SOMETHING
+void free(void* ptr, void* heap) {
+    uint32_t* htable = (uint32_t*)heap;
+    uint32_t* blk = (uint32_t*)((uint32_t)ptr - 4);
+    uint32_t blkSize = blk[0];
+    blk[0] = htable[0];
+    blk[1] = htable[1];
+    htable[0] = blkSize;
+    htable[1] = (uint32_t)blk;
 }
 
 void memcpy(void *dest, const void *src, uint32_t n)

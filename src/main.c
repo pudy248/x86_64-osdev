@@ -22,12 +22,13 @@
 void draw_loop() {
     vesa_init();
     clearscreen();
+    gks->pgWaterline = 0;
 
     #ifdef singlebuffer
     backBuffer = screen;
     #endif
 
-    Heap* h = AllocPages(1<<14); //64MB of memory
+    void* h = AllocHeap(1<<14); //64MB of memory
     char* text = (char*)0x80000000 + 0x10000;
     Vec3* vertices = (Vec3*)malloc(sizeof(Vec3) * 300000, h);
     int* triangles = (int*)malloc(sizeof(int) * 2000000, h);
@@ -38,8 +39,7 @@ void draw_loop() {
     
     int vi = 0;
     int ti = 0;
-    int i;
-    for(i = 0; text[i] != 0; i++) {
+    for(int i = 0; text[i] != 0; i++) {
         //serial_printf("'%c%c'\r\n", text[i], text[i + 1]);
         if (text[i] == 'v' && text[i + 1] == ' ') {
             i++; while(text[i] == ' ') i++;
@@ -79,6 +79,10 @@ void draw_loop() {
     rotationZ = 0;
 
     while(1) {
+        rotationX++;
+        rotationY++;
+        rotationZ++;
+
         int local_rotX = rotationX;
         int local_rotY = rotationY;
         int local_rotZ = rotationZ;
@@ -207,7 +211,10 @@ void text_editor() {
     console_init();
     clearconsole();
 
-    Heap* h = AllocPages(256);
+    pic_init();
+    idt_init();
+
+    void* h = AllocHeap(256);
     globalBuffer = (TextBuffer){(char*)h};
     buffer_init(&globalBuffer);
 
@@ -222,11 +229,9 @@ int main() {
     delay(1 << 28);
     beep_off();
 
-    pic_init();
-    idt_init();
-    gks->pgWaterline = 0;
 
     text_editor();
+    //draw_loop();
 
     while(1);
 }

@@ -22,7 +22,7 @@ SECTIONS
     }
 
     .rawdata 0x80010000: AT(0x10000) {
-        *(.rawdata)
+        KEEP(*(.rawdata))
     }
 
     /DISCARD/: {

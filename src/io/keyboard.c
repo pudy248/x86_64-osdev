@@ -30,6 +30,30 @@ void handle_key() {
         default: ret = 0; break;
     }
     if(ret || release) return;
+    ret = 1;
+    int offset;
+    switch(key) {
+        case 0x3B:
+            console_printf("\r\nthe kernel is %i bytes!", *(uint32_t*)0x800001F6);
+            break;
+        case 0x41:
+            if(shift) offset = CONSOLE_W * CONSOLE_H;
+            else offset = CONSOLE_W;
+            if(alt) offset *= -1;
+            f7_moon_runes += offset;
+            for(int i = 0; i < CONSOLE_W * CONSOLE_H; i++) {
+                console[2 * i] = *(char*)(f7_moon_runes + i);
+            }
+            break;
+        case 0x42:
+            console_printf("\r\nmoon rune offset: 0x%x", f7_moon_runes);
+            break;
+        case 0x43:
+            console_printf("\r\nSHIFT: %i CTRL: %i ALT: %i", shift, ctrl, alt);
+            break;
+        default: ret = 0; break;
+    }
+    if(ret) return;
 
     if(!buffer_handle_navigation(&globalBuffer, code))
         buffer_insert_char(&globalBuffer, key);
@@ -37,15 +61,4 @@ void handle_key() {
     vsync();
     buffer_display(&globalBuffer);
 
-    if(key == 0x41) {
-        if(shift) f7_moon_runes -= CONSOLE_W * CONSOLE_H;
-        for(int i = 0; i < CONSOLE_W * CONSOLE_H; i++) {
-            console[2 * i] = *(char*)(f7_moon_runes + i);
-        }
-        //memcpyl(console, (void*)f7_moon_runes, CONSOLE_W * CONSOLE_H * 2);
-        if(!shift) f7_moon_runes += CONSOLE_W * CONSOLE_H;
-    }
-    if(key == 0x42) {
-        console_printf("\r\nmoon rune offset: 0x%x", f7_moon_runes);
-    }
 }

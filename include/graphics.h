@@ -4,7 +4,7 @@
 
 //#define singlebuffer
 //#define pointcloud
-#define wireframe
+//#define wireframe
 
 int rotationX;
 int rotationY;

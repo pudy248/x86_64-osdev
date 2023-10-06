@@ -50,6 +50,11 @@ start:
     unreal:
         pop es
         sti
+    ;compute disk size
+    mov eax, dword [0x7df6]
+    shr eax, 15 ;numblocks
+    inc eax
+    mov word [block_count], ax
 
     disk_loop:
         xor bx, bx
