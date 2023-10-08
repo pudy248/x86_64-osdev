@@ -314,6 +314,30 @@ protcode    db 0xff, 0xff, 0, 0, 0, 10011010b, 11001111b, 0
 flatdata    db 0xff, 0xff, 0, 0, 0, 10010010b, 11001111b, 0
 gdt_end:
 
+times (0x4000 - 0x400) - ($ - $$) db 0
+FATable_1:
+    dd 0x0ffffff8
+    dd 0xffffffff
+    dd 0x0ffffff8
 
 
-db 0
+times (0x4000 - 0x200) - ($ - $$) db 0
+FATable_2:
+    dd 0x0ffffff8
+    dd 0xffffffff
+    dd 0x0ffffff8
+
+times 0x4000 - ($ - $$) db 0
+FAT_RootDir:
+    root_name: db "TESTDRIVE  "
+    root_flags: db 0x08
+    reserved3: db 0
+    time_tenths: db 0
+    time_created: dw 0
+    date_created: dw 0
+    date_accessed: dw 0
+    cluster_high: dw 0
+    time_modified: dw 0
+    date_modified: dw 0
+    cluster_low: dw 0
+    file_size: dd 0

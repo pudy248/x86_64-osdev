@@ -6,6 +6,12 @@ CCOPTIONALFLAGS=-Oz -Wall -Wextra -Wshadow -pedantic
 # -Wconversion
 CC32FLAGS=-m32
 
+QEMU_STORAGE=-drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+QEMU_VIDEO=-vga qxl
+QEMU_AUDIO=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
+QEMU_MISC=-m 4G -smp 2
+QEMU_FLAGS=$(QEMU_STORAGE) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
+
 ASM_SRCS=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
 C32_SRCS=$(wildcard src/**/*.c) $(wildcard src/*.c)
 ASM_OBJS=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRCS))
@@ -20,20 +26,23 @@ default: .depend disk.img
 	$(CC) -Iinclude -MM $^ > "$@"
 
 start: disk.img
-	qemu-system-x86_64.exe -m 4G -smp 1 -vga qxl -audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97 -drive format=raw,file=disk.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS)
 
 start-trace: disk.img
-	qemu-system-x86_64.exe -m 4G -smp 1 -vga qxl -audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97 -drive format=raw,file=disk.img -d int,cpu_reset
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 
-start-gdb: disk.img main.bin
-	qemu-system-i386.exe -m 4G -smp 1 -vga qxl -audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97 -drive format=raw,file=disk.img -s -S &
+start-gdb: disk.img tmp/main.bin
+	qemu-system-i386.exe $(QEMU_FLAGS) -s -S &
 	gf2 tmp/main.elf
 
 flash: disk.img
 	./FlashDisk.exe
 
 size: tmp/main.bin
+	@echo Kernel size:
 	@wc -c < tmp/main.bin
+	@echo Source line count:
+	@wc -l src/**/* src/*
 
 clean:
 	rm -f main.elf disk.img .depend

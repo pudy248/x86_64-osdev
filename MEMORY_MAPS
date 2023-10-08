@@ -1,0 +1,9 @@
+0x0000-0x1000 Reserved by processor
+0x1000-0x2000 Kernel task list
+0x2000-0x5000 AHCI command tables
+0x5000-0x6000 PCI device handles
+0x6000-0x7000 USB device handles
+0x7C00-0x8C00 Bootloader/FAT bootstrap
+
+
+0x80000000-?? Memory copy of full disk

@@ -123,6 +123,7 @@ void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
     int bIdx = 0;
     int sIdx = 0;
     double d;
+    int zeroes = 0;
     for(int i = 0; format[i] != '\0'; i++) {
         if(format[i] == '%') {
             i++;
@@ -137,8 +138,16 @@ void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
                     for(sIdx = 0; tmpStrAddr[sIdx] != 0;) buffer[bIdx++] = tmpStrAddr[sIdx++];
                     vArgs += 8;
                     break;
+                case '0':
+                    i++;
+                    zeroes = iparse(format + i);
+                    while(format[i] != 'x') i++;
                 case 'x':
-                    xtoa(tmpStrAddr, *(uint32_t*)vArgs);
+                    if(zeroes > 0) {
+                        xtoa_zeroes(tmpStrAddr, *(uint32_t*)vArgs, zeroes);
+                        zeroes = 0;
+                    }
+                    else xtoa(tmpStrAddr, *(uint32_t*)vArgs);
                     for(sIdx = 0; tmpStrAddr[sIdx] != 0;) buffer[bIdx++] = tmpStrAddr[sIdx++];
                     vArgs += 4;
                     break;

@@ -16,8 +16,10 @@
 
 #include <beep.h>
 #include <string.h>
-
 #include <vim.h>
+
+#include <pci.h>
+#include <ahci.h>
 
 void draw_loop() {
     vesa_init();
@@ -224,13 +226,36 @@ void text_editor() {
     inb(0x60);
 }
 
+void ahci_test() {
+    console_init();
+    clearconsole();
+    void* heap = AllocHeap(256);
+    
+    pci_devices devs = pci_scan_devices();
+
+    int ahci_idx = 0;
+
+    for(int i = 0; i < devs.numDevs; i++) {
+        if(devs.devices[i].class_id == 1) ahci_idx = i;
+        console_printf("(%i:%i:%i) dev:%04x vendor:%04x class %02x:%02x:%02x:%02x\r\n", 
+            devs.devices[i].address.bus, devs.devices[i].address.slot, devs.devices[i].address.func,
+            devs.devices[i].device_id, devs.devices[i].vendor_id,
+            devs.devices[i].class_id, devs.devices[i].subclass, devs.devices[i].prog_if, devs.devices[i].rev_id
+        );
+    }
+    ahci_device ahci_dev = ahci_init(devs.devices[ahci_idx]);
+    ahci_read(ahci_dev, 0, 1, (void*)0x9000);
+
+    console_printf("%x\r\n", *(uint16_t*)0x91FE);
+}
+
 int main() {
     beep(1000);
     delay(1 << 28);
     beep_off();
 
-
-    text_editor();
+    ahci_test();
+    //text_editor();
     //draw_loop();
 
     while(1);

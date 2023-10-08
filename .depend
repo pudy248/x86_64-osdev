@@ -8,12 +8,15 @@ beep.o: src/io/beep.c include/typedefs.h include/assembly.h \
   include/beep.h
 serial_console.o: src/io/serial_console.c include/serial_console.h \
   include/string.h include/typedefs.h include/assembly.h
+pci.o: src/sys/pci.c include/pci.h include/typedefs.h include/assembly.h
 memory.o: src/sys/memory.c include/typedefs.h include/taskStructs.h \
   include/memory.h
 idt.o: src/sys/idt.c include/typedefs.h include/idt.h include/pic.h \
   include/assembly.h include/string.h include/serial_console.h
 pic.o: src/sys/pic.c include/typedefs.h include/idt.h include/pic.h \
   include/assembly.h
+ahci.o: src/sys/ahci.c include/pci.h include/typedefs.h include/ahci.h \
+  include/string.h include/console.h
 kernel.o: src/sys/kernel.c include/kernel.h include/typedefs.h \
   include/taskStructs.h include/assembly.h include/console.h \
   include/string.h
@@ -34,4 +37,4 @@ main.o: src/main.c include/taskStructs.h include/typedefs.h \
   include/assembly.h include/console.h include/serial_console.h \
   include/vesa_console.h include/vesa.h include/math.h \
   include/graphics.h include/vector.h include/beep.h include/string.h \
-  include/vim.h
+  include/vim.h include/pci.h include/ahci.h

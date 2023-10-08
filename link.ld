@@ -2,15 +2,12 @@ OUTPUT_FORMAT("elf32-i386");
 ENTRY(start);
 SECTIONS
 {
-    .bootloader 0x7C00: AT(0) {
-        tmp/sys/bootloader.o(.text);
+    .bootloader1 0x7C00: AT(0) {
+        KEEP(tmp/sys/bootloaderloader.o(.text));
+        KEEP(tmp/sys/bootloader.o(.text));
     }
 
-    .sig 0x7DFE: AT(0x1FE) {
-        SHORT(0xaa55);
-    }
-
-    .text 0x80000200: AT(0x200) {
+    .text 0x80001000: AT(0x10000) {
         *(.text.startup);
         *(.text);
         *(.data);
@@ -19,10 +16,6 @@ SECTIONS
 
     .bss : {
         *(.bss)
-    }
-
-    .rawdata 0x80010000: AT(0x10000) {
-        KEEP(*(.rawdata))
     }
 
     /DISCARD/: {
