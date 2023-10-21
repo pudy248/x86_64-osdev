@@ -10,6 +10,13 @@
         "graphics.h": "c",
         "idt.h": "c",
         "assembly.h": "c",
-        "keyboard.h": "c"
-    }
+        "keyboard.h": "c",
+        "basic_console.h": "c",
+        "fat.h": "c",
+        "typeinfo": "c",
+        "exports.h": "c",
+        "ahci.h": "c",
+        "pci.h": "c"
+    },
+    "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe"
 }

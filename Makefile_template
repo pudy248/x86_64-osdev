@@ -1,0 +1,64 @@
+-include files/$(THIS_FILE)/make.cfg
+
+CC=clang
+ASM=nasm
+
+ASMFLAGS=-f elf32 $(ASM_EXTRA_FLAGS)
+CC_REQUIRED_FLAGS=-m32 -nostdlib -nostdinc -ffreestanding -fno-pie -fno-common
+CC_OPTIONAL_FLAGS=-O3 -Weverything -pedantic -Wno-padded -Wno-strict-prototypes -Wno-cast-align -Wno-conversion
+CC_INCLUDE=-Ifiles -Ifiles/$(THIS_FILE)/include $(patsubst %,-Ifiles/%/include,$(LINK_AGAINST))
+CCFLAGS=$(CC_REQUIRED_FLAGS) $(CC_OPTIONAL_FLAGS) $(CC_INCLUDE) $(CC_EXTRA_FLAGS)
+LDFLAGS=-melf_i386 -N --build-id=none $(LD_EXTRA_FLAGS)
+
+FILE_ASM=$(wildcard files/$(THIS_FILE)/src/**/*.asm) $(wildcard files/$(THIS_FILE)/src/*.asm)
+FILE_SRC=$(wildcard files/$(THIS_FILE)/src/**/*.c) $(wildcard files/$(THIS_FILE)/src/*.c)
+FILE_ASMOBJ=$(patsubst files/$(THIS_FILE)/src/%.asm,tmp/$(THIS_FILE)/%.o,$(FILE_ASM))
+FILE_OBJ=$(patsubst files/$(THIS_FILE)/src/%.c,tmp/$(THIS_FILE)/%.o,$(FILE_SRC))
+
+default: img
+
+tmp/$(THIS_FILE):
+	@mkdir $@
+obj: tmp/$(THIS_FILE).img.o 
+elf: tmp/$(THIS_FILE).img.elf
+img: tmp/$(THIS_FILE).img
+
+$(patsubst %,tmp/%.img.o,$(LINK_AGAINST)) : % : 
+	@make obj -f Makefile_template THIS_FILE=$(patsubst tmp/%.img.o,%,$@) --no-print-directory
+$(patsubst %,tmp/%.img.elf,$(LINK_AGAINST)) : % :
+	@make elf -f Makefile_template THIS_FILE=$(patsubst tmp/%.img.elf,%,$@) --no-print-directory
+$(patsubst %,tmp/%.img,$(LINK_AGAINST)) : % :
+	@make img -f Makefile_template THIS_FILE=$(patsubst tmp/%.img,%,$@) --no-print-directory
+
+
+$(FILE_ASMOBJ) : tmp/$(THIS_FILE)/%.o : files/$(THIS_FILE)/src/%.asm
+	$(ASM) $(ASMFLAGS) -o $@ $<
+$(FILE_OBJ): tmp/$(THIS_FILE)/%.o : files/$(THIS_FILE)/src/%.c
+	$(CC) $(CCFLAGS) -o $@ -c $<
+
+tmp/$(THIS_FILE)/link_include: $(patsubst %,tmp/%.img.o,$(LINK_AGAINST))
+	@touch $@
+	@$(patsubst %,cat tmp/%/ld_frag >> $@;,$(LINK_AGAINST))
+
+tmp/$(THIS_FILE)/link_1.ld: link_1.ld tmp/$(THIS_FILE)/link_include
+	@cp link_1.ld tmp/$(THIS_FILE)/link_1.c
+	$(CC) -E -P -o $@ tmp/$(THIS_FILE)/link_1.c -D MEM_OFFSET=$(MEM_OFFSET) -D THIS_FILE=tmp/$(THIS_FILE).img.o -D GEN_INCLUDE="#include \"link_include\"" -D THIS_FILE_OFFSET=this_offset_$(THIS_FILE) -D DEFINE=#define
+	@mv $@ tmp/$(THIS_FILE)/link_1.c
+	$(CC) -E -P -o $@ tmp/$(THIS_FILE)/link_1.c -Wno-macro-redefined
+
+tmp/$(THIS_FILE)/link_2.ld: link_2.ld
+	@cp link_2.ld tmp/$(THIS_FILE)/link_2.c
+	@$(CC) -E -P -o tmp/$(THIS_FILE)/link_2.ld tmp/$(THIS_FILE)/link_2.c -D MEM_OFFSET=$(MEM_OFFSET)
+
+tmp/$(THIS_FILE).img.o: $(FILE_ASMOBJ) $(FILE_OBJ) link_0.ld
+	ld $(LDFLAGS) -r $(addprefix -u ,$(EXPORT_SYMBOLS)) $(addprefix -e ,$(ENTRY_SYMBOL)) -T link_0.ld -o tmp/$(THIS_FILE).img.o $(FILE_ASMOBJ) $(FILE_OBJ)
+	@echo '.link_reloc.$(THIS_FILE) $(MEM_OFFSET) : AT(OFFSET) { tmp/$(THIS_FILE).img.export(.text); }\n\
+	_offset_$(THIS_FILE) = ADDR(.link_reloc.$(THIS_FILE)) + SIZEOF(.link_reloc.$(THIS_FILE));\n\
+	#define OFFSET _offset_$(THIS_FILE)' > tmp/$(THIS_FILE)/ld_frag
+
+tmp/$(THIS_FILE).img.elf: tmp/$(THIS_FILE).img.o $(patsubst %,tmp/%.img,$(LINK_AGAINST)) tmp/$(THIS_FILE)/link_1.ld
+	ld $(LDFLAGS) -T tmp/$(THIS_FILE)/link_1.ld -o tmp/$(THIS_FILE).img.elf tmp/$(THIS_FILE).img.o $(patsubst %,tmp/%.img.export,$(LINK_AGAINST))
+
+tmp/$(THIS_FILE).img: tmp/$(THIS_FILE).img.elf tmp/$(THIS_FILE)/link_2.ld
+	ld $(LDFLAGS) -T tmp/$(THIS_FILE)/link_2.ld -o tmp/$(THIS_FILE).img.export tmp/$(THIS_FILE).img.elf
+	@objcopy -O binary tmp/$(THIS_FILE).img.export tmp/$(THIS_FILE).img

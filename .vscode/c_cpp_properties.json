@@ -6,8 +6,9 @@
                 "${workspaceFolder}/**",
                 "${vcpkgRoot}/x64-windows/include",
                 "${vcpkgRoot}/x86-windows/include",
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/shared/include",
+                "${workspaceFolder}/bootloader/include",
+                "${workspaceFolder}/kernel/include"
             ],
             "defines": [
                 "_DEBUG",
@@ -15,11 +16,9 @@
                 "_UNICODE"
             ],
             "windowsSdkVersion": "10.0.22000.0",
-            "compilerPath": "cl.exe",
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "windows-msvc-x64",
-            "configurationProvider": "ms-vscode.makefile-tools"
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
