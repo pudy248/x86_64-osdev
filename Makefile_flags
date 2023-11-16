@@ -1,0 +1,4 @@
+ASM_DEFAULT_FLAGS:=-f elf32
+CC_REQUIRED_FLAGS:=-m32 -std=c17 -nostdlib -nostdinc -ffreestanding -fno-pie -fno-common
+CC_OPTIONAL_FLAGS:=-Ofast -Weverything -pedantic -Wno-cast-align -Wno-missing-field-initializers -Wno-gnu-binary-literal -Wno-conversion
+LD_DEFAULT_FLAGS:=-melf_i386 -N --build-id=none

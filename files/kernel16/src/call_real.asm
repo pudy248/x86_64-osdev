@@ -1,4 +1,5 @@
 bits 32
+;void call_real(void* fnPtr);
 global call_real
 call_real:
     mov edx, dword [esp + 4]
@@ -10,15 +11,11 @@ call_real:
     cli
     jmp 0x8:callreal_prot16
 bits 16
-
-    ; GS is guaranteed to be 32-bit voodoo segment if needed in real code
-
     callreal_prot16:
     mov bx, 0x10
     mov ds, bx
     mov es, bx
     mov fs, bx
-    ;mov gs, bx
     mov ss, bx
 
     mov eax, cr0
@@ -30,14 +27,12 @@ bits 16
         mov ds, bx
         mov es, bx
         mov fs, bx
-        ;mov gs, bx
         mov ss, bx
         mov sp, 0x4000
+
         lidt [idt_real]
         sti
-        
         call dx
-
         cli
         mov eax, cr0
         or eax, 1

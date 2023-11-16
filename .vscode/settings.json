@@ -16,7 +16,13 @@
         "typeinfo": "c",
         "exports.h": "c",
         "ahci.h": "c",
-        "pci.h": "c"
+        "pci.h": "c",
+        "vesa.h": "c",
+        "vector.h": "c",
+        "transform.h": "c",
+        "vectors.h": "c",
+        "limits": "c",
+        "pipeline.h": "c"
     },
     "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe"
 }

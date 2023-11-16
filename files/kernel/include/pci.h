@@ -5,6 +5,8 @@ typedef struct pci_geo_addr {
     uint8_t bus;
     uint8_t slot;
     uint8_t func;
+
+    uint8_t pad_0;
 } pci_geo_addr;
 
 typedef struct pci_device {
@@ -30,6 +32,8 @@ typedef struct pci_device {
 
     uint8_t interrupt_line;
     uint8_t interrupt_pin;
+
+    uint8_t pad_0[2];
 } pci_device;
 
 typedef struct pci_devices {

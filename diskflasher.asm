@@ -16,7 +16,7 @@ start:
     mov ss, ax
     mov sp, 0x7c00
 
-    call print_byte
+    ;call print_byte
 
     mov si, startstr
     call print_str
@@ -47,7 +47,6 @@ start:
     xor ax, ax
     int 0x16
     ;reboot
-    mov dl, DEST_DISK ;does this do anything?
     int 0x19
 
 handle_err:

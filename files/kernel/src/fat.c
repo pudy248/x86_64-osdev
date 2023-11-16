@@ -60,7 +60,6 @@ void read_cluster_chain(uint32_t address, uint32_t cluster) {
         uint32_t count = count_consecutive_clusters(cluster);
         uint32_t lbaStart = get_cluster_lba(cluster);
         uint32_t lbaCount = count * sectorsPerCluster;
-        basic_printf("Reading clusters %x+%x to addr %x\r\n", cluster, count, address);
         read_disk((void*)address, lbaStart, lbaCount);
         address += count * bytesPerCluster;
         cluster = fatTable[cluster + count - 1];

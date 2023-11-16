@@ -1,28 +1,30 @@
-CC=clang
-ASM=nasm
+-include Makefile_flags
+-include make.cfg
 
-ASMFLAGS=-f elf32 -g
-CCREQUIREDFLAGS=-m32 -nostdlib -nostdinc -ffreestanding -fno-pie -Ibootloader/include -Ifiles/kernel/include -Ifiles
-CCOPTIONALFLAGS=-Oz -Wall -Wextra -Wshadow -pedantic -Wconversion -Wno-cast-align
-LDFLAGS=-melf_i386 -N --build-id=none
+CC:=clang
+ASM:=nasm
 
-BOOTLOADER_ASM=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
-BOOTLOADER_ASM_MISC=files/kernel/src/common_s.asm files/kernel16/src/call_real.asm files/kernel16/src/read_disk.asm
-BOOTLOADER_SRC=$(wildcard bootloader/**/*.c) $(wildcard bootloader/*.c)
-BOOTLOADER_SRC_MISC=files/kernel/src/basic_console.c files/kernel/src/common.c files/kernel/src/pci.c files/kernel/src/ahci.c files/kernel/src/fat.c files/kernel/src/string.c
-BOOTLOADER_ASMOBJ=$(patsubst %.asm,tmp/%.o,$(BOOTLOADER_ASM))
-BOOTLOADER_ASMOBJ_MISC=tmp/bootloader/common_s.o tmp/bootloader/call_real.o tmp/bootloader/read_disk.o
-BOOTLOADER_OBJ=$(patsubst %.c,tmp/%.o,$(BOOTLOADER_SRC))
-BOOTLOADER_OBJ_MISC=tmp/bootloader/basic_console.o tmp/bootloader/common.o tmp/bootloader/pci.o tmp/bootloader/ahci.o tmp/bootloader/fat.o tmp/kernel/string.o
+ASMFLAGS:=-f elf
+CFLAGS:=$(CC_REQUIRED_FLAGS) $(patsubst -Ofast,-Oz,$(CC_OPTIONAL_FLAGS)) -Ifiles/kernel/include -Ifiles -ffunction-sections -fdata-sections
+LDFLAGS:=$(LD_DEFAULT_FLAGS) -gc-sections
+
+BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
+BOOTLOADER_ASM_MISC:=$(wildcard files/kernel/src/**/*.asm) $(wildcard files/kernel/src/*.asm) files/kernel16/src/call_real.asm files/kernel16/src/bios_interrupts.asm
+BOOTLOADER_SRC:=$(wildcard bootloader/**/*.c) $(wildcard bootloader/*.c)
+BOOTLOADER_SRC_MISC:=$(wildcard files/kernel/src/**/*.c) $(filter-out files/kernel/src/main.c,$(wildcard files/kernel/src/*.c))
+BOOTLOADER_ASMOBJ:=$(patsubst %.asm,tmp/%.o,$(BOOTLOADER_ASM))
+BOOTLOADER_ASMOBJ_MISC:=$(patsubst files/kernel16/src/%.asm,tmp/bootloader/%.o,$(patsubst files/kernel/src/%.asm,tmp/bootloader/%.o,$(BOOTLOADER_ASM_MISC)))
+BOOTLOADER_OBJ:=$(patsubst %.c,tmp/%.o,$(BOOTLOADER_SRC))
+BOOTLOADER_OBJ_MISC:=$(patsubst files/kernel/src/%.c,tmp/bootloader/%.o,$(BOOTLOADER_SRC_MISC))
 
 default: tmp/bootloader.img
 
 $(BOOTLOADER_ASMOBJ) : tmp/%.o : %.asm bootloader/constants.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 $(BOOTLOADER_OBJ): tmp/%.o : %.c
-	$(CC) $(CCREQUIREDFLAGS) $(CCOPTIONALFLAGS) $(CCBOOTLOADERFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 tmp/bootloader/%.o : files/kernel/src/%.c
-	$(CC) $(CCREQUIREDFLAGS) $(CCOPTIONALFLAGS) $(CCBOOTLOADERFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 tmp/bootloader/%.o : files/kernel/src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 tmp/bootloader/%.o : files/kernel16/src/%.asm

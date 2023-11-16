@@ -1,5 +1,7 @@
 bits 32
 
+extern memcpy
+
 global longjmp
 longjmp:
     mov eax, [esp + 4]
@@ -9,14 +11,15 @@ global longcall
 longcall:
     mov ebp, esp
     sub esp, dword [ebp + 8]
+    and esp, 0xfffffff0
 
-    push dword [ebp + 8]
+    push dword [ebp + 8] ;size
     mov eax, ebp
     add eax, 12
-    push eax
-    mov eax, ebp
-    sub eax, dword [ebp + 8]
-    push eax
+    push eax ;source
+    mov eax, esp
+    add eax, 8
+    push eax ;dest
     call memcpy
     add esp, 12
     
@@ -25,30 +28,72 @@ longcall:
     add esp, dword [ebp + 8]
     ret
 
-global memcpy
-memcpy:
+global cpu_id:
+cpu_id:
     push ebp
     mov ebp, esp
-    push esi
-    push edi
+    push ebx
 
-    mov edi, dword [ebp + 8]
-    mov esi, dword [ebp + 12]
-    mov ecx, dword [ebp + 16]
-    mov edx, ecx
-    cld
+    mov eax, dword [ebp + 8]
+    cpuid
+    push edx
+    push ecx
+    push ebx
+    push eax
     
-    shr ecx, 2
-    rep movsd
+    mov edx, dword [ebp + 12]
+    
+    mov ecx, dword [esp]
+    mov dword [edx], ecx
+    pop eax
 
-    mov ecx, edx
-    and ecx, 3
-    rep movsb
+    mov ecx, dword [esp]
+    mov dword [edx + 4], ecx
+    pop eax
 
-    pop edi
-    pop esi
+    mov ecx, dword [esp]
+    mov dword [edx + 8], ecx
+    pop eax
+
+    mov ecx, dword [esp]
+    mov dword [edx + 12], ecx
+    pop eax
+
+    pop ebx
     pop ebp
     ret
+
+global enable_avx
+enable_avx:
+    xor ecx, ecx
+    xgetbv
+    or eax, 7
+    xsetbv
+    ret
+
+global get_cr_reg
+get_cr_reg:
+    mov edx, dword [esp + 4]
+    mov ecx, dword [_get_cr_operands+edx]
+    mov byte [_get_cr_instr+2], cl
+
+    _get_cr_instr:
+    mov eax, cr0
+    ret
+
+global set_cr_reg
+set_cr_reg:
+    mov eax, dword [esp + 8]
+    mov edx, dword [esp + 4]
+    mov ecx, dword [_get_cr_operands+edx]
+    mov byte [_set_cr_instr+2], cl
+
+    _set_cr_instr:
+    mov cr0, eax
+    ret
+
+_get_cr_operands: db 0xc0, 0xd0, 0xd8, 0xe0
+_set_cr_operands: db 0xc1, 0xd1, 0xd9, 0xe1
 
 global inb
 inb:

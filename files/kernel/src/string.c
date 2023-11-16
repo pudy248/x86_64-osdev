@@ -31,6 +31,18 @@ void itoa(char* dest, int source) {
     return;
 }
 
+void itoa_zeroes(char* dest, int source, int leadingZeroes)
+{
+    int ctr = leadingZeroes;
+    dest[ctr] = '\0';
+    while (ctr >= 0) {
+        int rem = source % 10;
+        dest[--ctr] = (char)rem + '0';
+        source = source / 10;
+    }
+    return;
+}
+
 /*
 void ltoa(char* dest, int64_t source) {
     if(source < 0) {
@@ -64,57 +76,59 @@ void xtoa(char* dest, uint32_t source) {
     dest[ctr] = '\0';
     while (ctr > 0) {
         uint32_t rem = source % 16;
-        dest[--ctr] = (char)rem > 9 ? (char)rem + 'A' - 10 : (char)rem + '0';
+        dest[--ctr] = (char)((uint8_t)rem > 9 ? (uint8_t)rem + 'A' - 10 : (uint8_t)rem + '0');
         source = source / 16;
     }
     return;
 }
-void xtoa_zeroes(char* dest, int source, int leadingZeroes)
+void xtoa_zeroes(char* dest, uint32_t source, int leadingZeroes)
 {
     int ctr = leadingZeroes;
     dest[ctr] = '\0';
     while (ctr >= 0) {
-        int rem = source % 16;
-        dest[--ctr] = (char)rem > 9 ? (char)rem + 'A' - 10 : (char)rem + '0';
+        uint32_t rem = source % 16;
+        dest[--ctr] = (char)((uint8_t)rem > 9 ? (uint8_t)rem + 'A' - 10 : (uint8_t)rem + '0');
         source = source / 16;
     }
     return;
 }
-void ftoa(char* dest, float source, int decimals) {
+void ftoa(char* dest, double source, int decimals) {
+    if((((uint32_t*)&source)[1] & 0x7ff00000) == 0x7ff00000) {
+        *(dest++) = 'N';
+        *(dest++) = 'a';
+        *(dest++) = 'N';
+        *(dest++) = 0;
+        return;
+    }
+
     if(source < 0) {
         source = -source;
         *dest = '-';
         dest++;
     }
-    int digits = 0;
-    float tmp = source;
-    while(tmp > 1) {
-        tmp *= 0.1f;
-        digits++;
-    }
-    tmp = source;
-    if(digits > 0) {
-        int ctr = digits;
-        while(ctr > 0) {
-            dest[ctr - 1] = (char)tmp % 10 + '0';
-            tmp *= 0.1f;
-            ctr--;
-        }
-        dest += digits;
-    }
-    else {
-        *dest = '0';
+    int leadingDigits = 0;
+    double tmp = source;
+    do {
+        tmp *= 0.1;
+        leadingDigits++;
+    } while(tmp >= 1);
+    
+    itoa(dest, (int)source);
+    dest += leadingDigits;
+    tmp = source - (int)source;
+    if(tmp > 0.00001) {
+        *dest = '.';
         dest++;
-    }
-    *dest = '.';
-    dest++;
-    tmp = source;
-    for(int i = 0; i < decimals; i++) {
-        tmp *= 10;
-        *dest = (char)tmp % 10 + '0';
-        dest++;
-    }
 
+        int i = 0;
+        while(tmp > 0.00001 && i < decimals) {
+            i++;
+            tmp *= 10;
+            *dest = (char)((uint8_t)tmp + '0');
+            tmp -= (int)tmp;
+            dest++;
+        }
+    }
     *dest = 0;
     dest++;
 }
@@ -128,9 +142,19 @@ void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
     for(int i = 0; format[i] != '\0'; i++) {
         if(format[i] == '%') {
             i++;
+            switchLabel:
             switch(format[i]) {
+                case '0':
+                    i++;
+                    zeroes = iparse(format + i);
+                    while((format[i] >= '1' && format[i] <= '9') || format[i] == '0') i++;
+                    goto switchLabel;
                 case 'i':
-                    itoa(tmpStrAddr, *(int*)vArgs);
+                    if(zeroes > 0) {
+                        itoa_zeroes(tmpStrAddr, *(int32_t*)vArgs, zeroes);
+                        zeroes = 0;
+                    }
+                    else itoa(tmpStrAddr, *(int*)vArgs);
                     for(sIdx = 0; tmpStrAddr[sIdx] != 0;) buffer[bIdx++] = tmpStrAddr[sIdx++];
                     vArgs += 4;
                     break;
@@ -139,13 +163,9 @@ void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
                     for(sIdx = 0; tmpStrAddr[sIdx] != 0;) buffer[bIdx++] = tmpStrAddr[sIdx++];
                     vArgs += 8;
                     break;
-                case '0':
-                    i++;
-                    zeroes = iparse(format + i);
-                    while(format[i] != 'x') i++;
                 case 'x':
                     if(zeroes > 0) {
-                        xtoa_zeroes(tmpStrAddr, *(int32_t*)vArgs, zeroes);
+                        xtoa_zeroes(tmpStrAddr, *(uint32_t*)vArgs, zeroes);
                         zeroes = 0;
                     }
                     else xtoa(tmpStrAddr, *(uint32_t*)vArgs);
@@ -162,7 +182,7 @@ void vsprintf(char* buffer, char* format, uint8_t* vArgs) {
                     break;
                 case 'f':
                     d = *(double*)vArgs;
-                    ftoa(tmpStrAddr, (float)d, 4);
+                    ftoa(tmpStrAddr, d, 4);
                     for(sIdx = 0; tmpStrAddr[sIdx] != 0;) buffer[bIdx++] = tmpStrAddr[sIdx++];
                     vArgs += 8;
                     break;
@@ -178,8 +198,8 @@ void sprintf(char* buffer, char* format, ...) {
 }
 
 void basic_printf(char* format, ...) {
-    vsprintf(0x61000, format, (uint8_t*)((uint32_t)&format + 4));
-    basic_putstr(0x61000);
+    vsprintf((char*)0x61000, format, (uint8_t*)((uint32_t)&format + 4));
+    basic_putstr((char*)0x61000);
 }
 
 float fparse(char *arr){

@@ -28,8 +28,8 @@ size_t fsize(char* file) {
     return sz;
 }
 
-#define SECTORS_PER_CLUSTER 4
-#define SECTORS_PER_FAT32 4
+#define SECTORS_PER_CLUSTER 8
+#define SECTORS_PER_FAT32 8
 
 int main(int argc, char** argv) {
     if(argc == 1) {
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
         fatTable[cluster++] = 0x0ffffff8;
 
         FILE* file = fopen(argv[i + 1], "rb");
-        fread(&f.load_address, 4, 1, file);
+        if(f.extension[0] == 'i' && f.extension[1] == 'm' && f.extension[2] == 'g') fread(&f.load_address, 4, 1, file);
         fread(startAddr, 1, fileSizes[2 * i], file);
         fclose(file);
 
