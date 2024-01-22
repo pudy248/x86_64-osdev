@@ -17,37 +17,37 @@ void rotate_main(char* obj) {
 
     uint32_t vi = 0;
     uint32_t ti = 0;
-    for(uint32_t i = 0; obj[i] != 0; i++) {
+    for (uint32_t i = 0; obj[i] != 0; i++) {
         if (obj[i] == 'v' && obj[i + 1] == ' ') {
-            i++; while(obj[i] == ' ') i++;
+            i++; while (obj[i] == ' ') i++;
             float x = fparse(obj + i);
-            while(obj[i] != ' '  && obj[i] != 0) i++; while(obj[i] == ' ') i++;
+            while (obj[i] != ' '  && obj[i] != 0) i++; while (obj[i] == ' ') i++;
             float y = fparse(obj + i) + 0.25f;
-            while(obj[i] != ' '  && obj[i] != 0) i++; while(obj[i] == ' ') i++;
+            while (obj[i] != ' '  && obj[i] != 0) i++; while (obj[i] == ' ') i++;
             float z = fparse(obj + i);
-            while(obj[i] != '\n' && obj[i] != 0) i++;
+            while (obj[i] != '\n' && obj[i] != 0) i++;
             p.vertexBuffer[vi++] = (Vertex){(Vec4){x, y, z, 0}, (Vec4){255.f, 255.f, 255.f, 0}};
         }
         else if (obj[i] == 'f' && obj[i + 1] == ' ') {
-            i++; while(obj[i] == ' ') i++;
+            i++; while (obj[i] == ' ') i++;
             uint32_t v1 = iparse(obj + i) - 1;
-            while(obj[i] != ' '  && obj[i] != 0) i++; while(obj[i] == ' ') i++;
+            while (obj[i] != ' '  && obj[i] != 0) i++; while (obj[i] == ' ') i++;
             uint32_t v2 = iparse(obj + i) - 1;
-            while(obj[i] != ' '  && obj[i] != 0) i++; while(obj[i] == ' ') i++;
+            while (obj[i] != ' '  && obj[i] != 0) i++; while (obj[i] == ' ') i++;
             uint32_t v3 = iparse(obj + i) - 1;
-            while(obj[i] != '\n' && obj[i] != 0) i++;
+            while (obj[i] != '\n' && obj[i] != 0) i++;
             p.triangleBuffer[3 * ti] = v1;
             p.triangleBuffer[3 * ti + 1] = v2;
             p.triangleBuffer[3 * ti + 2] = v3;
             ti++;
         }
         else {
-            while(obj[i] != '\n' && obj[i] != 0) i++;
+            while (obj[i] != '\n' && obj[i] != 0) i++;
         }
     }
     p.nVertices = vi;
     p.nTriangles = ti;
-    basic_printf("loaded model with %i verts, %i tris\r\n", vi, ti);
+    printf("loaded model with %i verts, %i tris\r\n", vi, ti);
     
     int iters = 0;
     int frameStart = 0;
@@ -55,7 +55,7 @@ void rotate_main(char* obj) {
     int second = get_rtc_second();
 
 
-    while(1) {
+    while (1) {
         iters++;
 
         //double thetaX = sin((double)iters * 0.0281);
@@ -72,7 +72,7 @@ void rotate_main(char* obj) {
         pipeline_flush(&p);
         pipeline_execute(&p, params);
         /*
-        for(int i = 0; i < ti; i++) {
+        for (int i = 0; i < ti; i++) {
             Vec3 w1 = vertices[triangles[3 * i]];
             Vec3 w2 = vertices[triangles[3 * i + 1]];
             Vec3 w3 = vertices[triangles[3 * i + 2]];
@@ -81,7 +81,7 @@ void rotate_main(char* obj) {
         }
         
         int now = get_rtc_second();
-        if(now != second) {
+        if (now != second) {
             second = now;
             fps = iters - frameStart;
             frameStart = iters;

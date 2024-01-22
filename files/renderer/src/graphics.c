@@ -17,14 +17,14 @@ static Vec4 screenspace(RenderPipeline* pipeline, Vec4 p) {
 
 static void create_frag(RenderPipeline* pipeline, int x, int y, Vec4 color, float depth) {
     uint32_t idx = pipeline->display_w * (uint32_t)y + (uint32_t)x;
-    if(pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
+    if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
     pipeline->fragBuffer[idx] = (Fragment){depth};
     pipeline->fragTexture[idx] = rgba2u32(color);
 }
 
 void raster_point(RenderPipeline* pipeline, uint32_t p) {
     ProjectedVertex v = pipeline->projVertBuffer[p];
-    if(clip(v.spos)) return;
+    if (clip(v.spos)) return;
     Vec4 ss = screenspace(pipeline, v.spos);
     create_frag(pipeline, (int)ss.x, (int)ss.y, v.color, ss.w);
 }
@@ -35,9 +35,9 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 
     ProjectedVertex v1 = pipeline->projVertBuffer[p1];
     ProjectedVertex v2 = pipeline->projVertBuffer[p2];
-    if(clip(v1.spos) || clip(v2.spos)) return;
+    if (clip(v1.spos) || clip(v2.spos)) return;
 
-    if(v1.spos.y < v2.spos.y) {
+    if (v1.spos.y < v2.spos.y) {
         ProjectedVertex tmp = v1;
         v1 = v2;
         v2 = tmp;
@@ -49,7 +49,7 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
     float yp = 0;
     float dy12 = ss2.y - ss1.y;
     
-    for(; yp < dy12; yp++) {
+    for (; yp < dy12; yp++) {
         float yf = min(1, yp / dy12);
         float yfp = min(1, (yp+1) / dy12);
         Vec4 pos1 = lerp4(ss1, ss2, yf);
@@ -58,7 +58,7 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
         Vec4 color2 = lerp4(v1.color, v2.color, yfp);
         int x1 = (int)pos1.x;
         int x2 = (int)pos2.x;
-        for(int x = x1; x != x2; x += sign(x2 - x1)) {
+        for (int x = x1; x != x2; x += sign(x2 - x1)) {
             float xf = (float)(x - x1) / (float)(x2 - x1);
             Vec4 col = lerp4(color1, color2, xf);
             create_frag(pipeline, x, (int)pos1.y, col, lerpf(pos1.w, pos2.w, xf));
@@ -67,7 +67,7 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 }
 
 static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1, float depth2) {
-    if(x2 < x1) {
+    if (x2 < x1) {
         int tmp1 = x1;
         x1 = x2;
         x2 = tmp1;
@@ -79,7 +79,7 @@ static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color
         depth2 = tmp3;
     }
 
-    for(int x = x1; x <= x2; x++) {
+    for (int x = x1; x <= x2; x++) {
         float xf = (float)(x - x1) / (float)(x2 - x1);
         Vec4 col = lerp4(color1, color2, xf);
         create_frag(pipeline, x, y, col, lerpf(depth1, depth2, xf));
@@ -97,19 +97,19 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
     ProjectedVertex v1 = pipeline->projVertBuffer[p1];
     ProjectedVertex v2 = pipeline->projVertBuffer[p2];
     ProjectedVertex v3 = pipeline->projVertBuffer[p3];
-    if(clip(v1.spos) || clip(v2.spos) || clip(v3.spos)) return;
+    if (clip(v1.spos) || clip(v2.spos) || clip(v3.spos)) return;
 
-    if(v1.spos.y < v2.spos.y) {
+    if (v1.spos.y < v2.spos.y) {
         ProjectedVertex tmp = v1;
         v1 = v2;
         v2 = tmp;
     }
-    if(v1.spos.y < v3.spos.y) {
+    if (v1.spos.y < v3.spos.y) {
         ProjectedVertex tmp = v1;
         v1 = v3;
         v3 = tmp;
     }
-    if(v2.spos.y < v3.spos.y) {
+    if (v2.spos.y < v3.spos.y) {
         ProjectedVertex tmp = v2;
         v2 = v3;
         v3 = tmp;
@@ -124,7 +124,7 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
     float dy13 = ss3.y - ss1.y;
     float dy23 = ss3.y - ss2.y;
 
-    for(; yp < dy12; yp++) {
+    for (; yp < dy12; yp++) {
         float yf12 = min(1, yp / dy12);
         float yf13 = min(1, yp / dy13);
 
@@ -135,7 +135,7 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
         scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
     }
 
-    for(yp = dy12; yp < dy12 + dy23; yp++) {
+    for (yp = dy12; yp < dy12 + dy23; yp++) {
         float yf23 = min(1, (yp - dy12) / dy23);
         float yf13 = min(1, yp / dy13);
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <typedefs.h>
+#include <inttypes.h>
 #include <pipeline.h>
 
 struct vbe_mode_info_structure {

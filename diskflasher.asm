@@ -21,7 +21,6 @@ start:
     mov si, startstr
     call print_str
 
-    write_disk:
     mov si, drive_packet
     loop_start:
         xor al, al
@@ -39,13 +38,13 @@ start:
     jnz loop_start
     loop_end:
 
-    mov si, endstr
-    call print_str
+    ;mov si, endstr
+    ;call print_str
 
     reboot:
     ;pause for keypress
     xor ax, ax
-    int 0x16
+    ;int 0x16
     ;reboot
     int 0x19
 
@@ -129,9 +128,9 @@ partitionTable:
     partition1:
         attrs: db 0x80
         chs_start: db 0xff, 0xff, 0xff
-        sysid: db 0
+        sysid: db 0x00
         chs_end: db 0xff, 0xff, 0xff
         lba_start: dd 1
-        lba_size: dd 0x1
+        lba_size: dd 0x1000
     partitions2to4: times 48 db 0
     dw 0xaa55

@@ -1,6 +1,12 @@
 bits 16
-extern stage2_main
+extern stage1_main
 %include "bootloader/constants.asm"
+
+;PRESENT | WRITE
+%define PAGE_FLAGS 0x01 | 0x02
+%define PAGE_WRITETHROUGH 0x08
+%define PAGE_UNCACHEABLE  0x10
+%define PAGE_SIZE 128
 
 global stage0_main
 stage0_main:
@@ -11,20 +17,6 @@ stage0_main:
     mov sp, 0x7c00
     mov byte [drive_num], dl
 
-    lgdt [gdtinfo]
-
-    cli
-    mov ax, 0x2402
-    int 0x15
-    cmp al, 1
-    jz a20_activated
-    mov ax, 0x2401
-    int 0x15
-    a20_activated:
-    sti
-    
-    xor bx, bx
-    mov ds, bx
     mov ah, 0x42
     mov dl, byte [drive_num]
     mov si, drive_packet
@@ -46,31 +38,45 @@ stage0_main:
         mov cx, word [required_sector_count]
         mov word [drive_num_sectors], cx
         int 0x13
-    
-    cli
-    mov eax, cr0
-    or eax, 1
-    mov cr0, eax
 
-    mov ax, 0x20
-    mov ds, ax
+
+    ; Build page structures
+    mov ax, 0x7000
     mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
-    mov esp, 0x200000
-    mov ebp, esp
-
-    jmp 0x18:entry32
-
-bits 32
-entry32:
-    xor edx, edx
-    mov dl, byte [drive_num]
-    push edx
-    call stage2_main
-    jmp $
-bits 16
+    mov di, 0
+    push di
+    mov ecx, 0x1000
+    xor eax, eax
+    rep stosd
+    pop di
+    
+    ; Build the Page Map Level 4.
+    mov eax, 0x71000 | PAGE_FLAGS     ; Put the address of the Page Directory Pointer Table in to EAX.
+    mov [es:di], eax                  ; Store the value of EAX as the first PML4E.
+    
+    ; Build the Page Directory Pointer Table.
+    mov ecx, 4
+    mov eax, 0x72000 | PAGE_FLAGS     ; Put the address of the Page Directory in to EAX.
+    mov di, 0x1000
+    .PDPLoop:
+        mov [es:di], eax
+        add eax, 0x1000
+        add di, 8
+        dec ecx
+    jnz .PDPLoop
+    
+    ; Build the Page Directory Tables.
+    mov ecx, 2048
+    mov eax, PAGE_FLAGS | PAGE_SIZE
+    mov di, 0x2000
+    .PDLoop:
+        mov [es:di], eax
+        add eax, 0x200000
+        add di, 8
+        dec ecx
+    jnz .PDLoop
+    
+    jmp stage1_main
 
 block_err_msg: db "Loading more than 64 sectors in bootstrap not supported.", 0
 
@@ -96,16 +102,6 @@ drive_packet:
     drive_lba:
         dd 1
         dd 0
-
-gdtinfo:
-   dw gdt_end - gdt - 1
-   dd gdt
-gdt:        dd 0,0
-    code16  db 0xff, 0xff, 0, 0, 0, 10011011b, 00001111b, 0
-    data16  db 0xff, 0xff, 0, 0, 0, 10010011b, 00001111b, 0
-    code32  db 0xff, 0xff, 0, 0, 0, 10011011b, 11001111b, 0
-    data32  db 0xff, 0xff, 0, 0, 0, 10010011b, 11001111b, 0
-gdt_end:
 
 times 0x1b8 - ($ - $$) db 0
 partitionTable:

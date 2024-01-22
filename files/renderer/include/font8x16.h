@@ -1,5 +1,5 @@
 #pragma once
-#include <typedefs.h>
+#include <inttypes.h>
 
 // Same data as the Linux kernel uses, extracted from the PC VGA font.
 static uint8_t fontBitmap[] = {

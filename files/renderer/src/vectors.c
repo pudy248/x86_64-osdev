@@ -80,22 +80,22 @@ Vec4 lerp4(Vec4 a, Vec4 b, float f) {
 }
 
 Mat3x3 smul3x3(Mat3x3 a, float b) {
-    for(int i = 0; i < 9; i++) a.m[i] *= b;
+    for (int i = 0; i < 9; i++) a.m[i] *= b;
     return a;
 }
 Mat4x3 smul4x3(Mat4x3 a, float b) {
-    for(int i = 0; i < 12; i++) a.m[i] *= b;
+    for (int i = 0; i < 12; i++) a.m[i] *= b;
     return a;
 }
 Mat4x4 smul4x4(Mat4x4 a, float b) {
-    for(int i = 0; i < 16; i++) a.m[i] *= b;
+    for (int i = 0; i < 16; i++) a.m[i] *= b;
     return a;
 }
 
 Vec3 vmul3x3(Mat3x3 a, Vec3 b) {
     Vec3 res = {0, 0, 0};
-    for(int i = 0; i < 3; i++) {
-        for(int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
             (&res.x)[i] += a.m[3 * i + j] * (&b.x)[j];
         }
     }
@@ -103,8 +103,8 @@ Vec3 vmul3x3(Mat3x3 a, Vec3 b) {
 }
 Vec3 vmul4x3(Mat4x3 a, Vec4 b) {
     Vec3 res = {0, 0, 0};
-    for(int i = 0; i < 3; i++) {
-        for(int j = 0; j < 4; j++) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 4; j++) {
             (&res.x)[i] += a.m[4 * i + j] * (&b.x)[j];
         }
     }
@@ -112,8 +112,8 @@ Vec3 vmul4x3(Mat4x3 a, Vec4 b) {
 }
 Vec4 vmul4x4(Mat4x4 a, Vec4 b) {
     Vec4 res = {0, 0, 0, 0};
-    for(int i = 0; i < 4; i++) {
-        for(int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
             (&res.x)[i] += a.m[4 * i + j] * (&b.x)[j];
         }
     }
@@ -125,9 +125,9 @@ Mat3x3 mmul3333(Mat3x3 a, Mat3x3 b) {
     #define outwidth 3
     #define outheight 3
     #define numk 3
-    for(int y = 0; y < outheight; y++) {
-        for(int x = 0; x < outwidth; x++) {
-            for(int k = 0; k < numk; k++) {
+    for (int y = 0; y < outheight; y++) {
+        for (int x = 0; x < outwidth; x++) {
+            for (int k = 0; k < numk; k++) {
                 res.m[outwidth * y + x] += a.m[numk * x + k] * b.m[outheight * k + y];
             }
         }
@@ -142,9 +142,9 @@ Mat4x3 mmul3343(Mat3x3 a, Mat4x3 b) {
     #define outwidth 4
     #define outheight 3
     #define numk 3
-    for(int y = 0; y < outheight; y++) {
-        for(int x = 0; x < outwidth; x++) {
-            for(int k = 0; k < numk; k++) {
+    for (int y = 0; y < outheight; y++) {
+        for (int x = 0; x < outwidth; x++) {
+            for (int k = 0; k < numk; k++) {
                 res.m[outwidth * y + x] += a.m[numk * x + k] * b.m[outheight * k + y];
             }
         }
@@ -159,9 +159,9 @@ Mat4x3 mmul4344(Mat4x3 a, Mat4x4 b) {
     #define outwidth 4
     #define outheight 3
     #define numk 4
-    for(int y = 0; y < outheight; y++) {
-        for(int x = 0; x < outwidth; x++) {
-            for(int k = 0; k < numk; k++) {
+    for (int y = 0; y < outheight; y++) {
+        for (int x = 0; x < outwidth; x++) {
+            for (int k = 0; k < numk; k++) {
                 res.m[outwidth * y + x] += a.m[numk * x + k] * b.m[outheight * k + y];
             }
         }
@@ -176,9 +176,9 @@ Mat4x4 mmul4444(Mat4x4 a, Mat4x4 b) {
     #define outwidth 4
     #define outheight 4
     #define numk 4
-    for(int y = 0; y < outheight; y++) {
-        for(int x = 0; x < outwidth; x++) {
-            for(int k = 0; k < numk; k++) {
+    for (int y = 0; y < outheight; y++) {
+        for (int x = 0; x < outwidth; x++) {
+            for (int k = 0; k < numk; k++) {
                 res.m[outwidth * y + x] += a.m[numk * x + k] * b.m[outheight * k + y];
             }
         }

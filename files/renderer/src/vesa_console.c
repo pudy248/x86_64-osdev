@@ -1,15 +1,15 @@
-#include <typedefs.h>
+#include <inttypes.h>
 #include <vesa.h>
 #include <font8x16.h>
 #include <kernel/exports.h>
 
 void vesa_putchar(char c, int x0, int y0, int scale) {
-    for(int y = 0; y < 16; y++) {
+    for (int y = 0; y < 16; y++) {
         uint8_t row = fontBitmap[16 * (c - 0x20) + y];
-        for(int x = 0; x < 8;  x++) {
-            if(row >> 7) {
-                for(int x2 = 0; x2 < scale; x2++) {
-                    for(int y2 = 0; y2 < scale; y2++) {
+        for (int x = 0; x < 8;  x++) {
+            if (row >> 7) {
+                for (int x2 = 0; x2 < scale; x2++) {
+                    for (int y2 = 0; y2 < scale; y2++) {
                         //set_pixel_rgb(x * scale + x0 + x2, y * scale + y0 + y2, 255, 255, 255);
                     }
                 }
@@ -21,8 +21,8 @@ void vesa_putchar(char c, int x0, int y0, int scale) {
 void vesa_putstr(char* c, int x0, int y0, int scale) {
     int x = x0;
     int y = y0;
-    for(int i = 0; c[i] != 0; i++) {
-        if(c[i] == '\n') {
+    for (int i = 0; c[i] != 0; i++) {
+        if (c[i] == '\n') {
             y += 16 * scale;
             x = x0;
         }

@@ -1,5 +1,5 @@
 #include <color.h>
-#include <typedefs.h>
+#include <inttypes.h>
 #include <vectors.h>
 #include <math.h>
 
@@ -59,7 +59,7 @@ static float hue2rgb(float p, float q, float t) {
 Vec3 hsl2rgb(Vec3 hsl) {
     Vec3 result;
 
-    if(abs(hsl.y) < 0.0001f) {
+    if (abs(hsl.y) < 0.0001f) {
         result.x = result.y = result.z = 255; // achromatic
     }
     else {

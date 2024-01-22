@@ -1,5 +1,5 @@
 #include <math.h>
-#include <typedefs.h>
+#include <inttypes.h>
 
 static uint16_t lfsr = 0xACE1u;
 static uint8_t bit;
@@ -11,7 +11,7 @@ uint8_t rand()
 
 float sqrtf(float x) {
     float z = 1;
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         z -= (z * z - x) / (2 * z);
     }
     return z;
@@ -242,7 +242,7 @@ double cos(double theta) {
     return c;
 }
 char isnan(double f) {
-    if((((uint32_t*)&f)[1] & 0x7ff00000) == 0x7ff00000) return 1;
+    if ((((uint32_t*)&f)[1] & 0x7ff00000) == 0x7ff00000) return 1;
     else return 0;
 }
 
@@ -266,6 +266,6 @@ float lerpf(float a, float b, float f) {
     return a + (b - a) * f;
 }
 char isnanf(float f) {
-    if((*(uint32_t*)&f & 0x7f800000) == 0x7f800000) return 1;
+    if ((*(uint32_t*)&f & 0x7f800000) == 0x7f800000) return 1;
     else return 0;
 }

@@ -1,21 +1,24 @@
-OUTPUT_FORMAT("elf32-i386");
+OUTPUT_FORMAT("elf64-x86-64");
 ENTRY(_start);
 SECTIONS
 {
-    .text MEM_OFFSET - 4 : {
-        LONG(MEM_OFFSET);
-        KEEP(*(.exec_header));
+    .text 0x1000000 : {
+        QUAD(0x1000000);
         *(.text);
         *(.text.*);
+    }
+    .data : {
         *(.data);
         *(.data.*);
         *(.rodata);
         *(.rodata.*);
+    }
+    .bss : {
         *(.bss);
         *(.bss.*);
     }
 
-    /DISCARD/: {
+    /DISCARD/ : {
         *(.eh_frame)
         *(.comment)
     }

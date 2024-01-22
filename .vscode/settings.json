@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.h": "cpp",
         "memory.h": "c",
         "pic.h": "c",
         "math.h": "c",
@@ -22,7 +23,35 @@
         "transform.h": "c",
         "vectors.h": "c",
         "limits": "c",
-        "pipeline.h": "c"
+        "pipeline.h": "c",
+        "string.h": "c",
+        "kstring.h": "c",
+        "ktime.h": "c",
+        "textbuffer.h": "c",
+        "*.gdbinit": "cpp",
+        "kernel.h": "c",
+        "ethernet.h": "c",
+        "e1000.h": "c",
+        "stdio.h": "c",
+        "net.h": "c",
+        "kstdlib.h": "c",
+        "inttypes.h": "c",
+        "tcp.h": "c",
+        "udp.h": "c",
+        "kstddefs.h": "c",
+        "type_traits": "cpp",
+        "string_view": "cpp",
+        "string": "cpp",
+        "array": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp",
+        "istream": "cpp",
+        "vector": "cpp",
+        "deque": "cpp",
+        "sstream": "cpp"
     },
-    "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe"
+    "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe",
+    "clangd.arguments": [
+        "--enable-config"
+    ]
 }

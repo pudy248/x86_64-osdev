@@ -9,7 +9,7 @@
 Mat4x4 projectionMatrix;
 
 void _default_vertex_shader(RenderPipeline* pipeline, void** params) {
-    for(uint32_t index = 0; index < pipeline->nVertices; index++) {
+    for (uint32_t index = 0; index < pipeline->nVertices; index++) {
         int frameCtr = *(int*)(params[0]);
         Vec4 basePos = pipeline->vertexBuffer[index].pos;
         basePos = vmul4x4(*(Mat4x4*)(params[1]), basePos); //rotation matrix
@@ -22,7 +22,7 @@ void _default_vertex_shader(RenderPipeline* pipeline, void** params) {
     }
 }
 void _default_raster_shader(RenderPipeline* pipeline, void** params) {
-    for(uint32_t index = 0; index < pipeline->nTriangles; index++) {
+    for (uint32_t index = 0; index < pipeline->nTriangles; index++) {
         ProjectedVertex v1 = pipeline->projVertBuffer[pipeline->triangleBuffer[3 * index + 0]];
         ProjectedVertex v2 = pipeline->projVertBuffer[pipeline->triangleBuffer[3 * index + 1]];
         ProjectedVertex v3 = pipeline->projVertBuffer[pipeline->triangleBuffer[3 * index + 2]];
@@ -32,9 +32,9 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
         Mat4x4 rebaseMat = rebase((Vec3){0, 1, 0}, lookdir, (Vec3){0, 0, 0});
         Vec3 normB = vtrunc43(vmul4x4(rebaseMat, vpad34(normal, 1)));
         float lighting = dot(normal, lookdir);
-        //if(lighting < 0.f) continue;
-        if(lighting > 1.f) {
-            basic_printf("%f %f %f dot %f %f %f = %f\r\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z, lighting);
+        //if (lighting < 0.f) continue;
+        if (lighting > 1.f) {
+            printf("%f %f %f dot %f %f %f = %f\r\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z, lighting);
             continue;
         }
 
@@ -58,7 +58,7 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
     }
 }
 void _default_fragment_shader(RenderPipeline* pipeline, void** params) {
-    for(uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++)
+    for (uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++)
         *(uint32_t*)&((uint8_t*)pipeline->renderTexture)[3 * index] = pipeline->fragTexture[index];
     //memcpy(pipeline->renderTexture, pipeline->fragTexture, 4 * pipeline->display_w * pipeline->display_h);
 }
@@ -80,7 +80,7 @@ void pipeline_execute(RenderPipeline* pipeline, void** params) {
     pipeline->fragmentShader(pipeline, params);
 
     uint64_t tp4 = rdtsc();
-    basic_printf("times: %i %i %i | %i\r\n", (uint32_t)(tp2 - tp1), (uint32_t)(tp3 - tp2), (uint32_t)(tp4 - tp3), (uint32_t)(tp4 - tp1));
+    printf("times: %i %i %i | %i\r\n", (uint32_t)(tp2 - tp1), (uint32_t)(tp3 - tp2), (uint32_t)(tp4 - tp3), (uint32_t)(tp4 - tp1));
 }
 
 void pipeline_flush(RenderPipeline* pipeline) {

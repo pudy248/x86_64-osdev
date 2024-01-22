@@ -1,48 +1,92 @@
--include Makefile_flags
-
-CC:=clang
+CC:=clang-17
 ASM:=nasm
+LD:=ld.lld-17
 
-COMPONENTS:=$(filter-out template,$(patsubst files/%/make.cfg,%,$(wildcard files/**/make.cfg)))
+ASMFLAGS:=-f elf64
+CFLAGS:=\
+-m64 -march=haswell -std=c++20 -ffreestanding -nostdlib -fno-pie -ffunction-sections -fdata-sections -fno-exceptions \
+-Os -g -Iinclude -Iinclude/std \
+-Wall -Wextra \
+-Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings
+#-Weverything -Wno-c++98-compat -Wno-pre-c++14-compat -Wno-unsafe-buffer-usage -Wno-conversion -Wno-old-style-cast
+LDFLAGS:=
 
-ADDITIONAL_FILES:=models/cow.obj
+ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
+C_SRC:=$(wildcard src/**/*.cpp) $(wildcard src/*.cpp)
+ASM_OBJ:=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRC))
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
+QEMU_NETWORK:=-netdev user,id=u1,hostfwd=udp::5555-:8888,hostfwd=tcp::5556-:8888 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
 QEMU_VIDEO:=-vga qxl
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
-QEMU_MISC:=-m 4G -smp 1 -cpu Haswell
-QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
+QEMU_MISC:=-m 4G -cpu Haswell
+QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-.PHONY: default clean bootloader $(COMPONENTS) start start-trace start-gdb
+#LOCAL_IP:=192.168.0.15
+LOCAL_IP:=172.29.247.158
 
-all: disk.img
-tmp/init:
-	@mkdir tmp/bootloader $(addprefix tmp/,$(COMPONENTS))
-	@touch tmp/init
+.PHONY: default clean start start-trace start-gdb
+default: disk_2.img
 clean:
-	@rm -f disk.img
+	@rm -f disk.img disk_2.img
 	@rm -rf tmp/*
 
-bootloader: $(COMPONENTS)
-	@make -f bootloader/Makefile --no-print-directory
-$(COMPONENTS) : % : tmp/init
-	@make -f Makefile_template THIS_FILE=$@ --no-print-directory
-
-fattener: fattener.c
-	@$(CC) fattener.c -o fattener -g $(CC_OPTIONAL_FLAGS)
-tmp/diskflasher.img: diskflasher.asm
-	nasm diskflasher.asm -f bin -o tmp/diskflasher.img
-disk.img: fattener bootloader $(COMPONENTS)
-	./fattener $(patsubst %,tmp/%.img,$(COMPONENTS)) $(ADDITIONAL_FILES)
+disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp
+#	$(CC) fattener.cpp -o fattener
+	./fattener tmp/kernel.img
 	@truncate -s 64M disk.img
 disk_2.img: disk.img tmp/diskflasher.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
 
-
 start: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS)
+start-flash: disk_2.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS) $(QEMU_STORAGE_AUX)
 start-trace: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
-start-gdb: disk.img tmp/main.bin
-	qemu-system-i386.exe $(QEMU_FLAGS) -s -S &
-	gf2 tmp/main.elf
+start-gdb: disk.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S &
+	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
+#	gdbfrontend -G "-s tmp/bootloader.img.elf;tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
+#	gdb -tui -ex "target remote $(LOCAL_IP):1234" -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf"
+start-ping: disk.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS) &
+	telnet $(LOCAL_IP) 5556
+
+
+tmp/diskflasher.img: diskflasher.asm
+	nasm diskflasher.asm -f bin -o tmp/diskflasher.img
+
+$(ASM_OBJ) : tmp/%.o : src/%.asm
+	$(ASM) $(ASMFLAGS) -o $@ $<
+tmp/obj.o : $(C_SRC)
+	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))" > tmp/all.cpp
+	$(CC) $(CFLAGS) -o tmp/obj.o -c tmp/all.cpp
+
+tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
+	$(LD) $(LDFLAGS) -e kernel_main -r -o tmp/kernel.elf $(ASM_OBJ) tmp/obj.o 
+
+tmp/kernel.img.elf: tmp/kernel.elf link.ld 
+	$(LD) $(LDFLAGS) -e kernel_main -T link.ld -o tmp/kernel.img.elf tmp/kernel.elf
+
+tmp/kernel.img: tmp/kernel.img.elf
+	@objdump -d tmp/kernel.img.elf > tmp/kernel.S 2> /dev/null
+	@objcopy -O binary tmp/kernel.img.elf tmp/kernel.img
+
+BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
+BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
+BOOTLOADER_SRC:=$(wildcard bootloader/**/*.cpp) $(wildcard bootloader/*.cpp)
+BOOTLOADER_C_OBJ:=$(patsubst bootloader/%.cpp,tmp/%.o,$(BOOTLOADER_SRC))
+
+$(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
+	$(ASM) $(ASMFLAGS) -o $@ $<
+$(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
+	objcopy -S -x -K kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
+	objcopy -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
+	ld $(LDFLAGS) -gc-sections -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf -R tmp/kernel_entry.elf
+	@objdump -d tmp/bootloader.img.elf > tmp/bootloader.S 2> /dev/null
+	@objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img

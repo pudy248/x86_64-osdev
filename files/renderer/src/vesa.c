@@ -1,4 +1,4 @@
-#include <typedefs.h>
+#include <inttypes.h>
 #include <vesa.h>
 #include <kernel16/exports.h>
 #include <kernel/exports.h>
@@ -11,7 +11,7 @@ RenderPipeline vesa_init(uint16_t mode) {
     bios_interrupt(0x10, regs);
     
     init_protected();
-    basic_printf("%ix%i\r\n", info->width, info->height);
+    printf("%ix%i\r\n", info->width, info->height);
     
     RenderPipeline p;
     p.fragBuffer = (aFragment_p)0x10000000;

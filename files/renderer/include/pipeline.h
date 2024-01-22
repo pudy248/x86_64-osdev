@@ -1,5 +1,5 @@
 #pragma once
-#include <typedefs.h>
+#include <inttypes.h>
 #include <vectors.h>
 
 typedef struct Vertex {

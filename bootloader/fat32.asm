@@ -66,3 +66,5 @@ FAT32_FSINFO:
     cluster_number: dd 0xffffffff
     reserved3: dd 0,0,0
     sig3: dd 0xaa550000
+
+times 512 * (RESERVED_SECTORS - 2) db 0
