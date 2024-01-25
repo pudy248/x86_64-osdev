@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <ctype.h>
 
-#include "include/lib/fat.h"
+#include "__old/fat.hpp"
 
 uint64_t fsize(char* file) {
     FILE* f = fopen(file, "rb");
@@ -41,7 +42,7 @@ int main(int argc, char** argv) {
     uint32_t clusterCount = 1;
     uint64_t* fileSizes = (uint64_t*)malloc(2 * sizeof(uint64_t) * (argc - 1));
     for (int i = 0; i < argc - 1; i++) {
-        uint64_t sz = fsize(argv[i + 1]) - 4;
+        uint64_t sz = fsize(argv[i + 1]);
         uint64_t cc = ((sz - 1) / (512 * SECTORS_PER_CLUSTER)) + 1;
         clusterCount += cc;
         fileSizes[2 * i] = sz;
@@ -60,8 +61,9 @@ int main(int argc, char** argv) {
     memset(fatData, 0, clusterCount * 512 * SECTORS_PER_CLUSTER);
     fat_disk_entry* rootDir = (fat_disk_entry*)fatData;
 
-    int rootCtr = 0;
-    rootDir[rootCtr++] = (fat_disk_entry){"TEST_VOL", "UME", FAT_ATTRIB_VOL_ID, 0, 0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, 0, {0, 0, 0}, {0, 0, 0}, 0, 0};
+    int rootCtr = 1;
+    memset(rootDir, 0, sizeof(fat_disk_entry));
+    rootDir->flags = FAT_ATTRIB_VOL_ID;
 
     for (int i = 0; i < argc - 1; i++) {
         int j = 0;
@@ -69,10 +71,16 @@ int main(int argc, char** argv) {
         for (j = 0; argv[i + 1][j] != 0; j++) {
             if (argv[i + 1][j] == '/') nameStart = j + 1;
         }
+        int extStart = 0;
+        for (j = nameStart; argv[i + 1][j] != 0; j++) {
+            if (argv[i + 1][j] == '.') extStart = j + 1;
+        }
+
+        printf("%s: %i %i; ", argv[i + 1], nameStart, extStart);
 
         fat_disk_entry f;
         f.flags = 0x20;
-        f.__reserved = 0;
+        f.reserved = 0;
         f.creation_tenths = 0;
         f.creation_time = (fat_time){1, 0, 0};
         f.creation_date = (fat_date){1, 1, 0};
@@ -87,22 +95,25 @@ int main(int argc, char** argv) {
         memset(f.extension, ' ', 3);
         
         int ctr = 0;
-        for (j = nameStart; argv[i + 1][j] != '.' && ctr < 6; j++) {
+        for (j = nameStart; j < extStart - 1 && ctr < 6; j++) {
             f.filename[ctr++] = toupper(argv[i + 1][j]);
         }
-        if(ctr == 6 && argv[i + 1][j] != '.') {
+        if(ctr == 6 && j < extStart) {
             f.filename[ctr++] = '~';
             f.filename[ctr++] = '1';
         }
         ctr = 0;
-        for (; argv[i + 1][j] != '.'; j++); j++;
-        for (; argv[i + 1][j] != 0 && ctr < 3; j++) {
+        for (j = extStart; argv[i + 1][j] != 0 && ctr < 3; j++) {
             f.extension[ctr++] = toupper(argv[i + 1][j]);
         }
 
+        printf("%11s; ", f.filename);
+
+        //if (!strncmp(f.extension, "IMG", 3)) f.file_size -= 4;
+
         int nameLen = strlen(&argv[i + 1][nameStart]);
         int nLFNs = (nameLen + 12) / 13;
-        fat_disk_lfn* names = malloc(sizeof(fat_disk_lfn) * nLFNs);
+        fat_disk_lfn* names = (fat_disk_lfn*)malloc(sizeof(fat_disk_lfn) * nLFNs);
 
         j = nameStart;
         for (int k = 0; k < nLFNs; k++) {
@@ -110,16 +121,16 @@ int main(int argc, char** argv) {
             names[lfnIdx].flags = 0x0f;
             names[lfnIdx].entry_type = 0;
             names[lfnIdx].position = (k + 1) | (!lfnIdx ? 0x40 : 0);
-            names[lfnIdx].checksum = fat_lfn_checksum(f.filename);
-            names[lfnIdx].__reserved2 = 0;
+            names[lfnIdx].checksum = fat_lfn_checksum((const uint8_t*)f.filename);
+            names[lfnIdx].reserved2 = 0;
             memset(names[lfnIdx].chars_1, 0xff, 10);
-            memset(names[lfnIdx].chars_2, 0xff, 10);
-            memset(names[lfnIdx].chars_3, 0xff, 10);
+            memset(names[lfnIdx].chars_2, 0xff, 12);
+            memset(names[lfnIdx].chars_3, 0xff, 4);
 
             int lfnCtr = 0;
-            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 5; j++) names[lfnIdx].chars_1[lfnCtr++] = argv[i + 1][j];
-            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 11; j++) names[lfnIdx].chars_2[lfnCtr++ - 5] = argv[i + 1][j];
-            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 13; j++) names[lfnIdx].chars_3[lfnCtr++ - 11] = argv[i + 1][j];
+            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 5; printf("%c", argv[i + 1][j]), j++) names[lfnIdx].chars_1[lfnCtr++] = argv[i + 1][j];
+            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 11; printf("%c", argv[i + 1][j]), j++) names[lfnIdx].chars_2[lfnCtr++ - 5] = argv[i + 1][j];
+            for (; argv[i + 1][j - 1] != 0 && lfnCtr < 13; printf("%c", argv[i + 1][j]), j++) names[lfnIdx].chars_3[lfnCtr++ - 11] = argv[i + 1][j];
         }
 
         void* startAddr = (void*)((uint64_t)fatData + 512 * SECTORS_PER_CLUSTER * (cluster - 2));
@@ -136,15 +147,11 @@ int main(int argc, char** argv) {
         for (j = 0; j < nLFNs; j++) ((fat_disk_lfn*)rootDir)[rootCtr++] = names[j];
         free(names);
         rootDir[rootCtr++] = f;
+
+        printf("\n");
     }
     FILE* output = fopen("disk.img", "wb");
 
-    //FILE* diskflasher_f = fopen("tmp/diskflasher.img", "rb");
-    //uint8_t diskflasher[512];
-    //fread(diskflasher, 1, 512, diskflasher_f);
-    //fwrite(diskflasher, 1, 512, output);
-    //fclose(diskflasher_f);
-        
     uint64_t bootloaderSize = fsize("tmp/bootloader.img");
     void* bootBuffer = malloc(bootloaderSize);
     FILE* bootloader = fopen("tmp/bootloader.img", "rb");

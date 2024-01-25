@@ -1,9 +1,6 @@
 #pragma once
 #include <kstddefs.h>
-#include <sys/global.h>
 #include <stl/vector.hpp>
-
-class string;
 
 class rostring : public span<char> {
 public:
@@ -16,11 +13,12 @@ public:
     rostring(const char* cstr);
     rostring(const rostring& str, int length, int offset = 0);
     rostring(const rostring& str);
-    rostring(const string& str, int length, int offset = 0);
-    rostring(const string& str);
     rostring(const span<char>& vec, int length, int offset = 0);
     rostring(const span<char>& vec);
 
+    constexpr bool operator==(const rostring other) const { return starts_with(other) && size() == other.size(); }
+    constexpr bool operator!=(const rostring other) const { return !(*this == other); }
+    
     vector<rostring> split(const rostring any) const;
     vector<rostring> split(char c) const;
 };
@@ -39,15 +37,17 @@ public:
     string(const span<char>& vec, int length, int offset = 0);
     string(const span<char>& vec);
 
+    operator rostring() const;
+    
+    constexpr bool operator==(const rostring other) const { return starts_with(other) && size() == other.size(); }
+    constexpr bool operator!=(const rostring other) const { return !(*this == other); }
+
     char* c_str_new();
     char* c_str_this();
 };
 
-class ostringstream {
+class ostringstream : public ostream<char> {
 public:
-    string str;
-    ostringstream() = default;
-
     void write_u(uint64_t n, int leading = 0, int radix = 10, char leadChar = ' ', const char* letters = "0123456789ABCDEF");
     void write_i(int64_t n, int leading = 0, int radix = 10, char leadChar = ' ', const char* letters = "0123456789ABCDEF");
     void write_d(double n, int leading = 0, int trailing = 3, char leadChar = ' ');
@@ -67,22 +67,19 @@ public:
     template <typename T> void write(const T dat);
 };
 
-string format(const rostring fmt, ...);
-
-class istringstream {
+class istringstream : public istream<char> {
 public:
-    rostring data;
-    int ridx = 0;
-    istringstream() = default;
     istringstream(const rostring s);
-    istringstream(const string s);
-    istringstream(const span<char> s);
+    operator rostring() const;
 
-    constexpr bool readable() const;
-    const rostring read_until(const rostring any);
+    const rostring read_while(bool(*condition)(rostring));
+    const rostring read_until(bool(*condition)(rostring));
     const rostring read_until(char c);
-    const rostring read_until_inc(const rostring any);
+    const rostring read_until_inc(bool(*condition)(rostring));
     const rostring read_until_inc(char c);
+    const rostring read_until_any(const rostring any);
+    const rostring read_until_any_inc(const rostring any);
+    const rostring read_until_any(span<rostring> any);
     void read_bz(void* dat, int size);
 
     template <typename T> T read();
@@ -104,18 +101,17 @@ public:
         return vec;
     }
     template <typename T> T read_c() {
-        int tmp = ridx;
+        int tmp = idx;
         T ret = read<T>();
-        ridx = tmp;
+        idx = tmp;
         return ret;
     }
     template <typename T> T read_bc() {
-        int tmp = ridx;
+        int tmp = idx;
         T ret = read_b<T>();
-        ridx = tmp;
+        idx = tmp;
         return ret;
     }
 };
 
-#define print(str) globals->vga_console.putstr(str)
-#define printf(fmt, ...) globals->vga_console.putstr(format(rostring(fmt, strlen(fmt)), __VA_ARGS__).c_str_this())
+string format(const rostring fmt, ...);

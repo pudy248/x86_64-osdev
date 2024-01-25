@@ -1,23 +1,27 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kmath.h>
 #include <sys/global.h>
 #include <stl/vector.hpp>
 
-void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size) {
-    for (uint64_t i = 0; i < size; i++) {
-        ((char*)dest)[i] = ((char*)src)[i];
-    }
-}
-void memmove(void* dest, void* src, uint64_t size) {
-    for (uint64_t i = 0; i < size; i++) {
-        ((char*)dest)[i] = ((char*)src)[i];
-    }
-}
+#define abs(a) (a < 0 ? -a : a)
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
 
-void memset(void* dest, char src, uint64_t size) {
-    for (uint64_t i = 0; i < size; i++) {
-        ((char*)dest)[i] = src;
+extern "C" {
+    void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size) {
+        for (uint64_t i = 0; i < size; i++) {
+            ((char*)dest)[i] = ((char*)src)[i];
+        }
+    }
+    void memmove(void* dest, void* src, uint64_t size) {
+        for (uint64_t i = 0; i < size; i++) {
+            ((char*)dest)[i] = ((char*)src)[i];
+        }
+    }
+    void memset(void* dest, char src, uint64_t size) {
+        for (uint64_t i = 0; i < size; i++) {
+            ((char*)dest)[i] = src;
+        }
     }
 }
 

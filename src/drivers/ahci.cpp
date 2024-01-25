@@ -1,5 +1,7 @@
+#include <cstdint>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <drivers/pci.h>
 #include <drivers/ahci.h>
 #include <sys/global.h>
@@ -12,10 +14,10 @@ void ahci_init(pci_device ahci_pci) {
     hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x13000; //waterline_new<hba_cmd_tbl>(0x10);
     memset((char*)ctbas, 0, 0x2000);
 
-    volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(ahci_pci.bars[5] & 0xfffffff0);
+    volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
     set_page_flags((void*)ahci_mem, PAGE_WT);
     //printf("Using AHCI MMIO at %08x\r\n", ahci_pci.bars[5]);    
-    volatile hba_port* ports = (volatile hba_port*)(ahci_pci.bars[5] + 0x100);
+    volatile hba_port* ports = (volatile hba_port*)(uint64_t)(ahci_pci.bars[5] + 0x100);
 
     int port_idx = -1;
     for (int i = 0; i < 32; i++) {

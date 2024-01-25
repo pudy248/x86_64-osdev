@@ -22,7 +22,7 @@ struct global_data_t {
     uint64_t elapsedPITs;
 
     ahci_device* ahci;
-    //fat_sys_data fat_data;
+    fat_sys_data fat_data;
 };
 
 #define globals ((global_data_t*)0x110000)

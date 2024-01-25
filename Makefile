@@ -7,24 +7,25 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++20 -ffreestanding -nostdlib -fno-pie -ffunction-sections -fdata-sections -fno-exceptions \
 -Os -g -Iinclude -Iinclude/std \
 -Wall -Wextra \
--Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings
+-Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter
 #-Weverything -Wno-c++98-compat -Wno-pre-c++14-compat -Wno-unsafe-buffer-usage -Wno-conversion -Wno-old-style-cast
 LDFLAGS:=
 
 ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
 C_SRC:=$(wildcard src/**/*.cpp) $(wildcard src/*.cpp)
 ASM_OBJ:=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRC))
+DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
-QEMU_NETWORK:=-netdev user,id=u1,hostfwd=udp::5555-:8888,hostfwd=tcp::5556-:8888 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
+QEMU_NETWORK:=-netdev user,id=u1,hostfwd=udp::5555-:80,hostfwd=tcp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
 QEMU_VIDEO:=-vga qxl
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
 #LOCAL_IP:=192.168.0.15
-LOCAL_IP:=172.29.247.158
+LOCAL_IP:=172.29.244.210
 
 .PHONY: default clean start start-trace start-gdb
 default: disk_2.img
@@ -33,8 +34,8 @@ clean:
 	@rm -rf tmp/*
 
 disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp
-#	$(CC) fattener.cpp -o fattener
-	./fattener tmp/kernel.img
+	$(CC) fattener.cpp -o fattener
+	./fattener tmp/kernel.img $(shell echo disk_include/*)
 	@truncate -s 64M disk.img
 disk_2.img: disk.img tmp/diskflasher.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
@@ -47,8 +48,8 @@ start-trace: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 start-gdb: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S &
-	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
-#	gdbfrontend -G "-s tmp/bootloader.img.elf;tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
+	gdb -tui -s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex "target remote $(LOCAL_IP):1234"
+#	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
 #	gdb -tui -ex "target remote $(LOCAL_IP):1234" -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf"
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &

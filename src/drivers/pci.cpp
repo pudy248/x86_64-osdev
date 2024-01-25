@@ -1,6 +1,6 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
+#include <kprint.h>
 #include <drivers/pci.h>
 
 pci_devices* pci_dev;

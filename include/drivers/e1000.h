@@ -98,7 +98,7 @@
 #define TSTA_LC                         (1 << 2)    // Late Collision
 #define LSTA_TU                         (1 << 3)    // Transmit Underrun
 
-#define E1000_NUM_RX_DESC 8 //32
+#define E1000_NUM_RX_DESC 32
 #define E1000_NUM_TX_DESC 8
 
 struct a_packed e1000_rx_desc {

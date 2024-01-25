@@ -1,11 +1,6 @@
 #pragma once
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstdio.hpp>
-#include <kmath.h>
-#include <sys/global.h>
-
-template<typename T> class vector;
 
 template<typename T> class span {
 protected:
@@ -15,8 +10,10 @@ public:
 	constexpr span() : m_arr(NULL), m_length(0) { }
 	constexpr span(const T* _arr, int size, int offset = 0) : m_arr((T*)_arr + offset), m_length(size) { }
 	constexpr span(const span<T>& vec, int length, int offset = 0) : m_arr(vec.m_arr + offset), m_length(length) { }
+
 	constexpr span(const span<T>& vec) : span(vec, vec.size(), 0) { }
-	constexpr span(const vector<T>& other) : m_arr(other.unsafe_arr()), m_length(other.size()) { }
+	constexpr span(span<T>&& other) = default;
+
 	constexpr span& operator=(const span<T>& other) {
 		m_arr = other.m_arr;
 		m_length = other.m_length;
@@ -30,14 +27,14 @@ public:
 	
 	constexpr T& at(int idx) {
 		if (size() == 0) {
-			globals->vga_console.putstr("OOB access to span.\r\n");
+			//globals->vga_console.putstr("OOB access to span.\r\n");
 			return *new T();
 		}
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
 		if (size() == 0) {
-			globals->vga_console.putstr("OOB access to span.\r\n");
+			//globals->vga_console.putstr("OOB access to span.\r\n");
 			return *new T();
 		}
 		return m_arr[idx];
@@ -59,6 +56,12 @@ public:
 	}
 	constexpr const T& back() const {
 		return at(size() - 1);
+	}
+	constexpr span<T> subspan(int start) {
+		return span<T>(*this, this->size() - start, start);
+	}
+	constexpr const span<T> subspan(int start) const {
+		return span<T>(*this, this->size() - start, start);
 	}
 
 	constexpr int find(const T& elem) const {
@@ -82,14 +85,19 @@ public:
 	constexpr bool contains(const span<T>& elems) const {
 		return find(elems) > -1;
 	}
+	constexpr bool contains_which(const span<T>& elems) const {
+		for (int i = 0; i < elems.size(); i++) {
+			if (find(elems[i]) >= 0) return i;
+		}
+		return -1;
+	}
 
     constexpr bool starts_with(const span<T> other) const {
 		if (size() < other.size()) return false;
-		bool pass = true;
 		for (int i = 0; i < other.size(); i++)
 			if(at(i) != other.at(i))
-				pass = false;
-		return pass;
+				return false;
+		return true;
 	}
     constexpr bool starts_with(const T t) const {
 		return starts_with(span<T>(&t, 1));
@@ -100,11 +108,10 @@ public:
 
     constexpr bool ends_with(const span<T> other) const {
 		if (size() < other.size()) return false;
-		bool pass = true;
 		for (int i = size() - 1; i >= size() - other.size(); i--)
-			if(at(i) != other.at(i))
-				pass = false;
-		return pass;
+			if(at(i) != other.at(i - size() + other.size()))
+				return false;
+		return true;
 	}
     constexpr bool ends_with(const T t) const {
 		return ends_with(span<T>(&t, 1));
@@ -120,10 +127,10 @@ public:
 		return equals(span<T>(ptr, length));
 	}
 
-	constexpr a_inline T* unsafe_arr() const volatile {
+	constexpr T* unsafe_arr() const volatile {
 		return m_arr;
 	}
-	constexpr a_inline int size() const volatile {
+	constexpr int size() const volatile {
 		return m_length;
 	}
 };
@@ -271,5 +278,57 @@ public:
 	}
 	constexpr int capacity() const volatile {
 		return m_capacity;
+	}
+};
+
+template <typename T> class ostream {
+public:
+    vector<T> data;
+    ostream() = default;
+
+	void swrite(T elem) {
+		data.append(elem);
+	}
+	void swrite(span<T> elems) {
+		for (int i = 0; i < elems.size(); i++)
+			write(elems[i]);
+	}
+};
+
+template <typename T> class istream {
+public:
+    span<T> data;
+    int idx = 0;
+    istream() = default;
+    istream(const span<T> s) : data(s) {}
+
+    constexpr bool readable() const {
+		return idx < data.size();
+	}
+
+	T sread() {
+		return data.at(idx++);
+	}
+	span<T> sread(int count) {
+		span<T> tmp = span<T>(data, idx, count);
+		idx += count;
+		return tmp;
+	}
+
+	span<T> read_while(bool(*condition)(span<T>)) {
+		int sIdx = idx;
+		while(condition(data.subspan(idx)) && readable()) idx++;
+		return span<T>(data, idx - sIdx, sIdx);
+	}
+	span<T> read_until(bool(*condition)(span<T>)) {
+		int sIdx = idx;
+		while(!condition(data.subspan(idx)) && readable()) idx++;
+		return span<T>(data, idx - sIdx, sIdx);
+	}
+	span<T> read_until_inc(bool(*condition)(span<T>)) {
+		int sIdx = idx;
+		while(!condition(data.subspan(idx)) && readable()) idx++;
+		idx++;
+		return span<T>(data, idx - sIdx, sIdx);
 	}
 };

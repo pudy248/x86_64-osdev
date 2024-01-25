@@ -2,6 +2,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <net/net.hpp>
 #include <net/ipv4.hpp>
 #include <net/tcp.hpp>
@@ -17,6 +18,8 @@
 #define TCP_FLAG_CWR            (1 << 15)
 
 vector<tcp_connection*> open_connections;
+
+bool TCP_VERBOSE_LOGGING = false;
 
 struct tcp_mss {
     uint8_t op;
@@ -108,7 +111,7 @@ void tcp_process(ip_packet packet) {
                 conn->cur_seq = conn->start_seq;
                 conn->state = TCP_STATE::SYNACK_SENT;
 
-                printf("[TCP] Opening connection to port %i with %I:%i.\r\n", conn->cur_port, conn->cli_ip, conn->cli_port);
+                if (TCP_VERBOSE_LOGGING) printf("[TCP] Opening connection to port %i with %I:%i.\r\n", conn->cur_port, conn->cli_ip, conn->cli_port);
                 tcp_mss mss = {
                     0x02, 0x04, htons(1460)
                 };
@@ -132,7 +135,10 @@ void tcp_process(ip_packet packet) {
         if (conn->cli_port != htons(tcp->src_port)) continue;
         
         if (tcp->flags.rst) {
-            print("[TCP] RST support unimplemented.\r\n");
+            printf("[TCP] RESETTING connection with %I:%i.\r\n", conn->cli_ip, conn->cli_port);
+            tcp_packet p_ack = { span<char>() };
+            tcp_transmit(conn, p_ack, TCP_DATA_OFFSET(0) | TCP_FLAG_RST | TCP_FLAG_ACK);
+            conn->state = TCP_STATE::CLOSED;
             return;
         }
 
@@ -172,11 +178,11 @@ void tcp_process(ip_packet packet) {
 
         bool handled = false;
         if (tcp->flags.psh) {
-            if (conn->state != TCP_STATE::ESTABLISHED && conn->state != TCP_STATE::PSH_SENT) {
+            if (conn->state != TCP_STATE::ESTABLISHED) {
                 printf("[TCP] PSH recieved during invalid state %i.\r\n", conn->state);
                 return;
             }
-            printf("[TCP] Recieved %i (%i) bytes of data (%I:%i).\r\n", size, packet.ethernet.contents.size(), conn->cli_ip, conn->cli_port);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] Recieved %i (%i) bytes of data (%I:%i).\r\n", size, packet.ethernet.contents.size(), conn->cli_ip, conn->cli_port);
             uint32_t tmp_ack = conn->cur_ack;
 
             conn->cur_ack = htonl(tcp->seq_num) + size;
@@ -208,8 +214,8 @@ void tcp_process(ip_packet packet) {
             handled = true;
         }
         if (tcp->flags.ack) {
-            if (conn->state == TCP_STATE::PSH_SENT) {
-                conn->state = TCP_STATE::ESTABLISHED;
+            if (conn->in_flight) {
+                conn->in_flight--;
                 handled = true;
             }
             if (htonl(tcp->seq_num) == conn->cur_ack - 1) {
@@ -221,7 +227,7 @@ void tcp_process(ip_packet packet) {
         if (tcp->flags.fin) {
             conn->cur_ack++;
             tcp_transmit(conn, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
-            printf("[TCP] Closing connection with %I:%i.\r\n", conn->cli_ip, conn->cli_port);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] Closing connection with %I:%i.\r\n", conn->cli_ip, conn->cli_port);
             conn->state = TCP_STATE::FINACK_SENT;
             handled = true;
         }
@@ -238,7 +244,7 @@ void tcp_process(ip_packet packet) {
         new_conn->state = TCP_STATE::WAITING;
         return;
     }
-    printf("[TCP] Invalid packet: Flags=%02x\r\n", *(uint16_t*)&tcp->flags >> 8);
+    printf("[TCP] Invalid packet: Flags=%02x, SYN=%i, ACK=%i\r\n", *(uint16_t*)&tcp->flags >> 8, htonl(tcp->seq_num), htonl(tcp->ack_num));
 }
 
 volatile tcp_connection* tcp_create() {
@@ -259,7 +265,7 @@ volatile tcp_connection* tcp_accept(uint16_t port) {
         conn->cur_seq = conn->start_seq;
         conn->state = TCP_STATE::SYNACK_SENT;
 
-        printf("[TCP] Opening connection to port %i with %I:%i.\r\n", conn->cur_port, conn->cli_ip, conn->cli_port);
+        if (TCP_VERBOSE_LOGGING) printf("[TCP] Opening connection to port %i with %I:%i.\r\n", conn->cur_port, conn->cli_ip, conn->cli_port);
         tcp_mss mss = {
             0x02, 0x04, htons(1460)
         };
@@ -277,10 +283,24 @@ void tcp_connection::listen(uint16_t port) volatile {
     while(this->state != TCP_STATE::ESTABLISHED);
 }
 void tcp_connection::send(tcp_packet p) volatile {
-    tcp_transmit((tcp_connection*)this, p, TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
-    this->cur_seq += p.contents.size();
-    this->state = TCP_STATE::PSH_SENT;
-    while(this->state == TCP_STATE::PSH_SENT);
+    if (p.contents.size() > 8000) {
+        printf("LARGE PACKET: %i bytes\r\n", p.contents.size());
+        int offset = 0;
+        while (true) {
+            int size = min(p.contents.size() - offset, 8000);
+            in_flight++;
+            tcp_transmit((tcp_connection*)this, { span<char>(p.contents, size, offset) }, TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
+            this->cur_seq += size;
+            offset += size;
+            if (offset == p.contents.size()) break;
+        }
+    }
+    else {
+        in_flight++;
+        tcp_transmit((tcp_connection*)this, p, TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
+        this->cur_seq += p.contents.size();
+    }
+    while(this->in_flight);
 }
 tcp_packet tcp_connection::recv() volatile {
     while(!this->recieved_packets.size()) {
@@ -291,7 +311,7 @@ tcp_packet tcp_connection::recv() volatile {
     return p;
 }
 void tcp_connection::close() volatile {
-    printf("[TCP] Closing connection with %I:%i.\r\n", this->cli_ip, this->cli_port);
+    if (TCP_VERBOSE_LOGGING) printf("[TCP] Closing connection with %I:%i.\r\n", this->cli_ip, this->cli_port);
     tcp_transmit((tcp_connection*)this, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
     this->state = TCP_STATE::FIN_SENT;
     while(this->state != TCP_STATE::CLOSED);

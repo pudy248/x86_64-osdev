@@ -12,7 +12,6 @@ namespace TCP_STATE {
         SYN_SENT,
         SYNACK_SENT,
         ESTABLISHED,
-        PSH_SENT,
         FIN_SENT,
         FINACK_SENT,
         CLOSED
@@ -65,6 +64,7 @@ struct tcp_connection{
     uint32_t cur_ack;
     
     int state;
+    int in_flight;
 
     tcp_packet_partial partial;
     vector<tcp_packet> recieved_packets;

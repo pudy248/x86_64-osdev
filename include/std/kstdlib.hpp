@@ -1,15 +1,17 @@
 #pragma once
 #include <kstddefs.h>
 
-void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);
-void memmove(void* dest, void* src, uint64_t size);
-void memset(void* dest, char src, uint64_t size);
+extern "C" {
+    void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);
+    void memmove(void* dest, void* src, uint64_t size);
+    void memset(void* dest, char src, uint64_t size);
+}
 
 void mem_init();
 __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
 __attribute__((malloc)) void* __malloc(uint64_t size);
 __attribute__((malloc)) void* __malloc_tracked(uint64_t size, const char* file, int line);
-#define malloc(sz) __malloc_tracked(sz, __FILE__, __LINE__);
+#define malloc(sz) __malloc_tracked(sz, __FILE__, __LINE__)
 void free(void* ptr);
 
 struct heap_allocation {

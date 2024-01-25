@@ -2,7 +2,6 @@
 #include <stdarg.h>
 #include <kstddefs.h>
 #include <kcstring.h>
-#include <kmath.h>
 #include <kstring.hpp>
 #include <stl/vector.hpp>
 #include <net/net.hpp>
@@ -11,8 +10,6 @@ rostring::rostring(const char* str, int length, int offset) : span<char>(str, le
 rostring::rostring(const char* cstr) : rostring(cstr, strlen(cstr), 0) {}
 rostring::rostring(const rostring& str, int length, int offset) : span<char>(str, length, offset) {}
 rostring::rostring(const rostring& str) : rostring(str, str.size(), 0) {}
-rostring::rostring(const string& str, int length, int offset) : span<char>(str, length, offset) {}
-rostring::rostring(const string& str) : rostring(str, str.size(), 0) {}
 rostring::rostring(const span<char>& vec, int length, int offset) : span<char>(vec, length, offset) {}
 rostring::rostring(const span<char>& vec) : rostring(vec, vec.size(), 0) {}
 
@@ -22,6 +19,7 @@ string::string(const string& str, int length, int offset) : vector<char>(span<ch
 string::string(const string& str) : string(str, str.size(), 0) {}
 string::string(const span<char>& vec, int length, int offset) : vector<char>(span<char>(vec, length, offset)) {}
 string::string(const span<char>& vec) : string(vec, vec.size(), 0) {}
+string::operator rostring() const { return rostring(this->m_arr, this->m_length); }
 char* string::c_str_new() {
     return this->c_arr();
 }
@@ -32,7 +30,7 @@ char* string::c_str_this() {
 
 void ostringstream::write_bz(const void* dat, int size) {
     for(int i = 0; i < size; i++) {
-        str.append(((const char*)dat)[i]);
+        data.append(((const char*)dat)[i]);
     }
 }
 template<> void ostringstream::write(char dat) {
@@ -128,20 +126,15 @@ void ostringstream::write_d(double n, int leading, int trailing, char leadChar) 
     }
 }
 
-istringstream::istringstream(const rostring s) : data(s), ridx(0) {}
-istringstream::istringstream(const string s) : istringstream(rostring(s)) {}
-istringstream::istringstream(const span<char> s) : istringstream(rostring(s)) {}
-constexpr bool istringstream::readable() const {
-    return ridx < data.size();
-}
+istringstream::istringstream(const rostring s) : istream<char>(s) {}
+istringstream::operator rostring() const { return rostring(this->data, this->data.size() - idx, idx); }
 void istringstream::read_bz(void* dat, int size) {
     for (int i = 0; i < size; i++) {
-        ((char*)dat)[i] = data.at(ridx++);
+        ((char*)dat)[i] = data.at(idx++);
     }
 }
-
-template<> char istringstream::read<char>(){
-    return read_b<char>();
+template<> char istringstream::read<char>() {
+    return this->sread();
 }
 template<> double istringstream::read<double>(){
     constexpr int trailingMax = 10;
@@ -182,25 +175,60 @@ template<> int64_t istringstream::read<int64_t>(){
     if (neg) val = -val;
     return val;
 }
+const rostring istringstream::read_until_any_inc(const rostring any) {
+    int sIdx = idx;
+    while (!any.contains(data.at(idx)) && readable())
+        idx++;
+    if (readable()) idx++;
+    return rostring(data, idx - sIdx, sIdx);
+}
 
-const rostring istringstream::read_until_inc(const rostring any) {
-    int sIdx = ridx;
-    while (!any.contains(data.at(ridx)) && readable())
-        ridx++;
-    if (readable()) ridx++;
-    return rostring(data, ridx - sIdx, sIdx);
+const rostring istringstream::read_until_any(const rostring any) {
+    int sIdx = idx;
+    while (!any.contains(data.at(idx)) && readable())
+        idx++;
+    return rostring(data, idx - sIdx, sIdx);
+}
+const rostring istringstream::read_until_any(span<rostring> any) {
+    int sIdx = idx;
+    while (readable()) {
+        bool stop = false;
+        for (int i = 0; i < any.size(); i++) {
+            if (data.starts_with(any[i]))
+                stop = true;
+        }
+        if (stop) break;
+        idx++;
+    }
+    return rostring(data, idx - sIdx, sIdx);
 }
 const rostring istringstream::read_until_inc(char c) {
-    return read_until_inc(span<char>(&c, 1));
-}
-const rostring istringstream::read_until(const rostring any) {
-    const rostring s = read_until_inc(any);
-    return rostring(s, s.size() - 1);
+    return this->read_until_any_inc(span<char>(&c, 1));
 }
 const rostring istringstream::read_until(char c) {
-    const rostring s = read_until_inc(c);
-    return rostring(s, s.size() - 1);
+    return this->read_until_any(span<char>(&c, 1));
 }
+const rostring istringstream::read_while(bool(*condition)(rostring)) {
+    int sIdx = idx;
+    while (readable() && condition(*this))
+        idx++;
+    return rostring(data, idx - sIdx, sIdx);
+}
+
+
+vector<rostring> rostring::split(const rostring any) const {
+    istringstream stream(*this);
+    vector<rostring> out;
+    while(stream.readable()) {
+        out.append(stream.read_until_any(any));
+        if (any.contains(stream.read_c<char>())) stream.read<char>();
+    }
+    return out;
+}
+vector<rostring> rostring::split(char c) const {
+    return split(rostring(&c, 1));
+}
+
 
 string format(const rostring fmt, ...) {
     va_list l;
@@ -208,14 +236,14 @@ string format(const rostring fmt, ...) {
     
     istringstream fmts(fmt);
     ostringstream ostr;
-    ostr.str.reserve(fmt.size());
+    ostr.data.reserve(fmt.size());
 
     const rostring fmtchars("ixXpbfsSIM");
     
     while (fmts.readable()) {
         char c = fmts.read<char>();
         if (c == '%') {
-            istringstream fmtArg(fmts.read_until_inc(fmtchars));
+            istringstream fmtArg(fmts.read_until_any_inc(fmtchars));
             int leadingZeroes = 0;
             int trailingZeroes = 3;
             char leadingChar = ' ';
@@ -277,17 +305,5 @@ string format(const rostring fmt, ...) {
         else ostr.write<char>(c);
     }
     va_end(l);
-    return ostr.str;
-}
-
-vector<rostring> rostring::split(const rostring any) const {
-    istringstream stream(*this);
-    vector<rostring> out;
-    while(stream.readable()) {
-        out.append(stream.read_until(any));
-    }
-    return out;
-}
-vector<rostring> rostring::split(char c) const {
-    return split(rostring(&c, 1));
+    return ostr.data;
 }

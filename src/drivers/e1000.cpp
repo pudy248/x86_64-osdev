@@ -1,6 +1,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <sys/idt.h>
 #include <sys/paging.h>
 #include <drivers/e1000.h>
@@ -125,7 +126,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     e1000_write(REG_RXDESCHEAD, 0);
     e1000_write(REG_RXDESCTAIL, E1000_NUM_RX_DESC);
     e1000_dev->rx_cur = 0;
-    e1000_write(REG_RCTRL, RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC | RCTL_BSIZE_2048);
+    e1000_write(REG_RCTRL, RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC | RCTL_BSIZE_8192);
 
     //Initialize TX
     for (int i = 0; i < E1000_NUM_TX_DESC; i++) {

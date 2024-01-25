@@ -105,6 +105,11 @@ void tsc_delay(uint64_t cycles) {
     while (rdtsc() - start < cycles);
 }
 
+void pit_delay(double seconds) {
+    double start = timepoint().unix_seconds();
+    while (timepoint().unix_seconds() - start < seconds);
+}
+
 /*
 void print_lres_timepoint(lres_timepoint rtc, int fmt) {
     switch(fmt) {

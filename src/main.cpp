@@ -1,15 +1,19 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <sys/idt.h>
 #include <sys/ktime.hpp>
+#include <sys/global.h>
 
 #include <drivers/pci.h>
 #include <drivers/keyboard.h>
+#include <lib/fat.hpp>
 
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <net/tcp.hpp>
+#include <net/http.hpp>
 
 extern "C" int __cxa_atexit(void (*f)(void *), void *objptr, void *dso) {
 	return 0;
@@ -24,9 +28,10 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     net_init();
     //outb(0x21, 0x0);
     //outb(0xA1, 0x80);
+
+    globals->fat_data.root_directory.inode->purge();
     
     vector<volatile tcp_connection*> conns;
-
     int z = 1;
     while (*(volatile int*)&z) {
         {
@@ -46,50 +51,13 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
             }
             if (conn->recieved_packets.size()) {
                 tcp_packet p = conn->recv();
-                vector<rostring> lines = rostring(p.contents).split("\n");
-                for (int i = 0; i < lines.size() && i < 3; i++)
-                    printf("%S\r\n", &lines[i]);
-                
-                if (lines[0].starts_with(rostring("GET /index.html HTTP/1.1")) ||
-                    lines[0].starts_with(rostring("GET / HTTP/1.1"))) {
-                    rostring fstr(
-                        "HTTP/1.1 200 OK\r\n"
-                        "Content-Type: text/html\r\n"
-                        "Content-Length: %i\r\n"
-                        "Accept-Ranges: bytes\r\n"
-                        "Connection: close\r\n"
-                        "\r\n%s"
-                    );
-                    
-                    const char* html = 
-                        "<!DOCTYPE html>"
-                        "<head><title>Super Cool Website</title></head>"
-                        "<body>"
-                            "<h1>Big text!</h1>"
-                            "<p><i>italics!</i></p>"
-                            "<p><a href=\"https://pudy248.github.io/noitaWandAtlas\">links!</a></p>"
-                            "<p>More pending?</p>"
-                        "</body>"
-                    ;
-                    string response = format(fstr, strlen(html), html);
-
-                    conn->send({ span<char>(response) });
-                }
-                else if (lines[0].starts_with(rostring("GET"))) {
-                    rostring response(
-                        "404 Not Found\r\n"
-                        "Content-Type: text/plain\r\n"
-                        "Content-Length: 0\r\n"
-                        "Connection: close\r\n"
-                    );
-
-                    conn->send({ span<char>(response) });
+                if (http_process(conn, p)) {
                     conn->close();
                     tcp_destroy(conn);
                     conns.erase(i);
                     i--;
                 }
-                free((void*)p.contents.unsafe_arr());
+                free(p.contents.unsafe_arr());
             }
         }
     }

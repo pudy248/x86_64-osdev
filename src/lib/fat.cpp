@@ -1,280 +1,336 @@
+#include <cstdint>
+
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <kcstring.h>
-#include <kmath.h>
-#include <drivers/ahci.h>
+#include <kprint.h>
 #include <lib/fat.hpp>
+#include <sys/ktime.hpp>
+#include <sys/global.h>
+#include <stl/vector.hpp>
+#include <drivers/ahci.h>
 
-static uint16_t sectorsPerCluster;
-static uint32_t firstClusterLBA;
-static uint16_t bytesPerCluster;
-static uint32_t firstClusterAddr;
-static fat_table fatTable;
+struct a_packed partition_entry {
+    uint8_t     attributes;
+    uint8_t     chs_start[3];
+    uint8_t     sysid;
+    uint8_t     chs_end[3];
+    uint32_t    lba_start;
+    uint32_t    lba_size;
+};
 
-static fat32_bpb* bpb = (fat32_bpb*)0x200000;
+struct a_packed partition_table {
+    uint32_t    disk_id;
+    uint16_t    reserved;
+    partition_entry entries[4];
+};
 
-static fat_table get_fat_addr(fat32_bpb* bpb, uint8_t fat_index) {
-    if (fat_index > bpb->fat_tables) return (fat_table)0;
-    uint32_t baseAddr = (uint64_t)bpb + bpb->bytes_per_sector * bpb->reserved_sectors;
-    uint32_t tableSize = (uint64_t)bpb->bytes_per_sector * bpb->sectors_per_fat32;
-    return (fat_table)(uint64_t)(baseAddr + tableSize * fat_index);
-}
-void fat_init(partition_entry* partition, fat32_bpb* bpb) {
-    sectorsPerCluster = bpb->sectors_per_cluster;
-    firstClusterLBA = partition->lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
-    bytesPerCluster = sectorsPerCluster * bpb->bytes_per_sector;
-    firstClusterAddr = (uint64_t)bpb + bpb->bytes_per_sector * (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
-    fatTable = get_fat_addr(bpb, 0);
-}
-static uint32_t get_cluster_lba(uint32_t cluster) {
-    return firstClusterLBA + (cluster - 2) * sectorsPerCluster;
-}
-void* get_cluster_addr(uint32_t cluster) {
-    return (void*)(uint64_t)(firstClusterAddr + (cluster - 2) * bytesPerCluster);
-}
+struct a_packed fat32_bpb {
+    //FAT BPB
+    char        jump[3];
+    char        oem_name[8];
+    uint16_t    bytes_per_sector;
+    uint8_t     sectors_per_cluster;
+    uint16_t    reserved_sectors;
+    uint8_t     fat_tables;
+    uint16_t    root_dir_entries;
+    uint16_t    total_sectors_short;
+    uint8_t     media_descriptor_type;
+    uint16_t    sectors_per_fat;
+    uint16_t    sectors_per_track;
+    uint16_t    num_heads;
+    uint32_t    num_hidden_sectors;
+    uint32_t    total_sectors_long;
+    //FAT32 EBPB
+    uint32_t    sectors_per_fat32;
+    uint16_t    fat_flags;
+    uint16_t    fat_version;
+    uint32_t    root_cluster_num;
+    uint16_t    fsinfo_sector;
+    uint16_t    backup_boot_sector;
+    uint8_t     reserved[12];
+    uint8_t     drive_num;
+    uint8_t     reserved2;
+    uint8_t     signature;
+    uint32_t    volume_id;
+    char        volume_label[11];
+    char        volume_identifier[8];
+    
+    char padding[512 - 90];
+};
+struct fat_date {
+    uint16_t    day:5;
+    uint16_t    month:4;
+    uint16_t    year:7; //since 1980
+};
+struct fat_time {
+    uint16_t    dseconds:5; //double-seconds, 1-30
+    uint16_t    minute:6;
+    uint16_t    hour:5;
+};
 
-static uint32_t count_consecutive_clusters(uint32_t startCluster) {
-    uint32_t c = startCluster;
-    uint32_t i = 0;
-    while (fatTable[c] == c + 1) {
-        i++;
+struct a_packed fat_file_entry {
+    char        filename[8];
+    char        extension[3];
+    uint8_t     attributes;
+    uint16_t     user_attributes;
+    fat_time    creation_time;
+    fat_date    creation_date;
+    fat_date    accessed_date;
+    uint16_t    cluster_high;
+    fat_time    modified_time;
+    fat_date    modified_date;
+    uint16_t    cluster_low;  
+    uint32_t    file_size;
+};
+
+struct a_packed fat_file_lfn {
+    uint8_t position; //Last entry masked with 0x40
+    uint16_t chars_1[5];
+    uint8_t flags; //Always 0x0f
+    uint8_t entry_type; //Always 0
+    uint8_t checksum;
+    uint16_t chars_2[6];
+    uint16_t reserved2;
+    uint16_t chars_3[2];
+};
+
+struct a_packed fat_dir_ent {
+    union {
+        fat_file_entry file;
+        fat_file_lfn lfn;
+    };
+};
+
+#define MBR_PARTITION_START     0x1b8
+#define PARTITION_ATTR_ACTIVE   0x80
+#define SIG_MBR_FAT32           0x0c
+#define SIG_BPB_FAT32           0x29
+
+#define FAT_TABLE_CHAIN_STOP    0x0ffffff8
+
+static uint64_t cluster_lba(uint32_t cluster) {
+    return (uint64_t)(cluster - 2) * globals->fat_data.sectors_per_cluster + globals->fat_data.cluster_lba_offset;
+}
+static uint32_t count_consecutive_clusters(uint32_t cluster) {
+    uint32_t c = cluster;
+    while (globals->fat_data.fat_tables[0][c] == c + 1)
         c++;
-    }
-    return i + 1;
+    return c - cluster + 1;
 }
-void read_cluster_chain(void* address, uint32_t clusterStart, uint32_t clusterCount) {
-    while (clusterCount && clusterStart && (clusterStart & 0x0fffffff) < 0x0ffffff7) {
-        uint32_t count = count_consecutive_clusters(clusterStart);
-        count = min(clusterCount, count);
-        clusterCount -= count;
-
-        uint32_t lbaStart = get_cluster_lba(clusterStart);
-        uint32_t lbaCount = count * sectorsPerCluster;
-        read_disk(address, lbaStart, lbaCount);
-        *(uint64_t*)&address += count * bytesPerCluster;
-        clusterStart = fatTable[clusterStart + count - 1];
-    }
-
+static vector<fat_disk_span> read_file_layout(uint32_t cluster) {
+    vector<fat_disk_span> layout(1);
+    do {
+        uint32_t count = count_consecutive_clusters(cluster);
+        layout.append( {cluster, count} );
+        cluster = globals->fat_data.fat_tables[0][cluster + count - 1];
+    } while (cluster != FAT_TABLE_CHAIN_STOP);
+    return layout;
 }
 
-static uint8_t fat_lfn_checksum(const uint8_t *pFCBName)
-{
-   uint8_t sum = 0;
-   for (int i = 11; i; i--)
-      sum = ((sum & 1) << 7) + (sum >> 1) + *pFCBName++;
-   return sum;
-}
-
-static char toupper(char c) { return c; }
-
-fat_file create_file(fat_file dir, const char* name, uint8_t flags, uint64_t reserve_size) {
-    //--------------------+
-    //  Allocate clusters |
-    //--------------------+
-    uint32_t clusterCount = (reserve_size + bytesPerCluster - 1) / bytesPerCluster;
-    uint32_t firstCluster = 0;
-    uint32_t lastCluster = 0;
-    uint32_t nextCluster = 3;
-    while (clusterCount) {
-        while (fatTable[nextCluster++]);
-        if (!firstCluster) firstCluster = nextCluster;
-        if (lastCluster) fatTable[lastCluster] = nextCluster;
-        lastCluster = nextCluster;
-        clusterCount--;
-    }
-    if (lastCluster) fatTable[lastCluster] = FAT_TABLE_CHAIN_STOP;
-    else firstCluster = FAT_TABLE_CHAIN_STOP;
-
-    //-------------------+
-    //  Create FAT entry |
-    //-------------------+
-    fat_disk_entry f;
-    memset(f.filename, ' ', 8);
-    memset(f.extension, ' ', 3);
-    f.flags = flags;
-    f.reserved = 0;
-    f.creation_tenths = 0;
-    f.creation_time = {1, 0, 0};
-    f.creation_date = {1, 1, 0};
-    f.accessed_date = {1, 1, 0};
-    f.cluster_high = firstCluster >> 16;
-    f.modified_time = {1, 0, 0};
-    f.modified_date = {1, 1, 0};
-    f.cluster_low = firstCluster & 0xffff;
-    f.file_size = reserve_size;
+void fat_init() {
+    partition_table* partTable = (partition_table*)(0x7c00 + MBR_PARTITION_START);
+    int i = 0;
+    for (; i < 4; i++)
+        if (partTable->entries[i].sysid == SIG_MBR_FAT32) break;
+    kassert(i < 4, "No FAT32 partition found, was the MBR corrupted?\r\n");
+    fat32_bpb* bpb = new fat32_bpb();
+    read_disk(bpb, partTable->entries[i].lba_start, 1);
+    kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\r\n");
+    globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
+    globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
+    globals->fat_data.bytes_per_cluster = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
+    globals->fat_data.cluster_lba_offset = partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
     
-    int ctr = 0;
-    int j;
-    for (j = 0; name[j] != '.' && name[j] && ctr < 6; j++)
-        f.filename[ctr++] = toupper(name[j]);
-    if (ctr == 6 && name[j] != '.' && name[j]) {
-        f.filename[ctr++] = '~';
-        f.filename[ctr++] = '1';
-    }
-    ctr = 0;
-    for (; name[j] != '.' && name[j]; j++); 
-    if (name[j]) j++;
-    for (; name[j] && ctr < 3; j++)
-        f.extension[ctr++] = toupper(name[j]);
-    
-    //---------------------+
-    //  Create LFN entries |
-    //---------------------+
-    int nameLen = strlen(name);
-    int nLFNs = (nameLen + 12) / 13;
-    fat_disk_lfn names[16];
-    j = 0;
-    for (int i = 0; i < nLFNs; i++) {
-        int lfnIdx = nLFNs - i - 1;
-        names[lfnIdx].flags = 0x0f;
-        names[lfnIdx].entry_type = 0;
-        names[lfnIdx].position = (i + 1) | (!lfnIdx ? 0x40 : 0);
-        names[lfnIdx].checksum = fat_lfn_checksum((uint8_t*)f.filename);
-        names[lfnIdx].reserved2 = 0;
-        memset(names[lfnIdx].chars_1, 0xff, 10);
-        memset(names[lfnIdx].chars_2, 0xff, 12);
-        memset(names[lfnIdx].chars_3, 0xff, 4);
-                
-        char stop = 0;
-        for (int lfnCtr = 0; lfnCtr < 5 && !stop; j++) {
-            names[lfnIdx].chars_1[lfnCtr++] = name[j];
-            if (!name[j]) stop = 1;
-        }
-        if (stop) break;
-        for (int lfnCtr = 0; lfnCtr < 6 && !stop; j++) {
-            names[lfnIdx].chars_2[lfnCtr++] = name[j];
-            if (!name[j]) stop = 1;
-        }
-        if (stop) break;
-        for (int lfnCtr = 0; lfnCtr < 2 && !stop; j++) {
-            names[lfnIdx].chars_3[lfnCtr++] = name[j];
-            if (!name[j]) stop = 1;
-        }
-        if (stop) break;
-    }
-    
-    //-----------------------+
-    //  Write entries to dir |
-    //-----------------------+
-    fat_disk_entry* entries = (fat_disk_entry*)dir.dataPtr;
-    int dirIdx = 0;
-    int nConsecutive = 0;
-    while (nConsecutive < nLFNs + 1) {
-        if (!entries[dirIdx].filename[0])
-            nConsecutive++;
-        else nConsecutive = 0;
-        dirIdx++;
-    }
-    dirIdx -= nConsecutive;
-    for (int i = 0; i < nLFNs; i++)
-        ((fat_disk_lfn*)entries)[dirIdx++] = names[i];
-    entries[dirIdx++] = f;
-    
-    fat_file ret;
-    strcpy(ret.filename, name);
-    ret.entry = &entries[dirIdx - 1];
-    ret.dataPtr = get_cluster_addr(((uint32_t)ret.entry->cluster_high << 16) | ret.entry->cluster_low);
-    memset(ret.dataPtr, 0, reserve_size);
-    return ret;
-}
-fat_file create_directory(fat_file dir, const char* name, uint8_t flags) {
-    fat_file newDir = create_file(dir, name, flags | FAT_ATTRIB_DIR, 512);
-    create_symlink(dir, ".", newDir.entry->flags | FAT_ATTRIB_HIDDEN, newDir);
-    create_symlink(dir, "..", dir.entry->flags | FAT_ATTRIB_HIDDEN, dir);
-    return newDir;
-}
-fat_file create_symlink(fat_file dir, const char* name, uint8_t flags, fat_file link) {
-    fat_file f = create_file(dir, name, flags, 0);
-    if (!link.entry) {
-        f.entry->file_size = 512;
-        f.entry->cluster_high = bpb->root_cluster_num >> 16;
-        f.entry->cluster_low = bpb->root_cluster_num & 0xffff;
-    }
-    f.entry->file_size = link.entry->file_size;
-    f.entry->cluster_high = link.entry->cluster_high;
-    f.entry->cluster_low = link.entry->cluster_low;
-    return f;
-}
-
-void delete_file(fat_file file) {
-    uint32_t clusterStart = ((uint32_t)file.entry->cluster_high << 16) | file.entry->cluster_low;
-    while (clusterStart && (clusterStart & 0x0fffffff) < 0x0ffffff7) {
-        uint32_t tmp = clusterStart;
-        clusterStart = fatTable[clusterStart];
-        fatTable[tmp] = 0;
+    bpb->fat_tables = 1;
+    globals->fat_data.fat_tables = vector<uint32_t*>(bpb->fat_tables);
+    for (int i = 0; i < bpb->fat_tables; i++) {
+        globals->fat_data.fat_tables.append((uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
+        read_disk(globals->fat_data.fat_tables[i], partTable->entries[i].lba_start + (bpb->reserved_sectors + i * bpb->sectors_per_fat32), bpb->sectors_per_fat32);
     }
 
-    int nLFNs = 0;
-    for (int dirIdx = -1; file.entry[dirIdx].flags == FAT_ATTRIB_LFN; dirIdx--)
-        nLFNs++;
-    
-    int i;
-    for (i = -nLFNs; file.entry[i + nLFNs + 1].filename[0]; i++)
-        file.entry[i] = file.entry[i + nLFNs + 1];
-    for (; file.entry[i].filename[0]; i++)
-        memset((void*)&file.entry[i], 0, sizeof(fat_disk_entry));
+    memset(&globals->fat_data.root_directory, 0, 2 * sizeof(FILE));
+
+    globals->fat_data.root_directory = FILE(new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIR, NULL, bpb->root_cluster_num));
+    globals->fat_data.working_directory = globals->fat_data.root_directory;
+    delete bpb;
 }
 
-void read_file(fat_file file, void* dest, uint64_t size) {
-    uint32_t clusterCount = (size + bytesPerCluster - 1) / bytesPerCluster;
-    read_cluster_chain(dest, ((uint32_t)file.entry->cluster_high << 16) | file.entry->cluster_low, clusterCount);
+fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, uint32_t start_cluster) :
+    filename(), filesize(filesize), attributes(attributes), opened(0), loaded(0), edited(0), references(0), parent(parent), start_cluster(start_cluster), disk_layout() {
+    data.unsafe_set(NULL, 0, 0);
 }
-void write_file(fat_file file, void* src, uint64_t size) {
-    uint32_t clusterCount = (size + bytesPerCluster - 1) / bytesPerCluster;
-    uint32_t nextCluster = ((uint32_t)file.entry->cluster_high) << 16 | file.entry->cluster_low;
-    while (clusterCount && nextCluster != FAT_TABLE_CHAIN_STOP) {
+/*
+fat_inode::fat_inode(fat_inode&& other) {
+    *this = std::move(other);
+}
+fat_inode& fat_inode::operator=(fat_inode&& other) {
+    print("FAT inode move assignment called!\r\n");
+    filename = other.filename;
+    filesize = other.filesize;
+    attributes = other.attributes;
+    opened = other.opened;
+    references = other.references;
+    loaded = other.loaded;
+    edited = other.edited;
+    parent = other.parent;
+    disk_layout = other.disk_layout;
+    if (attributes & FAT_ATTRIBS::DIR) this->children = other.children;
+    else this->data = other.data;
+    return *this;
+}*/
+fat_inode::~fat_inode() {
+    close();
+}
 
+static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLFNs) {
+    fat_file_entry* file = &entries[nLFNs].file;
+    fat_inode* inode = new fat_inode(file->file_size, file->attributes, parent, (uint32_t)file->cluster_high << 16 | file->cluster_low);
+    for (int lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
+        fat_file_lfn* lfn = &entries[lfnIdx].lfn;
+        int offset = ((lfn->position & 0x3f) - 1) * 13;
+        bool br = false;
+        for (int i = 0; !br && i < 5; i++) 
+            if (lfn->chars_1[i]) inode->filename.at(offset + i) = lfn->chars_1[i];
+            else br = true;
+        for (int i = 0; !br && i < 6; i++) 
+            if (lfn->chars_2[i]) inode->filename.at(offset + i + 5) = lfn->chars_2[i];
+            else br = true;
+        for (int i = 0; !br && i < 2; i++) 
+            if (lfn->chars_3[i]) inode->filename.at(offset + i + 11) = lfn->chars_3[i];
+            else br = true;
+        
     }
+    //printf("name: %S\r\n", &inode->filename);
+    return inode;
+}
+static void* read_from_disk_layout(fat_inode* inode) {
+    int cluster_idx = 0;
+    for (int i = 0; i < inode->disk_layout.size(); i++)
+        cluster_idx += inode->disk_layout.at(i).span_length;
+    void* dat = malloc(cluster_idx * globals->fat_data.bytes_per_cluster);
+    cluster_idx = 0;
+    int cluster = inode->disk_layout.at(0).sector_start;
+    for (int i = 0; i < inode->disk_layout.size(); i++) {
+        int sectors = inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
+        int lba = cluster_lba(cluster);
+        read_disk((void*)((uint64_t)dat + cluster_idx * globals->fat_data.bytes_per_cluster), lba, sectors);
+        cluster_idx += inode->disk_layout.at(i).span_length;
+    }
+    return dat;
 }
 
-fat_file get_fat_metadata(fat_disk_entry* entries) {
-    fat_file f;
-    fat_disk_lfn lfns[16];
-    f.entry = entries;
-    int nLFNs = 0;
-    for (int dirIdx = -1; entries[dirIdx].flags == FAT_ATTRIB_LFN; dirIdx--)
-        lfns[nLFNs++] = ((fat_disk_lfn*)entries)[dirIdx];
-    if (nLFNs > 0) {
-        for (int i = 0; i < nLFNs; i++) {
-            char stop = 0;
-            for (int j = 0; j < 5 && !stop; j++) {
-                f.filename[13 * ((lfns[i].position & 0x1f) - 1) + j] = lfns[i].chars_1[j];
-                if (!lfns[i].chars_1[j]) stop = 1;
+void fat_inode::open() {
+    if (opened) return;
+    disk_layout = read_file_layout(start_cluster);
+    opened = 1;
+}
+void fat_inode::read() {
+    if (loaded) return;
+    if(!opened) open();
+    void* dat = read_from_disk_layout(this);
+
+    if (attributes & FAT_ATTRIBS::DIR) {
+        fat_dir_ent* entries = (fat_dir_ent*)dat;
+        int idx = 0;
+        while (entries[idx].file.attributes) {
+            if ((entries[idx].file.attributes & FAT_ATTRIBS::VOL_ID) && entries[idx].file.attributes != FAT_ATTRIBS::LFN) {
+                idx++;
+                continue;
             }
-            if (stop) continue;
-            for (int j = 0; j < 6 && !stop; j++) {
-                f.filename[13 * ((lfns[i].position & 0x1f) - 1) + j + 5] = lfns[i].chars_2[j];
-                if (!lfns[i].chars_2[j]) stop = 1;
-            }
-            if (stop) continue;
-            for (int j = 0; j < 2 && !stop; j++) {
-                f.filename[13 * ((lfns[i].position & 0x1f) - 1) + j + 11] = lfns[i].chars_3[j];
-                if (!lfns[i].chars_3[j]) stop = 1;
-            }
+            int sidx = idx;
+            //printf("%i:%i\r\n", sidx, idx);
+            while (entries[idx].file.attributes == FAT_ATTRIBS::LFN) idx++;
+            int nLFNs = idx - sidx;
+            children.append(from_dir_ents(this, &entries[sidx], nLFNs));
+            //print("\r\n");
+            //pit_delay(1);
+            idx++;
         }
     }
-    else {
-        int ctr = 0;
-        for (int i = 0; i < 8 && entries->filename[i] != ' '; i++) f.filename[ctr++] = entries->filename[i];
-        if (entries->extension[0] != ' ') {
-            f.filename[ctr++] = '.';
-            for(int i = 0; i < 3 && entries->extension[i] != ' '; i++) f.filename[ctr++] = entries->extension[i];
-        }
-        f.filename[ctr++] = 0;
-    }
-    char shortname[12];
-    shortname[11] = 0;
-    memcpy(shortname, entries->filename, 11);
-    //printf("%08x - %s : %i lfns -> %s\r\n", (uint32_t)entries, shortname, nLFNs, f.filename);
-    return f;
+    else data = vector<char>((char*)dat, filesize);
+    free(dat);
+    loaded = 1;
 }
-int enum_dir(fat_file dir, fat_file* dest) {
-    int destIdx = 0;
-    fat_disk_entry* entries = (fat_disk_entry*)dir.dataPtr;
-    for (int dirIdx = 0; entries[dirIdx].filename[0]; dirIdx++) {
-        if (entries[dirIdx].flags == FAT_ATTRIB_LFN) continue;
-        dest[destIdx++] = get_fat_metadata(&entries[dirIdx]);
+void fat_inode::close() {
+    if (!opened) return;
+    if (attributes & FAT_ATTRIBS::DIR) {
+        for (int i = 0; i < children.size(); i++) {
+            if(!children.at(i)->references) delete children.at(i);
+        }
+        children.clear();
     }
-    return destIdx;
+    else data.clear();
+    disk_layout.clear();
+
+    opened = 0;
+    loaded = 0;
+}
+void fat_inode::purge() {
+    if (attributes & FAT_ATTRIBS::DIR) {
+        for (int i = 0; i < children.size(); i++) children.at(i)->purge();
+         
+    }
+    if (!references) {
+        if (attributes & FAT_ATTRIBS::DIR) children.clear();
+        else data.clear();
+        disk_layout.clear();
+
+        opened = 0;
+        loaded = 0;
+    }
+}
+
+FILE::FILE() : FILE(NULL) { };
+FILE::FILE(fat_inode* inode) : inode(inode) {
+    if (inode) {
+        inode->read();
+        inode->references++;
+    }
+}
+FILE::FILE(const FILE& other) : inode(other.inode) {
+    if (inode) inode->references++;
+}
+FILE::FILE(FILE&& other) : inode(other.inode) {
+    other.inode = NULL;
+}
+FILE& FILE::operator=(const FILE& other) {
+    inode = other.inode;
+    if (inode) inode->references++;
+    return *this;
+}
+FILE& FILE::operator=(FILE&& other) {
+    inode = other.inode;
+    other.inode = NULL;
+    return *this;
+}
+FILE::~FILE() {
+    if (inode) {
+        inode->references--;
+        //if (!inode->references) inode->close();
+    }
+}
+
+FILE file_open(FILE& directory, rostring filename) {
+    if (!directory.inode) return FILE();
+    if (!(directory.inode->attributes & FAT_ATTRIBS::DIR)) return FILE();
+    for (int i = 0; i < directory.inode->children.size(); i++) {
+        if (directory.inode->children[i]->filename == filename) return FILE(directory.inode->children[i]);
+    }
+    return NULL;
+}
+FILE file_open(rostring absolute_path) {
+    vector<rostring> parts = absolute_path.split("\\/");
+    FILE file = globals->fat_data.root_directory;
+    for (int i = 0; i < parts.size(); i++) {
+        if (!file.inode) return FILE();
+        if (!parts[i].size()) continue;
+        if (parts[i] == ".") continue;
+        if (parts[i] == "..") {
+            file = FILE(file.inode->parent);
+            continue;
+        }
+        file = file_open(file, parts[i]);
+    }
+    return file;
 }
