@@ -30,12 +30,12 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     //outb(0xA1, 0x80);
 
     globals->fat_data.root_directory.inode->purge();
+    vector<tcp_connection*> conns;
     
-    vector<volatile tcp_connection*> conns;
-    int z = 1;
-    while (*(volatile int*)&z) {
+    while (true) {
+        net_process();
         {
-            volatile tcp_connection* c = NULL;
+            tcp_connection* c = NULL;
             if (!c) c = tcp_accept(80);
             if (!c) c = tcp_accept(8080);
             if(c) {
@@ -43,7 +43,7 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
             }
         }
         for (int i = 0; i < conns.size(); i++) {
-            volatile tcp_connection* conn = conns.at(i);
+            tcp_connection* conn = conns.at(i);
             if (conn->state == TCP_STATE::CLOSED) {
                 tcp_destroy(conn);
                 conns.erase(i);

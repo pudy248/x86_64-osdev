@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 
 #include <kstddefs.h>
@@ -143,7 +144,7 @@ void fat_init() {
     globals->fat_data.cluster_lba_offset = partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
     
     bpb->fat_tables = 1;
-    globals->fat_data.fat_tables = vector<uint32_t*>(bpb->fat_tables);
+    globals->fat_data.fat_tables.unsafe_set(NULL, 0, 0);
     for (int i = 0; i < bpb->fat_tables; i++) {
         globals->fat_data.fat_tables.append((uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
         read_disk(globals->fat_data.fat_tables[i], partTable->entries[i].lba_start + (bpb->reserved_sectors + i * bpb->sectors_per_fat32), bpb->sectors_per_fat32);

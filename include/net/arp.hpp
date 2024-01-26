@@ -37,7 +37,7 @@ struct arp_entry {
 extern vector<arp_entry> arp_table;
 
 void arp_process(ethernet_packet packet);
-void arp_send(uint16_t op, arp_entry self, arp_entry target);
+int arp_send(uint16_t op, arp_entry self, arp_entry target);
 void arp_announce(ipv4_t ip);
 
 void arp_update(mac_t mac, ipv4_t ip);

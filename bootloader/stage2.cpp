@@ -1,3 +1,4 @@
+#include "sys/init.h"
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
@@ -28,14 +29,13 @@ static int clockspeed_MHz() {
 
 extern "C" void stage2_main(unsigned int driveNum);
 extern "C" void stage2_main(unsigned int driveNum) {
-    mem_init();
-    globals->vga_console = console();
+    init_libcpp();
     idt_init();
     pic_init();
     irq_set(0, &inc_pit);
     time_init();
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 2; i++)
         clockspeed_MHz();
 
     //////////////////////////////////////////////////////////

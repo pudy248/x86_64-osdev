@@ -4,18 +4,20 @@ SECTIONS
 {
     .text 0x1000000 : {
         QUAD(0x1000000);
-        *(.text);
-        *(.text.*);
+        *(.text*);
+        start_ctors = .;
+        *(SORT(.ctors*))
+        end_ctors = .;
+        start_dtors = .;
+        *(SORT(.dtors*))
+        end_dtors = .;
     }
     .data : {
-        *(.data);
-        *(.data.*);
-        *(.rodata);
-        *(.rodata.*);
+        *(.data*);
+        *(.rodata*);
     }
     .bss : {
-        *(.bss);
-        *(.bss.*);
+        *(.bss*);
     }
 
     /DISCARD/ : {

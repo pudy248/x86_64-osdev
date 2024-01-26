@@ -1,7 +1,10 @@
-#include "sys/ktime.hpp"
-#include <kstddefs.h>
+#include <cstddef>
+#include <utility>
+
 #include <kstdlib.hpp>
-#include <kstring.hpp>
+#include <kprint.h>
+#include <stl/vector.hpp>
+#include <sys/ktime.hpp>
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <net/ipv4.hpp>
@@ -11,6 +14,9 @@
 
 mac_t global_mac;
 ipv4_t global_ip;
+
+static vector<ethernet_packet>* packet_queue_front;
+static vector<ethernet_packet>* packet_queue_back;
 
 void net_init() {
     pci_device* e1000_pci = pci_match(2, 0);
@@ -22,8 +28,8 @@ void net_init() {
     printf("Detected Ethernet device: %04x:%04x\r\n", e1000_pci->vendor_id, e1000_pci->device_id);
     e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
     global_mac = new_mac(e1000_dev->mac);
-    memset(&arp_table, 0, sizeof(vector<arp_entry>));
-    memset(&open_connections, 0, sizeof(vector<tcp_connection*>));
+    packet_queue_front = new vector<ethernet_packet>();
+    packet_queue_back = new vector<ethernet_packet>();
     e1000_enable();
 }
 
@@ -37,23 +43,35 @@ void ethernet_recieve(void* buf, uint16_t size) {
     
     uint16_t newSize = size - sizeof(etherframe_t);
     char* contents = (char*)((uint64_t)buf + sizeof(etherframe_t));
+    char* newContents = (char*)malloc(newSize);
+    memcpy(newContents, contents, newSize);
     
-    ethernet_packet packet = {
-        timepoint(), 0, 0, htons(frame->type), span<char>(contents, newSize)
-    };
+    ethernet_packet packet = { timepoint(), 0, 0, htons(frame->type), span<char>(newContents, newSize) };
     memcpy(&packet.src, &frame->src, 6);
     memcpy(&packet.dst, &frame->dst, 6);
 
-    switch(packet.type) {
-        case ETHERTYPE_ARP:
-            arp_process(packet);
-            break;
-        case ETHERTYPE_IPv4:
-            ipv4_process(packet);
-            break;
-    }
+    packet_queue_back->append(packet);
 }
-void ethernet_send(ethernet_packet packet) {
+
+void net_process() {
+    if (packet_queue_front->size()) {
+        for (ethernet_packet p : *packet_queue_front) {
+            switch(p.type) {
+                case ETHERTYPE_ARP:
+                    arp_process(p);
+                    break;
+                case ETHERTYPE_IPv4:
+                    ipv4_process(p);
+                    break;
+            }
+            free(p.contents.unsafe_arr());
+        }
+        packet_queue_front->clear();
+    }
+    std::swap(packet_queue_front, packet_queue_back);
+}
+
+int ethernet_send(ethernet_packet packet) {
     void* buf = malloc(packet.contents.size() + sizeof(etherframe_t));
     etherframe_t* frame = (etherframe_t*)buf;
     memcpy(&frame->dst, &packet.dst, 6);
@@ -61,6 +79,7 @@ void ethernet_send(ethernet_packet packet) {
     frame->type = htons(packet.type);
 
     memcpy((void*)((uint64_t)buf + sizeof(etherframe_t)), packet.contents.unsafe_arr(), packet.contents.size());
-    e1000_send(buf, packet.contents.size() + sizeof(etherframe_t));
+    int handle = e1000_send_async(buf, packet.contents.size() + sizeof(etherframe_t));
     free(buf);
+    return handle;
 }

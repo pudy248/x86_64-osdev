@@ -1,6 +1,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <stl/vector.hpp>
@@ -90,7 +91,7 @@ void arp_process(ethernet_packet packet) {
     }
 }
 
-void arp_send(uint16_t op, arp_entry self, arp_entry target) {
+int arp_send(uint16_t op, arp_entry self, arp_entry target) {
     mac_t eth_dst;
     if (!target.mac)
         eth_dst = MAC_BCAST;
@@ -114,8 +115,9 @@ void arp_send(uint16_t op, arp_entry self, arp_entry target) {
     packet.type = ETHERTYPE_ARP;
     packet.contents = span<char>((char*)h, sizeof(arp_header<ipv4_t>));
 
-    ethernet_send(packet);
+    int handle = ethernet_send(packet);
     delete h;
+    return handle;
 }
 
 void arp_announce(ipv4_t ip) {

@@ -5,13 +5,16 @@ SECTIONS
     .bootloader 0x7C00: AT(0) {
         KEEP(tmp/stage0.o(.text));
         KEEP(tmp/stage1.o(.text));
-        *(.text);
-        *(.data);
-        *(.data.*);
-        *(.rodata);
-        *(.rodata.*);
-        *(.bss);
-        *(.bss.*);
+        *(.text*);
+        start_ctors = .;
+        *(SORT(.ctors*))
+        end_ctors = .;
+        start_dtors = .;
+        *(SORT(.dtors*))
+        end_dtors = .;
+        *(.data*);
+        *(.rodata*);
+        *(.bss*);
     }
 
     .fat 0x7C00 + 0x8000: AT(0x8000) {

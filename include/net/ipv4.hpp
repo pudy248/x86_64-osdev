@@ -29,4 +29,4 @@ struct ip_packet {
 };
 
 void ipv4_process(ethernet_packet packet);
-void ipv4_send(ip_packet packet);
+int ipv4_send(ip_packet packet);

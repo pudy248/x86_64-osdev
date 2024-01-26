@@ -19,7 +19,7 @@ struct global_data_t {
     void* allocs;
 
     void(*irq_fns[16])(void);
-    uint64_t elapsedPITs;
+    volatile uint64_t elapsedPITs;
 
     ahci_device* ahci;
     fat_sys_data fat_data;

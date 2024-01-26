@@ -2,6 +2,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <sys/global.h>
 #include <sys/ktime.hpp>
 
@@ -81,23 +82,17 @@ timepoint::timepoint(uint64_t micros_override) {
 }
 
 timepoint::timepoint() {
-	int32_t subcnt = inb(0x40);
+	uint32_t subcnt = inb(0x40);
 	subcnt |= ((uint32_t)inb(0x40))<<8;
     subcnt = 65536 - subcnt;
     uint64_t cnt = (uint64_t)((int64_t)globals->elapsedPITs * 65536 + subcnt);
-    
-    uint64_t micros = cnt * 1000000LLU / 1193182LLU;
-    *this = timepoint(micros);
+    //printf("%i %i\r\n", globals->elapsedPITs, subcnt);
+    this->micros = cnt * 1000000LLU / 1193182LLU;
 }
 
 double timepoint::unix_seconds() {
-	int32_t subcnt = inb(0x40);
-	subcnt |= ((uint32_t)inb(0x40))<<8;
-    subcnt = 65536 - subcnt;
-    uint64_t cnt = (uint64_t)((int64_t)globals->elapsedPITs * 65536 + subcnt);
-    
-    double secs = (double)cnt / 1193182LLU;
-    return secs;
+    double unixsecs = micros / 1000000.0; 
+    return unixsecs;
 }
 
 void tsc_delay(uint64_t cycles) {

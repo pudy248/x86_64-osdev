@@ -12,10 +12,12 @@ namespace TCP_STATE {
         SYN_SENT,
         SYNACK_SENT,
         ESTABLISHED,
+        PSH_SENT,
         FIN_SENT,
         FINACK_SENT,
         CLOSED
     };
+    constexpr bool valid(TCP_STATE s);
 }
 
 struct tcp_flags {
@@ -62,26 +64,26 @@ struct tcp_connection{
     uint32_t start_ack;
     uint32_t cur_seq;
     uint32_t cur_ack;
+    uint32_t cli_ack;
     
     int state;
-    int in_flight;
 
     tcp_packet_partial partial;
     vector<tcp_packet> recieved_packets;
 
     tcp_connection() = default;
 
-    void listen(uint16_t port) volatile;
-    void connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port) volatile;
-    void send(tcp_packet p) volatile;
-    tcp_packet recv() volatile;
-    void close() volatile;
+    void listen(uint16_t port);
+    void connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port);
+    int send(tcp_packet p);
+    tcp_packet recv();
+    void close();
 };
 
 extern vector<tcp_connection*> open_connections;
 
 void tcp_process(ip_packet packet);
 
-volatile tcp_connection* tcp_create();
-volatile tcp_connection* tcp_accept(uint16_t port);
-void tcp_destroy(volatile tcp_connection* conn);
+tcp_connection* tcp_create();
+tcp_connection* tcp_accept(uint16_t port);
+void tcp_destroy(tcp_connection* conn);

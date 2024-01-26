@@ -1,6 +1,11 @@
 #pragma once
+#include <cstddef>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
+
+#define abs(a) (a < 0 ? -a : a)
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
 
 template<typename T> class span {
 protected:
@@ -118,6 +123,13 @@ public:
 	}
     constexpr bool ends_with(const T* ptr, int length) const {
 		return ends_with(span<T>(ptr, length));
+	}
+
+	constexpr T* begin() const {
+		return unsafe_arr();
+	}
+	constexpr T* end() const {
+		return unsafe_arr() + size();
 	}
 
 	constexpr bool equals(const span<T> other) const {

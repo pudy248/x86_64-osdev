@@ -8,6 +8,7 @@
 #define REG_EERD        0x0014
 #define REG_CTRL_EXT    0x0018
 #define REG_ICR         0x00C0
+#define REG_ITR         0x00C8
 #define REG_IMS         0x00D0    
 #define REG_ICS         0x00C8
 #define REG_IMC         0x00D8
@@ -98,8 +99,10 @@
 #define TSTA_LC                         (1 << 2)    // Late Collision
 #define LSTA_TU                         (1 << 3)    // Transmit Underrun
 
-#define E1000_NUM_RX_DESC 32
+#define E1000_NUM_RX_DESC 64
 #define E1000_NUM_TX_DESC 8
+#define E1000_BUFSIZE_FLAGS RCTL_BSIZE_8192
+#define E1000_BUFSIZE 0x2000
 
 struct a_packed e1000_rx_desc {
         volatile uint64_t addr;
@@ -137,4 +140,5 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
 void e1000_enable();
 void e1000_int_handler(void);
 void e1000_receive(void);
-void e1000_send(void* data, uint16_t len);
+int e1000_send_async(void* data, uint16_t len);
+void net_await(int handle);

@@ -6,7 +6,7 @@
 #include <net/tcp.hpp>
 #include <net/http.hpp>
 
-bool http_process(volatile tcp_connection* conn, tcp_packet p) {
+bool http_process(tcp_connection* conn, tcp_packet p) {
     vector<rostring> lines = rostring(p.contents).split("\n");
     vector<rostring> args = lines[0].split(' ');
 
@@ -44,7 +44,7 @@ bool http_process(volatile tcp_connection* conn, tcp_packet p) {
     return false;
 }
 
-void http_send(volatile tcp_connection* conn, rostring type, rostring response) {
+void http_send(tcp_connection* conn, rostring type, rostring response) {
     rostring fstr(
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: %S\r\n"
@@ -58,7 +58,7 @@ void http_send(volatile tcp_connection* conn, rostring type, rostring response) 
     conn->send({ span<char>(fresponse) });
 }
 
-void http_error(volatile tcp_connection* conn, rostring code) {
+void http_error(tcp_connection* conn, rostring code) {
     rostring fstr(
         "%S\r\n"
         "Content-Length: 0\r\n"

@@ -1,3 +1,4 @@
+#include "sys/ktime.hpp"
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
@@ -115,7 +116,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     
     //Initialize RX
     for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
-        e1000_dev->rx_descs[i].addr = (volatile uint64_t)walloc(0x1000, 0x10);
+        e1000_dev->rx_descs[i].addr = (volatile uint64_t)walloc(E1000_BUFSIZE, 0x10);
         e1000_dev->rx_descs[i].status = 0;
     }
     e1000_write(REG_RXDESCLO, (uint64_t)e1000_dev->rx_descs);
@@ -126,11 +127,11 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     e1000_write(REG_RXDESCHEAD, 0);
     e1000_write(REG_RXDESCTAIL, E1000_NUM_RX_DESC);
     e1000_dev->rx_cur = 0;
-    e1000_write(REG_RCTRL, RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC | RCTL_BSIZE_8192);
+    e1000_write(REG_RCTRL, RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC | E1000_BUFSIZE_FLAGS);
 
     //Initialize TX
     for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-        e1000_dev->tx_descs[i].addr = 0;
+        e1000_dev->tx_descs[i].addr = (volatile uint64_t)walloc(E1000_BUFSIZE, 0x10);
         e1000_dev->tx_descs[i].cmd = 0;
         e1000_dev->tx_descs[i].status = TSTA_DD;
     }
@@ -142,8 +143,8 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     e1000_dev->tx_cur = 0;
     e1000_write(REG_TCTRL,  TCTL_EN | TCTL_PSP | (15 << TCTL_CT_SHIFT) | (64 << TCTL_COLD_SHIFT) | TCTL_RTLC);
     if (e1000_pci.device_id != 0x100E)
-        e1000_write(REG_TCTRL,  0b0110000000000111111000011111010);
-    e1000_write(REG_TIPG,  0x0060200A);
+        e1000_write(REG_TCTRL, 0b0110000000000111111000011111010);
+    e1000_write(REG_TIPG, 0x0060200A);
 
     //Enable interrupts
     //pci_write_register(e1000_pci.address, 15, 5);
@@ -153,8 +154,9 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     irq_set(e1000_pci.interrupt_line, &e1000_int_handler);
     outb(0x21, 0x2);
     outb(0xA1, 0x80);
-    //e1000_write(REG_IMC ,0xffffffff);
-    //e1000_write(REG_IMS ,0x1F6DC);
+    //e1000_write(REG_IMC, 0xffffffff);
+    //e1000_write(REG_IMS, 0x1F6DC);
+    e1000_write(REG_ITR, 0);
     print("e1000e network card initialized.\r\n\n");
 }
 
@@ -183,31 +185,62 @@ void e1000_int_handler() {
 }
  
 void e1000_receive() {
+    int tail = e1000_read(REG_RXDESCTAIL);
+    int head = e1000_read(REG_RXDESCHEAD);
+    if (head < tail) head += E1000_NUM_RX_DESC;
+    //printf("%02i:%02i\r\n", tail, head);
     uint16_t old_cur;
     char got_packet = 0;
-    while((e1000_dev->rx_descs[e1000_dev->rx_cur].status & 0x1)) {
-        got_packet = 1;
+    double t1 = timepoint().unix_seconds();
+    for (int i = 0; i < head - tail - 1; i++) {
+        //printf("Reading %i\r\n", e1000_dev->rx_cur);
+        if (~e1000_dev->rx_descs[e1000_dev->rx_cur].status & 0x1) {
+            printf("RX desc %i not ready! %02i:%02i.\r\n", e1000_dev->rx_cur, tail, head);
+            while (~e1000_dev->rx_descs[e1000_dev->rx_cur].status & 0x1) asmv("nop");
+        }
         uint8_t *buf = (uint8_t *)e1000_dev->rx_descs[e1000_dev->rx_cur].addr;
         uint16_t len = e1000_dev->rx_descs[e1000_dev->rx_cur].length;
-
         receive_fn(buf, len);
-
+        double t2 = timepoint().unix_seconds();
+        //printf("Done reading %i in %fms\r\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
+        t1 = t2;
+        e1000_dev->rx_descs[e1000_dev->rx_cur].status = 0;
+        old_cur = e1000_dev->rx_cur;
+        e1000_dev->rx_cur = (e1000_dev->rx_cur + 1) % E1000_NUM_RX_DESC;
+    }
+    e1000_write(REG_RXDESCTAIL, old_cur);
+    /*
+    while((e1000_dev->rx_descs[e1000_dev->rx_cur].status & 0x1)) {
+        got_packet = 1;
+        printf("Reading %i\r\n", e1000_dev->rx_cur);
+        uint8_t *buf = (uint8_t *)e1000_dev->rx_descs[e1000_dev->rx_cur].addr;
+        uint16_t len = e1000_dev->rx_descs[e1000_dev->rx_cur].length;
+        receive_fn(buf, len);
+        double t2 = timepoint().unix_seconds();
+        //printf("Done reading %i in %fms\r\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
+        t1 = t2;
         e1000_dev->rx_descs[e1000_dev->rx_cur].status = 0;
         old_cur = e1000_dev->rx_cur;
         e1000_dev->rx_cur = (e1000_dev->rx_cur + 1) % E1000_NUM_RX_DESC;
         e1000_write(REG_RXDESCTAIL, old_cur);
-    }
-    if (!got_packet)
-        ;//printf("No packet!\r\n");
+    }*/
+    //if (!got_packet)
+    //    print("No packet!\r\n");
 }
 
-void e1000_send(void* data, uint16_t len) {
+int e1000_send_async(void* data, uint16_t len) {
+    while (~e1000_dev->tx_descs[e1000_dev->tx_cur].status & 1) asmv("nop");
+    memcpy((void*)e1000_dev->tx_descs[e1000_dev->tx_cur].addr, data, len);
     e1000_dev->tx_descs[e1000_dev->tx_cur].length = len;
-    e1000_dev->tx_descs[e1000_dev->tx_cur].addr = (uint64_t)data;
     e1000_dev->tx_descs[e1000_dev->tx_cur].cmd = CMD_EOP | CMD_IFCS | CMD_RS;
     e1000_dev->tx_descs[e1000_dev->tx_cur].status = 0;
-    uint8_t old_cur = e1000_dev->tx_cur;
+    uint8_t handle = e1000_dev->tx_cur;
     e1000_dev->tx_cur = (e1000_dev->tx_cur + 1) % E1000_NUM_TX_DESC;
     e1000_write(REG_TXDESCTAIL, e1000_dev->tx_cur);   
-    while(!(e1000_dev->tx_descs[old_cur].status & 1));
+    //e1000_await(handle);
+    return handle;
+}
+
+void net_await(int handle) {
+    while(~e1000_dev->tx_descs[handle].status & 1) asmv("nop");
 }

@@ -1,6 +1,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <kprint.h>
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <net/ipv4.hpp>
@@ -52,7 +53,7 @@ void ipv4_process(ethernet_packet packet) {
     }
 }
 
-void ipv4_send(ip_packet packet) {
+int ipv4_send(ip_packet packet) {
     void* buf = malloc(packet.contents.size() + sizeof(ip_header));
     ip_header* ip = (ip_header*)buf;
     ip->ver_ihl = 0x45;
@@ -74,6 +75,7 @@ void ipv4_send(ip_packet packet) {
     eth.dst = arp_translate_ip(packet.dst);
     eth.contents = span<char>((char*)buf, packet.contents.size() + sizeof(ip_header));
 
-    ethernet_send(eth);
+    int handle = ethernet_send(eth);
     free(buf);
+    return handle;
 }

@@ -56,4 +56,5 @@ void net_init();
 
 void ethernet_link();
 void ethernet_recieve(void* buf, uint16_t size);
-void ethernet_send(ethernet_packet packet);
+void net_process();
+int ethernet_send(ethernet_packet packet);

@@ -63,6 +63,7 @@ int main(int argc, char** argv) {
 
     int rootCtr = 1;
     memset(rootDir, 0, sizeof(fat_disk_entry));
+    memcpy(rootDir->filename, "TEST VOLUME", 11);
     rootDir->flags = FAT_ATTRIB_VOL_ID;
 
     for (int i = 0; i < argc - 1; i++) {

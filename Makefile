@@ -4,7 +4,8 @@ LD:=ld.lld-17
 
 ASMFLAGS:=-f elf64
 CFLAGS:=\
--m64 -march=haswell -std=c++20 -ffreestanding -nostdlib -fno-pie -ffunction-sections -fdata-sections -fno-exceptions \
+-m64 -march=haswell -std=c++20 -ffreestanding -ffunction-sections -fdata-sections \
+-nostdlib -fno-pie -fno-exceptions -fno-rtti -fno-stack-protector\
 -Os -g -Iinclude -Iinclude/std \
 -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter
@@ -18,7 +19,7 @@ DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
-QEMU_NETWORK:=-netdev user,id=u1,hostfwd=udp::5555-:80,hostfwd=tcp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
+QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
 QEMU_VIDEO:=-vga qxl
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell
@@ -30,7 +31,7 @@ LOCAL_IP:=172.29.244.210
 .PHONY: default clean start start-trace start-gdb
 default: disk_2.img
 clean:
-	@rm -f disk.img disk_2.img
+	@rm -f disk.img disk_2.img dump.pcap fattener
 	@rm -rf tmp/*
 
 disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp
