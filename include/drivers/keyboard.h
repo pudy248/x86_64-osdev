@@ -16,3 +16,4 @@ extern KeyboardBuffer keyboardInput;
 
 void keyboard_irq(void);
 uint8_t update_modifiers(uint8_t key);
+char key_to_ascii(uint8_t key);

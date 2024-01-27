@@ -11,8 +11,8 @@ public:
 
     rostring(const char* str, int length, int offset = 0);
     rostring(const char* cstr);
-    rostring(const rostring& str, int length, int offset = 0);
-    rostring(const rostring& str);
+    constexpr rostring(const rostring& str, int length, int offset = 0) : span<char>(str, length, offset) {}
+    constexpr rostring(const rostring& str) : rostring(str, str.size(), 0) {}
     rostring(const span<char>& vec, int length, int offset = 0);
     rostring(const span<char>& vec);
 

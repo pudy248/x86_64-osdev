@@ -15,8 +15,6 @@ namespace E1000_REG { enum E1000_REG : uint16_t {
     IMC     =0x00D8,
 
     RCTRL   =0x0100,
-    RDFH    =0x2410,
-    RDFT    =0x2418,
     RDFHS   =0x2420,
     RDFTS   =0x2428,
     RDFPC   =0x2430,

@@ -19,7 +19,7 @@ void inc_pit() {
         
         
         x = 79;
-        string waterline_mem = format("   %i", globals->waterline - 0x200000);
+        string waterline_mem = format("   %i", globals->waterline - 0x400000);
         for (int i = waterline_mem.size() - 1; i >= 0; --i)
             globals->vga_console.set(waterline_mem[i], x--, 1);
     }

@@ -36,8 +36,8 @@ struct heap_meta {
     uint64_t pad;
 };
 
-#define heap ((heap_blk*)0x4000000)
-static constexpr uint64_t total_heap_size = 0x4000000;
+#define heap ((heap_blk*)0x1000000)
+static constexpr uint64_t total_heap_size = 0x1000000;
 
 static void reset_heap() {
     heap->blk_size = total_heap_size - 8;
@@ -46,7 +46,7 @@ static void reset_heap() {
 }
 
 void mem_init() {
-    globals->waterline = 0x200000;
+    globals->waterline = 0x400000;
     globals->mem_avail = total_heap_size - sizeof(heap_blk);
     globals->mem_used = sizeof(heap_blk);
     reset_heap();

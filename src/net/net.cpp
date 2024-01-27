@@ -15,8 +15,8 @@
 mac_t global_mac;
 ipv4_t global_ip;
 
-static vector<ethernet_packet>* packet_queue_front;
-static vector<ethernet_packet>* packet_queue_back;
+static volatile vector<ethernet_packet>* packet_queue_front;
+static volatile vector<ethernet_packet>* packet_queue_back;
 
 void net_init() {
     pci_device* e1000_pci = pci_match(2, 0);
@@ -49,13 +49,13 @@ void ethernet_recieve(void* buf, uint16_t size) {
     ethernet_packet packet = { timepoint(), 0, 0, htons(frame->type), span<char>(newContents, newSize) };
     memcpy(&packet.src, &frame->src, 6);
     memcpy(&packet.dst, &frame->dst, 6);
-
-    packet_queue_back->append(packet);
+    
+    ((vector<ethernet_packet>*)packet_queue_back)->append(packet);
 }
 
 void net_process() {
     if (packet_queue_front->size()) {
-        for (ethernet_packet p : *packet_queue_front) {
+        for (ethernet_packet p : *((vector<ethernet_packet>*)packet_queue_front)) {
             switch(p.type) {
                 case ETHERTYPE_ARP:
                     arp_process(p);
@@ -66,7 +66,7 @@ void net_process() {
             }
             free(p.contents.unsafe_arr());
         }
-        packet_queue_front->clear();
+        ((vector<ethernet_packet>*)packet_queue_front)->clear();
     }
     std::swap(packet_queue_front, packet_queue_back);
 }

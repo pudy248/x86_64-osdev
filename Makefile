@@ -1,11 +1,20 @@
-CC:=clang-17
-ASM:=nasm
-LD:=ld.lld-17
+ifneq ("$(wildcard /usr/bin/clang-17aa)","")
+    CC:=clang-17
+	LD:=ld.lld-17
+else ifneq ("$(wildcard /usr/bin/clang)","")
+    CC:=clang
+	LD:=ld.lld
+else
+    CC:=gcc
+	LD:=ld
+endif
 
+ASM:=nasm
 ASMFLAGS:=-f elf64
+
 CFLAGS:=\
 -m64 -march=haswell -std=c++20 -ffreestanding -ffunction-sections -fdata-sections \
--nostdlib -fno-pie -fno-exceptions -fno-rtti -fno-stack-protector\
+-nostdlib -fno-pie -fno-exceptions -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
 -Os -g -Iinclude -Iinclude/std \
 -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter

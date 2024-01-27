@@ -10,15 +10,13 @@
 #include <net/tcp.hpp>
 #include <net/http.hpp>
 
-extern "C" int __cxa_atexit(void (*f)(void *), void *objptr, void *dso) {
-	return 0;
-};
+extern "C" void atexit(void (*)(void) __attribute__((cdecl))) {
+    
+}
 
 static void http_main() {
-    
     net_init();
     vector<tcp_connection*> conns;
-    
     while (true) {
         net_process();
         {

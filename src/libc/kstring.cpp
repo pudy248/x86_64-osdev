@@ -9,8 +9,6 @@
 
 rostring::rostring(const char* str, int length, int offset) : span<char>(str, length, offset) {}
 rostring::rostring(const char* cstr) : rostring(cstr, strlen(cstr), 0) {}
-rostring::rostring(const rostring& str, int length, int offset) : span<char>(str, length, offset) {}
-rostring::rostring(const rostring& str) : rostring(str, str.size(), 0) {}
 rostring::rostring(const span<char>& vec, int length, int offset) : span<char>(vec, length, offset) {}
 rostring::rostring(const span<char>& vec) : rostring(vec, vec.size(), 0) {}
 
@@ -54,10 +52,6 @@ template<> void ostringstream::write(double dat) {
 }
 
 void ostringstream::write_u(uint64_t n, int leading, int radix, char leadChar, const char* letters) {
-    if (n < 0) {
-        n = -n;
-        write<char>('-');
-    }
     uint64_t tmp = n;
     int ctr = 0;
     do {
