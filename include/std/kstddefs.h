@@ -1,7 +1,4 @@
 #pragma once
-#include <stdint.h>
-#include <stddef.h>
-#include <float.h>
 
 #define abs(a) (a < 0 ? -a : a)
 #define min(a,b) ((a) < (b) ? (a) : (b))

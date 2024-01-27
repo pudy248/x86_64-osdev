@@ -1,4 +1,4 @@
-#include <kstddefs.h>
+#include <cstdint>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 

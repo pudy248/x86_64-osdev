@@ -1,9 +1,8 @@
-#include <kstddefs.h>
+#include <cstdint>
 #include <kstdlib.hpp>
 #include <kprint.h>
+#include <sys/global.h>
 #include <drivers/pci.h>
-
-pci_devices* pci_dev;
 
 uint32_t pci_read(pci_addr dev, uint8_t reg) {
     uint32_t lbus  = (uint32_t)dev.bus;
@@ -41,7 +40,7 @@ pci_device pci_create(pci_addr addr) {
 }
 
 void pci_init() {
-    pci_dev = (pci_devices*)walloc(sizeof(pci_devices), 0x10);
+    globals->pci = (pci_devices*)walloc(sizeof(pci_devices), 0x10);
     int device_idx = 0;
     
     for (uint16_t bus = 0; bus < 256; bus++) {
@@ -49,36 +48,36 @@ void pci_init() {
             pci_addr addr = {(uint8_t)bus, slot, 0};
             uint32_t reg0 = pci_read(addr, 0);
             if (reg0 == 0xffffffff) continue;
-            pci_dev->devices[device_idx++] = pci_create(addr);
-            if (!(pci_dev->devices[device_idx - 1].header_type & 0x80)) continue;
+            globals->pci->devices[device_idx++] = pci_create(addr);
+            if (!(globals->pci->devices[device_idx - 1].header_type & 0x80)) continue;
             for (uint8_t func = 1; func < 7; func++) {
                 pci_addr addr2 = {(uint8_t)bus, slot, func};
                 uint32_t reg1 = pci_read(addr2, 0);
                 if (reg1 == 0xffffffff) continue;
-                pci_dev->devices[device_idx++] = pci_create(addr2);
+                globals->pci->devices[device_idx++] = pci_create(addr2);
             }
         }
     }
 
-    pci_dev->numDevs = device_idx;
+    globals->pci->numDevs = device_idx;
 }
 
 void pci_print() {
-    for (int i = 0; i < pci_dev->numDevs; i++) {
+    for (int i = 0; i < globals->pci->numDevs; i++) {
         printf("(%i:%i:%i) dev:%04x vendor:%04x class %02x:%02x:%02x:%02x\r\n", 
-            pci_dev->devices[i].address.bus, pci_dev->devices[i].address.slot, pci_dev->devices[i].address.func,
-            pci_dev->devices[i].device_id, pci_dev->devices[i].vendor_id,
-            pci_dev->devices[i].class_id, pci_dev->devices[i].subclass, pci_dev->devices[i].prog_if, pci_dev->devices[i].rev_id
+            globals->pci->devices[i].address.bus, globals->pci->devices[i].address.slot, globals->pci->devices[i].address.func,
+            globals->pci->devices[i].device_id, globals->pci->devices[i].vendor_id,
+            globals->pci->devices[i].class_id, globals->pci->devices[i].subclass, globals->pci->devices[i].prog_if, globals->pci->devices[i].rev_id
         );
     }
 }
 
 pci_device* pci_match(uint8_t class_id, uint8_t subclass, uint8_t prog_if) {
-    for (int i = 0; i < pci_dev->numDevs; i++) {
-        bool passed = pci_dev->devices[i].class_id == class_id;
-        if (subclass < 255) passed &= pci_dev->devices[i].subclass == subclass;
-        if (prog_if < 255) passed &= pci_dev->devices[i].prog_if == prog_if;
-        if (passed) return &pci_dev->devices[i];
+    for (int i = 0; i < globals->pci->numDevs; i++) {
+        bool passed = globals->pci->devices[i].class_id == class_id;
+        if (subclass < 255) passed &= globals->pci->devices[i].subclass == subclass;
+        if (prog_if < 255) passed &= globals->pci->devices[i].prog_if == prog_if;
+        if (passed) return &globals->pci->devices[i];
     }
     return NULL;
 }

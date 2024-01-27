@@ -1,4 +1,4 @@
-#include <kstddefs.h>
+#include <cstdint>
 #include <sys/paging.h>
 
 //static PML4E* pml4 = (PML4E*)0x70000;

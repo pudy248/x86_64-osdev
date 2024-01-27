@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <kstddefs.h>
 #include <net/net.hpp>
 #include <stl/vector.hpp>

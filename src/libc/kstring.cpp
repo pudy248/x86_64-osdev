@@ -1,5 +1,6 @@
 #pragma once
-#include <stdarg.h>
+#include <cstdint>
+#include <cstdarg>
 #include <kstddefs.h>
 #include <kcstring.h>
 #include <kstring.hpp>

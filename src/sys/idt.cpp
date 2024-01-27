@@ -1,11 +1,11 @@
+#include <cstdint>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
+#include <kprint.h>
 
 #include <sys/global.h>
 #include <sys/idt.h>
 #include <sys/pic.h>
-#include <sys/ktime.hpp>
 
 struct a_packed idt_entry {
     uint16_t offset_low;

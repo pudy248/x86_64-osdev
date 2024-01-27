@@ -1,9 +1,8 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 #include <drivers/pci.h>
  
-struct hba_port
-{
+struct hba_port {
 	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
 	uint32_t clbu;		// 0x04, command list base address upper 32 bits
 	uint32_t fb;		// 0x08, FIS base address, 256-byte aligned
@@ -25,8 +24,7 @@ struct hba_port
 	uint32_t vendor[4];	// 0x70 ~ 0x7F, vendor specific
 };
 
-struct ahci_mmio
-{
+struct ahci_mmio {
 	// 0x00 - 0x2B, Generic Host Control
 	uint32_t cap;		// 0x00, Host capability
 	uint32_t ghc;		// 0x04, Global host control
@@ -50,8 +48,7 @@ struct ahci_mmio
     hba_port ports[1];
 };
 
-struct hba_cmd_header
-{
+struct hba_cmd_header {
 	// DW0
 	uint8_t  cfl:5;		// Command FIS length in DWORDS, 2 ~ 16
 	uint8_t  a:1;		// ATAPI
@@ -78,8 +75,7 @@ struct hba_cmd_header
 	uint32_t rsv1[4];	// Reserved
 };
  
-struct hba_prdt_entry
-{
+struct hba_prdt_entry {
 	uint32_t dba;		// Data base address
 	uint32_t dbau;		// Data base address upper 32 bits
 	uint32_t rsv0;		// Reserved
@@ -90,8 +86,7 @@ struct hba_prdt_entry
 	uint32_t i:1;		// Interrupt on completion
 };
 
-struct hba_cmd_tbl
-{
+struct hba_cmd_tbl {
 	// 0x00
 	uint8_t  cfis[64];	// Command FIS
  
@@ -105,8 +100,7 @@ struct hba_cmd_tbl
 	hba_prdt_entry	prdt_entry[8];	// Physical region descriptor table entries, 0 ~ 65535
 };
 
-struct fis_reg_h2d
-{
+struct fis_reg_h2d {
 	// DWORD 0
 	uint8_t  fis_type;	// FIS_TYPE_REG_H2D
  

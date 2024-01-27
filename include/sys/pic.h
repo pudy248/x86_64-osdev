@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 #define MASTER_OFFSET 0x20
 #define SLAVE_OFFSET 0x28

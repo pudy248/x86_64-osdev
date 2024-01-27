@@ -49,32 +49,30 @@ start-trace: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 start-gdb: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S &
-	gdb -tui -s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex "target remote $(LOCAL_IP):1234"
+	gdb -tui -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf" -ex "target remote $(LOCAL_IP):1234"
 #	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
-#	gdb -tui -ex "target remote $(LOCAL_IP):1234" -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf"
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5556
 
-
 tmp/diskflasher.img: diskflasher.asm
-	nasm diskflasher.asm -f bin -o tmp/diskflasher.img
+	nasm $< -f bin -o $@
 
 $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 tmp/obj.o : $(C_SRC)
 	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))" > tmp/all.cpp
-	$(CC) $(CFLAGS) -o tmp/obj.o -c tmp/all.cpp
+	$(CC) $(CFLAGS) -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
-	$(LD) $(LDFLAGS) -e kernel_main -r -o tmp/kernel.elf $(ASM_OBJ) tmp/obj.o 
+	$(LD) $(LDFLAGS) -e kernel_main -r -o $@ $^
 
-tmp/kernel.img.elf: tmp/kernel.elf link.ld 
-	$(LD) $(LDFLAGS) -e kernel_main -T link.ld -o tmp/kernel.img.elf tmp/kernel.elf
+tmp/kernel.img.elf: tmp/kernel.elf link.ld
+	$(LD) $(LDFLAGS) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	@objdump -d tmp/kernel.img.elf > tmp/kernel.S 2> /dev/null
-	@objcopy -O binary tmp/kernel.img.elf tmp/kernel.img
+	@objdump -d $^ > tmp/kernel.S 2> /dev/null
+	@objcopy -O binary $< $@
 
 BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
 BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))

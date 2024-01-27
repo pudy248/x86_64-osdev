@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <kstddefs.h>
 #include <kstring.hpp>
 #include <sys/ktime.hpp>

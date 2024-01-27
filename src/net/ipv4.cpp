@@ -1,6 +1,5 @@
-#include <kstddefs.h>
+#include <cstdint>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
 #include <kprint.h>
 #include <net/net.hpp>
 #include <net/arp.hpp>
@@ -9,8 +8,8 @@
 
 static void ip_checksum(ip_header* ip){
     ip->checksum = 0;
-    unsigned long sum = 0;
-    unsigned short ip_len = (ip->ver_ihl & 0xf)<<2;
+    uint64_t sum = 0;
+    uint16_t ip_len = (ip->ver_ihl & 0xf)<<2;
     uint16_t* ip_payload = (uint16_t*)ip;
     while (ip_len > 1) {
         sum += * ip_payload++;

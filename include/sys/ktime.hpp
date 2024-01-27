@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 struct timepoint {
     uint8_t year;

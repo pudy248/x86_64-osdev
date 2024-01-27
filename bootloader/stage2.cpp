@@ -1,10 +1,7 @@
-#include "sys/init.h"
-#include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
 #include <kprint.h>
 
-#include <sys/global.h>
+#include <sys/init.h>
 #include <sys/idt.h>
 #include <sys/pic.h>
 #include <sys/ktime.hpp>
@@ -44,7 +41,7 @@ extern "C" void stage2_main(unsigned int driveNum) {
     pci_init();
     pci_device* ahci_pci = pci_match(1, 6);
     kassert(ahci_pci, "No AHCI controller detected!\r\n");
-    printf("Detected AHCI device: %04x:%04x\r\n", ahci_pci->vendor_id, ahci_pci->device_id);
+    //printf("Detected AHCI device: %04x:%04x\r\n", ahci_pci->vendor_id, ahci_pci->device_id);
     ahci_init(*ahci_pci);
 
     ///////////////////////////////////

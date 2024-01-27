@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <kstddefs.h>
 
 extern "C" {
@@ -101,12 +102,12 @@ static inline a_noreturn void cpu_halt(void) {
     asmv("cli; hlt");
 }
 
-void* operator new(size_t size);
-void* operator new[](size_t size);
+void* operator new(uint64_t size);
+void* operator new[](uint64_t size);
 void operator delete(void* ptr);
-void operator delete(void* ptr, size_t size);
+void operator delete(void* ptr, uint64_t size);
 void operator delete[](void* ptr);
-void operator delete[](void* ptr, size_t size);
+void operator delete[](void* ptr, uint64_t size);
 
 template<typename T> T* waterline_new(uint64_t size, int alignment) {
     return (T*)walloc(size, alignment);

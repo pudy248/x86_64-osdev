@@ -1,6 +1,5 @@
 #pragma once
-#include <kstddefs.h>
-#include <kcstring.h>
+#include <cstdint>
 
 class console {
 private:

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <sys/global.h>
@@ -127,21 +128,21 @@ void free(void* ptr) {
     //}
 }
 
-void* operator new(size_t size) {
+void* operator new(uint64_t size) {
     return malloc(size);
 }
-void* operator new[](size_t size) {
+void* operator new[](uint64_t size) {
     return malloc(size);
 }
 void operator delete(void* ptr) {
     if (ptr) free(ptr);
 }
-void operator delete(void* ptr, size_t size) {
+void operator delete(void* ptr, uint64_t size) {
     if (ptr) free(ptr);
 }
 void operator delete[](void* ptr) {
     if (ptr) free(ptr);
 }
-void operator delete[](void* ptr, size_t size) {
+void operator delete[](void* ptr, uint64_t size) {
     if (ptr) free(ptr);
 }

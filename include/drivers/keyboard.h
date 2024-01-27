@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 typedef struct {
     uint8_t shift;

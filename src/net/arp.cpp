@@ -1,6 +1,6 @@
+#include <cstdint>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
 #include <kprint.h>
 #include <net/net.hpp>
 #include <net/arp.hpp>

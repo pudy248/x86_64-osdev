@@ -1,6 +1,5 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
 #include <kprint.h>
 #include <drivers/pci.h>
 #include <drivers/ahci.h>

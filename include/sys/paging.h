@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 typedef uint64_t PML4E;
 typedef uint64_t PDPTE;

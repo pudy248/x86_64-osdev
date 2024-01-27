@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 void idt_set(uint8_t index, uint64_t base, uint8_t flags);
 void irq_set(uint8_t index, void(*fn)(void));

@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.h>
+#include <cstdint>
 
 struct pci_addr {
     uint8_t bus;
@@ -38,8 +38,6 @@ struct pci_devices {
     pci_device devices[128];
     int numDevs;
 };
-
-extern pci_devices* pci_dev;
 
 uint32_t pci_read(pci_addr dev, uint8_t reg);
 void pci_write(pci_addr dev, uint8_t reg, uint32_t data);

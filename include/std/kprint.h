@@ -1,5 +1,4 @@
 #pragma once
-
 #include <kstring.hpp>
 #include <kcstring.h>
 #include <sys/global.h>
