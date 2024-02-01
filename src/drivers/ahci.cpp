@@ -8,13 +8,14 @@
 
 void ahci_init(pci_device ahci_pci) {
     globals->ahci = waterline_new<ahci_device>(0x10);
-    hba_cmd_header* cmd_list = (hba_cmd_header*)0x12000; //waterline_new<hba_cmd_header>(0x10);
-    fis_reg_h2d* fis = (fis_reg_h2d*)0x12800; //waterline_new<fis_reg_h2d>(0x10);
-    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x13000; //waterline_new<hba_cmd_tbl>(0x10);
+    hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000; //waterline_new<hba_cmd_header>(0x10);
+    fis_reg_h2d* fis = (fis_reg_h2d*)0x52800; //waterline_new<fis_reg_h2d>(0x10);
+    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000; //waterline_new<hba_cmd_tbl>(0x10);
     memset((char*)ctbas, 0, 0x2000);
 
     volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
     set_page_flags((void*)ahci_mem, PAGE_WT);
+    pci_enable_mem(ahci_pci.address);
     //printf("Using AHCI MMIO at %08x\r\n", ahci_pci.bars[5]);    
     volatile hba_port* ports = (volatile hba_port*)(uint64_t)(ahci_pci.bars[5] + 0x100);
 

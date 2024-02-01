@@ -19,9 +19,9 @@ extern "C" {
             ((char*)dest)[i] = ((char*)src)[i];
         }
     }
-    void memset(void* dest, char src, uint64_t size) {
+    void memset(void* dest, uint8_t src, uint64_t size) {
         for (uint64_t i = 0; i < size; i++) {
-            ((char*)dest)[i] = src;
+            ((uint8_t*)dest)[i] = src;
         }
     }
 }

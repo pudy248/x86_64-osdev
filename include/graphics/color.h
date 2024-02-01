@@ -1,5 +1,6 @@
 #pragma once
-#include <vectors.h>
+#include <cstdint>
+#include <graphics/vectypes.h>
 
 Vec3 rgb2hsl(Vec3 rgb);
 Vec3 hsl2rgb(Vec3 hsl);

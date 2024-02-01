@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <kstddefs.h>
 #include <stl/vector.hpp>
 
@@ -15,7 +16,7 @@ public:
     constexpr rostring(const rostring& str) : rostring(str, str.size(), 0) {}
     rostring(const span<char>& vec, int length, int offset = 0);
     rostring(const span<char>& vec);
-
+    
     constexpr bool operator==(const rostring other) const { return starts_with(other) && size() == other.size(); }
     constexpr bool operator!=(const rostring other) const { return !(*this == other); }
     

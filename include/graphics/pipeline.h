@@ -1,27 +1,32 @@
 #pragma once
-#include <inttypes.h>
-#include <vectors.h>
+#include "graphics/pipeline.h"
+#include <cstdint>
+#include <graphics/vectypes.h>
 
-typedef struct Vertex {
+struct Vertex {
     Vec4 pos;
     Vec4 color;
-} Vertex;
-typedef struct ProjectedVertex {
+};
+struct ProjectedVertex {
     Vec4 wpos;
     Vec4 spos;
     Vec4 color;
-} ProjectedVertex;
+};
 
-typedef struct Fragment {
+struct Fragment {
     float depth;
-} Fragment;
+};
 
 typedef uint32_t* __attribute__((align_value(64))) auint32_p;
 typedef Vertex* __attribute__((align_value(64))) aVertex_p;
 typedef ProjectedVertex* __attribute__((align_value(64))) aProjVertex_p;
 typedef Fragment* __attribute__((align_value(64))) aFragment_p;
 
-typedef struct RenderPipeline {
+void _default_vertex_shader(struct RenderPipeline* pipeline, void** params);
+void _default_raster_shader(struct RenderPipeline* pipeline, void** params);
+void _default_fragment_shader(struct RenderPipeline* pipeline, void** params);
+
+struct RenderPipeline {
     uint32_t nTriangles;
     uint32_t nVertices;
     uint32_t display_w;
@@ -34,16 +39,12 @@ typedef struct RenderPipeline {
     auint32_p fragTexture;
     auint32_p renderTexture;
 
-    void(*vertexShader)(struct RenderPipeline* pipeline, void** params) ;
-    void(*rasterShader)(struct RenderPipeline* pipeline, void** params) ;
-    void(*fragmentShader)(struct RenderPipeline* pipeline, void** params) ;
-} RenderPipeline;
+    void(*vertexShader)(struct RenderPipeline* pipeline, void** params) = &_default_vertex_shader;
+    void(*rasterShader)(struct RenderPipeline* pipeline, void** params) = &_default_raster_shader;
+    void(*fragmentShader)(struct RenderPipeline* pipeline, void** params) = &_default_fragment_shader;
+};
 
 extern Mat4x4 projectionMatrix;
-
-void _default_vertex_shader(RenderPipeline* pipeline, void** params);
-void _default_raster_shader(RenderPipeline* pipeline, void** params);
-void _default_fragment_shader(RenderPipeline* pipeline, void** params);
 
 void pipeline_execute(RenderPipeline* pipeline, void** shaderParams);
 void pipeline_flush(RenderPipeline* pipeline);

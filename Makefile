@@ -1,4 +1,4 @@
-ifneq ("$(wildcard /usr/bin/clang-17aa)","")
+ifneq ("$(wildcard /usr/bin/clang-17)","")
     CC:=clang-17
 	LD:=ld.lld-17
 else ifneq ("$(wildcard /usr/bin/clang)","")
@@ -15,7 +15,7 @@ ASMFLAGS:=-f elf64
 CFLAGS:=\
 -m64 -march=haswell -std=c++20 -ffreestanding -ffunction-sections -fdata-sections \
 -nostdlib -fno-pie -fno-exceptions -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--Os -g -Iinclude -Iinclude/std \
+-Ofast -Iinclude -Iinclude/std \
 -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter
 #-Weverything -Wno-c++98-compat -Wno-pre-c++14-compat -Wno-unsafe-buffer-usage -Wno-conversion -Wno-old-style-cast
@@ -29,7 +29,7 @@ DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
 QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
-QEMU_VIDEO:=-vga qxl
+QEMU_VIDEO:=-vga vmware
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)

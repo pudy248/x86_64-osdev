@@ -1,5 +1,5 @@
-#include <vectors.h>
-#include <math.h>
+#include <graphics/vectypes.h>
+#include <graphics/math.h>
 
 Vec3 vtrunc43(Vec4 a) {
     return (Vec3){a.x, a.y, a.z};

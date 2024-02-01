@@ -15,26 +15,33 @@ stage0_main:
     mov es, ax
     mov ss, ax
     mov sp, 0x7c00
-    mov byte [drive_num], dl
+    
+    ;mov byte [drive_num], dl
+    ;mov dl, byte [drive_num]
 
-    mov ah, 0x42
-    mov dl, byte [drive_num]
     mov si, drive_packet
     cmp word [required_block_count], 0
     jz load_sectors
     load_block:
-        mov ah, 0x0e
-        mov si, block_err_msg
-        print_loop:
-            mov al, byte [si]
-            inc si
-            or al, al
-            jz print_end
-            int 0x10
-            jmp print_loop
-        print_end:
-        jmp $
+        ;mov ah, 0x0e
+        ;mov si, block_err_msg
+        ;print_loop:
+        ;    mov al, byte [si]
+        ;    inc si
+        ;    or al, al
+        ;    jz print_end
+        ;    int 0x10
+        ;    jmp print_loop
+        ;print_end:
+        ;jmp $
+        mov ah, 0x42
+        int 0x13
+        add word [drive_sector], 0x800
+        add dword [drive_lba], 64
+        dec word [required_block_count]
+        jnz load_block
     load_sectors:
+        mov ah, 0x42
         mov cx, word [required_sector_count]
         mov word [drive_num_sectors], cx
         int 0x13
@@ -79,16 +86,13 @@ stage0_main:
     jmp stage1_main
 
 block_err_msg: db "Loading more than 64 sectors in bootstrap not supported.", 0
-
 drive_num: db 0
 
 ; load bootstrap code
 required_sector_count:
     dw (PARTITION_LBA - 1) % 64
-    ;dw (PARTITION_LBA - 1 + RESERVED_SECTORS + SECTORS_PER_FAT32 * 2 + SECTORS_PER_CLUSTER) % 64
 required_block_count:
     dw (PARTITION_LBA - 1) / 64
-    ;dw (PARTITION_LBA - 1 + RESERVED_SECTORS + SECTORS_PER_FAT32 * 2 + SECTORS_PER_CLUSTER) / 64
 
 drive_packet:
     db 0x10
@@ -113,6 +117,6 @@ partitionTable:
         sysid: db 0x0c ;fat32 LBA
         chs_end: db 0xff, 0xff, 0xff
         lba_start: dd PARTITION_LBA
-        lba_size: dd 0x1000
+        lba_size: dd 0x100000
     partitions2to4: times 48 db 0
     dw 0xaa55

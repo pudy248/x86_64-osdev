@@ -60,7 +60,7 @@ void http_send(tcp_connection* conn, rostring type, rostring response) {
 
 void http_error(tcp_connection* conn, rostring code) {
     rostring fstr(
-        "%S\r\n"
+        "HTTP/1.1 %S\r\n"
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
     );

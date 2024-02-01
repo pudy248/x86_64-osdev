@@ -209,6 +209,13 @@ const rostring istringstream::read_while(bool(*condition)(rostring)) {
         idx++;
     return rostring(data, idx - sIdx, sIdx);
 }
+const rostring istringstream::read_until(bool(*condition)(rostring)) {
+    int sIdx = idx;
+    while (readable() && !condition(*this))
+        idx++;
+    return rostring(data, idx - sIdx, sIdx);
+}
+
 
 
 vector<rostring> rostring::split(const rostring any) const {

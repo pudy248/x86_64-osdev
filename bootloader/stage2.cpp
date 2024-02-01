@@ -32,14 +32,14 @@ extern "C" void stage2_main(unsigned int driveNum) {
     irq_set(0, &inc_pit);
     time_init();
 
-    for (int i = 0; i < 2; i++)
-        clockspeed_MHz();
+    //for (int i = 0; i < 2; i++)
+    //    clockspeed_MHz();
 
     //////////////////////////////////////////////////////////
     // Initialize AHCI controller if AHCI driver is enabled //
     //////////////////////////////////////////////////////////
     pci_init();
-    pci_device* ahci_pci = pci_match(1, 6);
+    pci_device* ahci_pci = pci_match(PCI_CLASS::STORAGE, PCI_SUBCLASS::STORAGE_SATA);
     kassert(ahci_pci, "No AHCI controller detected!\r\n");
     //printf("Detected AHCI device: %04x:%04x\r\n", ahci_pci->vendor_id, ahci_pci->device_id);
     ahci_init(*ahci_pci);

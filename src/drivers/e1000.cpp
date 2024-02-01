@@ -1,6 +1,6 @@
+#include "drivers/pci.h"
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
 #include <kprint.h>
 #include <sys/idt.h>
 #include <sys/paging.h>
@@ -39,7 +39,7 @@ static void e1000_link() {
 }
 
 void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint16_t len), void(*link_callback)(void)) {
-    e1000_dev = (e1000_handle*)walloc(sizeof(e1000_handle), 0x10);
+    e1000_dev = waterline_new<e1000_handle>(0x10);
     e1000_dev->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
     e1000_dev->tx_descs = (e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
 
@@ -47,10 +47,9 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     link_fn = link_callback;
     e1000_dev->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
     e1000_dev->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
-    uint32_t pci_reg = pci_read(e1000_pci.address, 1);
-    pci_write(e1000_pci.address, 1, pci_reg | 0x06);
 
     set_page_flags((void*)e1000_dev->mmio_base, PAGE_WT);
+    pci_enable_mem(e1000_pci.address);
     //printf("Using Ethernet MMIO at %08x\r\n", e1000_pci.bars[0]);    
 
     //Clear and disable interrupts

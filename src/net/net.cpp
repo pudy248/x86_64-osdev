@@ -19,7 +19,7 @@ static volatile vector<ethernet_packet>* packet_queue_front;
 static volatile vector<ethernet_packet>* packet_queue_back;
 
 void net_init() {
-    pci_device* e1000_pci = pci_match(2, 0);
+    pci_device* e1000_pci = pci_match(PCI_CLASS::NETWORK, PCI_SUBCLASS::NETWORK_ETHERNET);
     if (!e1000_pci) {
         print("Failed to locate Ethernet controller!\r\n");
         pci_print();

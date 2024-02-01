@@ -5,7 +5,7 @@
 extern "C" {
     void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);
     void memmove(void* dest, void* src, uint64_t size);
-    void memset(void* dest, char src, uint64_t size);
+    void memset(void* dest, uint8_t src, uint64_t size);
 }
 
 void mem_init();
@@ -115,5 +115,3 @@ template<typename T> T* waterline_new(uint64_t size, int alignment) {
 template<typename T> T* waterline_new(int alignment) {
     return waterline_new<T>(sizeof(T), alignment);
 }
-
-#define kassert(condition, msg) if (!(condition)) { print(msg); inf_wait(); }

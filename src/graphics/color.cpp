@@ -1,10 +1,7 @@
-#include <color.h>
-#include <inttypes.h>
-#include <vectors.h>
-#include <math.h>
-
-#define MIN(a,b) ((a)<(b)?(a):(b))
-#define MAX(a,b) ((a)>(b)?(a):(b))
+#include <cstdint>
+#include <graphics/color.h>
+#include <graphics/vectypes.h>
+#include <graphics/math.h>
 
 Vec3 rgb2hsl(Vec3 rgb) {
     Vec3 result;
@@ -13,25 +10,25 @@ Vec3 rgb2hsl(Vec3 rgb) {
     rgb.y /= 255;
     rgb.z /= 255;
 
-    float max = MAX(MAX(rgb.x,rgb.y),rgb.z);
-    float min = MIN(MIN(rgb.x,rgb.y),rgb.z);
+    float _max = max(max(rgb.x,rgb.y),rgb.z);
+    float _min = min(min(rgb.x,rgb.y),rgb.z);
 
-    result.x = result.y = result.z = (max + min) / 2;
+    result.x = result.y = result.z = (_max + _min) / 2;
 
-    if (abs(max - min) < 0.0001f) {
+    if (abs(_max - _min) < 0.0001f) {
         result.x = result.y = 0; // achromatic
     }
     else {
-        float d = max - min;
-        result.y = (result.z > 0.5f) ? d / (2 - max - min) : d / (max + min);
+        float d = _max - _min;
+        result.y = (result.z > 0.5f) ? d / (2 - _max - _min) : d / (_max + _min);
 
-        if (abs(max - rgb.x) < 0.0001f) {
+        if (abs(_max - rgb.x) < 0.0001f) {
             result.x = (rgb.y - rgb.z) / d + (rgb.y < rgb.z ? 6 : 0);
         }
-        else if (abs(max - rgb.y) < 0.0001f) {
+        else if (abs(_max - rgb.y) < 0.0001f) {
             result.x = (rgb.z - rgb.x) / d + 2;
         }
-        else if (abs(max - rgb.z) < 0.0001f) {
+        else if (abs(_max - rgb.z) < 0.0001f) {
             result.x = (rgb.x - rgb.y) / d + 4;
         }
 
@@ -43,15 +40,15 @@ Vec3 rgb2hsl(Vec3 rgb) {
 
 static float hue2rgb(float p, float q, float t) {
     if (t < 0) 
-    t += 1;
+        t += 1;
     if (t > 1) 
-    t -= 1;
+        t -= 1;
     if (t < 1.f/6) 
-    return p + (q - p) * 6 * t;
+        return p + (q - p) * 6 * t;
     if (t < 1.f/2) 
-    return q;
+        return q;
     if (t < 2.f/3)   
-    return p + (q - p) * (2.f/3 - t) * 6;
+        return p + (q - p) * (2.f/3 - t) * 6;
 
     return p;
 }

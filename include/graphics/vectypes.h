@@ -1,30 +1,30 @@
 #pragma once
 
-typedef struct Vec2 {
+struct Vec2 {
     float x;
     float y;
-} Vec2;
-typedef struct Vec3 {
+};
+struct Vec3 {
     float x;
     float y;
     float z;
-} Vec3;
-typedef struct Vec4 {
+};
+struct Vec4 {
     float x;
     float y;
     float z;
     float w;
-} Vec4;
+};
 
-typedef struct Mat3x3 {
+struct Mat3x3 {
     float m[9];
-} Mat3x3;
-typedef struct Mat4x3 {
+};
+struct Mat4x3 {
     float m[12];
-} Mat4x3;
-typedef struct Mat4x4 {
+};
+struct Mat4x4 {
     float m[16];
-} Mat4x4;
+};
 
 Vec3 vtrunc43(Vec4 a);
 Vec4 vpad34(Vec3 a, float w);

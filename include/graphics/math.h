@@ -1,8 +1,7 @@
 #pragma once
-#include <inttypes.h>
-#define max(a, b) (a > b ? a : b)
-#define min(a, b) (a > b ? b : a)
-#define abs(a) (a < 0 ? -a : a)
+#include <cstdint>
+#include <kstddefs.h>
+
 #define sign(a) (a < 0 ? -1 : 1)
 
 uint8_t rand(void);
@@ -22,5 +21,6 @@ char isnan(double f);
 float fmodf(float n, float m);
 float sinf(float theta);
 float cosf(float theta);
+void cossinf(float theta, float* c, float* s);
 float lerpf(float a, float b, float f);
 char isnanf(float f);

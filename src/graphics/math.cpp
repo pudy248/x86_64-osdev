@@ -1,5 +1,4 @@
-#include <math.h>
-#include <inttypes.h>
+#include <graphics/math.h>
 
 static uint16_t lfsr = 0xACE1u;
 static uint8_t bit;
@@ -261,6 +260,13 @@ float cosf(float theta) {
     double c;
     cossin_cordic((double)theta, 10, &c, &s);
     return (float)c;
+}
+void cossinf(float theta, float* c, float* s) {
+    double ds;
+    double dc;
+    cossin_cordic((double)theta, 10, &dc, &ds);
+    *c = dc;
+    *s = ds;
 }
 float lerpf(float a, float b, float f) {
     return a + (b - a) * f;

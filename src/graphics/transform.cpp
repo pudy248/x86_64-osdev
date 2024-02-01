@@ -1,5 +1,6 @@
-#include <vectors.h>
-#include <transform.h>
+#include <graphics/vectypes.h>
+#include <graphics/transform.h>
+#include <graphics/math.h>
 
 Mat4x4 identity() {
     return (Mat4x4){{
@@ -18,10 +19,10 @@ Mat4x4 translate(float dx, float dy, float dz) {
     }};
 }
 Mat4x4 rotate(float tx, float ty, float tz) {
-    double sx, cx, sy, cy, sz, cz;
-    cossin_cordic(tx, 20, &cx, &sx);
-    cossin_cordic(ty, 20, &cy, &sy);
-    cossin_cordic(tz, 20, &cz, &sz);
+    float sx, cx, sy, cy, sz, cz;
+    cossinf(tx, &cx, &sx);
+    cossinf(ty, &cy, &sy);
+    cossinf(tz, &cz, &sz);
 
     Mat4x4 p123 = {{
         cy*cz, -cy*sz, sy, 0,

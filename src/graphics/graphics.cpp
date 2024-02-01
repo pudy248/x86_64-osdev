@@ -1,9 +1,11 @@
-#include <graphics.h>
-#include <math.h>
-#include <vectors.h>
-#include <transform.h>
-#include <pipeline.h>
-#include <color.h>
+#include <kprint.h>
+
+#include <graphics/math.h>
+#include <graphics/vectypes.h>
+#include <graphics/graphics.h>
+#include <graphics/pipeline.h>
+#include <graphics/transform.h>
+#include <graphics/color.h>
 
 static char clip(Vec4 p) {
     return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;
@@ -17,9 +19,10 @@ static Vec4 screenspace(RenderPipeline* pipeline, Vec4 p) {
 
 static void create_frag(RenderPipeline* pipeline, int x, int y, Vec4 color, float depth) {
     uint32_t idx = pipeline->display_w * (uint32_t)y + (uint32_t)x;
-    if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
-    pipeline->fragBuffer[idx] = (Fragment){depth};
-    pipeline->fragTexture[idx] = rgba2u32(color);
+    //if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
+    //pipeline->fragBuffer[idx] = (Fragment){depth};
+    pipeline->fragTexture[idx] = 0xffff00ff;//rgba2u32(color);
+    //printf("%i:%i\r\n", idx, pipeline->fragTexture[idx]);
 }
 
 void raster_point(RenderPipeline* pipeline, uint32_t p) {
@@ -93,6 +96,7 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
     //raster_point(pipeline, p1);
     //raster_point(pipeline, p2);
     //raster_point(pipeline, p3);
+    //return;
 
     ProjectedVertex v1 = pipeline->projVertBuffer[p1];
     ProjectedVertex v2 = pipeline->projVertBuffer[p2];
