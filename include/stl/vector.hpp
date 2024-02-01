@@ -1,18 +1,11 @@
 #pragma once
-#include <cstddef>
-#include <kstddefs.h>
-#include <kstdlib.hpp>
-
-#define abs(a) (a < 0 ? -a : a)
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#define max(a,b) ((a) > (b) ? (a) : (b))
 
 template<typename T> class span {
 protected:
 	T* m_arr;
 	int m_length;
 public:
-	constexpr span() : m_arr(NULL), m_length(0) { }
+	constexpr span() : m_arr(nullptr), m_length(0) { }
 	constexpr span(const T* _arr, int size, int offset = 0) : m_arr((T*)_arr + offset), m_length(size) { }
 	constexpr span(const span<T>& vec, int length, int offset = 0) : m_arr(vec.m_arr + offset), m_length(length) { }
 
@@ -32,14 +25,12 @@ public:
 	
 	constexpr T& at(int idx) {
 		if (size() == 0) {
-			//globals->vga_console.putstr("OOB access to span.\r\n");
 			return *new T();
 		}
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
 		if (size() == 0) {
-			//globals->vga_console.putstr("OOB access to span.\r\n");
 			return *new T();
 		}
 		return m_arr[idx];
@@ -153,12 +144,12 @@ protected:
 	int m_capacity;
 
 	void unsafe_clear() {
-		this->m_arr = NULL;
+		this->m_arr = nullptr;
 		this->m_length = 0;
 		m_capacity = 0;
 	}
 public:
-	constexpr vector() : span<T>(NULL, 0), m_capacity(0) { }
+	constexpr vector() : span<T>(nullptr, 0), m_capacity(0) { }
 	vector(int size) : m_capacity(size) {
 		this->m_length = 0;
 		this->m_arr = new T[m_capacity];
@@ -211,7 +202,7 @@ public:
 
 	constexpr T& at(int idx) {
 		if (this->capacity() <= idx) {
-			int newCap = max(m_capacity, 1);
+			int newCap = m_capacity < 1 ? 1 : m_capacity;
 			while (newCap <= idx) newCap *= resize_ratio;
 			reserve(newCap);
 		}

@@ -25,14 +25,16 @@ struct a_packed idt_ptr {
 static struct idt_t {
     struct idt_entry entries[256];
     struct idt_ptr pointer;
-}* idt = (idt_t*)0x18000;
+}* idt = (idt_t*)0x58000;
 void* idtptr;
 
-typedef struct {
+struct register_file {
     uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp;
     uint64_t r8_15[8];
     uint64_t rip, rflags, cs, ss;
-} register_file;
+
+    uint64_t ymm[64];
+};
 
 void idt_set(uint8_t index, uint64_t base, uint8_t flags) {
     idt->entries[index] = {

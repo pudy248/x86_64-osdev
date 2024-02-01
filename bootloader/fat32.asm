@@ -1,5 +1,5 @@
 section .fat
-bits 16
+bits 64
 
 %include "bootloader/constants.asm"
 
@@ -7,8 +7,9 @@ bits 16
     times (%1) - ($ - $$) db 0
 %endmacro
 
-jmp short start
-nop
+;jmp short start
+;nop
+db 0, 0, 0
 
 FAT_BPB:
     oem_name: db "kefka-os"
@@ -39,20 +40,20 @@ FAT32_EBPB:
     volume_label: db "TEST VOLUME"
     volume_identifier: db "FAT32   "
 
-start:
-    mov si, errstr
-    mov ah, 0x0e
-    xor bx, bx
-    strLoop:
-    mov al, byte [si]
-    cmp al, 0
-    je strEnd
-    int 0x10
-    inc si
-    jmp strLoop
-    strEnd:
-    jmp $
-    errstr: db "Attempted to boot to FAT partition header!", 0
+;start:
+;    mov si, errstr
+;    mov ah, 0x0e
+;    xor bx, bx
+;    strLoop:
+;    mov al, byte [si]
+;    cmp al, 0
+;    je strEnd
+;    int 0x10
+;    inc si
+;    jmp strLoop
+;    strEnd:
+;    jmp $
+;    errstr: db "Attempted to boot to FAT partition header!", 0
 
 SETORG 0x1FE
 dw 0xaa55

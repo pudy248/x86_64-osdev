@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstddef>
 #include <kstdlib.hpp>
 #include <kprint.h>
 #include <sys/global.h>
@@ -25,6 +26,10 @@ void pci_write(pci_addr dev, uint8_t reg, uint32_t data) {
  
     outl(0xCF8, address);
     outl(0xCFC, data);
+}
+
+void pci_enable_mem(pci_addr dev) {
+    pci_write(dev, 1, pci_read(dev, 1) | 7);
 }
 
 pci_device pci_create(pci_addr addr) {

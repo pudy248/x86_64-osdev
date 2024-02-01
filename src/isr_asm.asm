@@ -6,7 +6,7 @@ extern irq_isr
 
 save_regs:
     push rdx
-    mov rdx, 0x10000
+    mov rdx, 0x50000
     mov qword [rdx], rax
     mov qword [rdx + 8], rbx
     mov qword [rdx + 16], rcx
@@ -35,10 +35,47 @@ save_regs:
     mov qword [rax + 56], rdx  ;RSP
     mov rdx, qword [rsp + 40]
     mov qword [rax + 152], rdx ;SS
+    
+    vmovdqa [rax + 160], ymm0
+    vmovdqa [rax + 192], ymm1
+    vmovdqa [rax + 224], ymm2
+    vmovdqa [rax + 256], ymm3
+    vmovdqa [rax + 288], ymm4
+    vmovdqa [rax + 320], ymm5
+    vmovdqa [rax + 352], ymm6
+    vmovdqa [rax + 384], ymm7
+    vmovdqa [rax + 416], ymm8
+    vmovdqa [rax + 448], ymm9
+    vmovdqa [rax + 480], ymm10
+    vmovdqa [rax + 512], ymm11
+    vmovdqa [rax + 544], ymm12
+    vmovdqa [rax + 576], ymm13
+    vmovdqa [rax + 608], ymm14
+    vmovdqa [rax + 640], ymm15
+
+    vzeroupper
     ret
 
 stor_regs:
-    mov rax, 0x10000
+    mov rax, 0x50000
+
+    vmovdqa ymm15, [rax + 640]
+    vmovdqa ymm14, [rax + 608]
+    vmovdqa ymm13, [rax + 576]
+    vmovdqa ymm12, [rax + 544]
+    vmovdqa ymm11, [rax + 512]
+    vmovdqa ymm10, [rax + 480]
+    vmovdqa ymm9, [rax + 448]
+    vmovdqa ymm8, [rax + 416]
+    vmovdqa ymm7, [rax + 384]
+    vmovdqa ymm6, [rax + 352]
+    vmovdqa ymm5, [rax + 320]
+    vmovdqa ymm4, [rax + 288]
+    vmovdqa ymm3, [rax + 256]
+    vmovdqa ymm2, [rax + 224]
+    vmovdqa ymm1, [rax + 192]
+    vmovdqa ymm0, [rax + 160]
+
     mov r15, qword [rax + 120]
     mov r14, qword [rax + 112]
     mov r13, qword [rax + 104]
@@ -70,7 +107,7 @@ isr_stub_%+%1:
     mov rdi, %1
     mov rdx, qword [rsp - 24]
 
-    mov rsi, 0x10000
+    mov rsi, 0x50000
     push rbp
     mov rbp, rsp
     call isr_err
