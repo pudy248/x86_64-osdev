@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <drivers/pci.h>
 #include <drivers/ahci.h>
 #include <sys/global.h>
@@ -22,7 +22,10 @@ void ahci_init(pci_device ahci_pci) {
     int port_idx = -1;
     for (int i = 0; i < 32; i++) {
         if (~ahci_mem->pi & (1 << i)) continue;
-        if (ports[i].ssts) port_idx = i;
+        if (ports[i].ssts) {
+            port_idx = i;
+            break;
+        }
     }
     //printf("Selecting port %i.\r\n", port_idx);
 

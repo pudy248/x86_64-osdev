@@ -1,7 +1,7 @@
 #include "drivers/pci.h"
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <sys/idt.h>
 #include <sys/paging.h>
 #include <drivers/e1000.h>

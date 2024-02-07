@@ -4,7 +4,7 @@
 #include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <lib/fat.hpp>
 #include <sys/ktime.hpp>
 #include <sys/global.h>
@@ -144,13 +144,14 @@ void fat_init() {
     globals->fat_data.cluster_lba_offset = partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
     
     bpb->fat_tables = 1;
-    globals->fat_data.fat_tables.unsafe_set(NULL, 0, 0);
+    globals->fat_data.fat_tables.unsafe_clear();
     for (int i = 0; i < bpb->fat_tables; i++) {
         globals->fat_data.fat_tables.append((uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
         read_disk(globals->fat_data.fat_tables[i], partTable->entries[i].lba_start + (bpb->reserved_sectors + i * bpb->sectors_per_fat32), bpb->sectors_per_fat32);
     }
 
-    memset(&globals->fat_data.root_directory, 0, 2 * sizeof(FILE));
+    memset(&globals->fat_data.root_directory, 0, sizeof(FILE));
+    memset(&globals->fat_data.working_directory, 0, sizeof(FILE));
 
     globals->fat_data.root_directory = FILE(new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIR, NULL, bpb->root_cluster_num));
     globals->fat_data.working_directory = globals->fat_data.root_directory;
@@ -158,8 +159,9 @@ void fat_init() {
 }
 
 fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, uint32_t start_cluster) :
-    filename(), filesize(filesize), attributes(attributes), opened(0), loaded(0), edited(0), references(0), parent(parent), start_cluster(start_cluster), disk_layout() {
-    data.unsafe_set(NULL, 0, 0);
+    filesize(filesize), attributes(attributes), opened(0), loaded(0), edited(0), references(0), parent(parent), start_cluster(start_cluster), disk_layout() {
+    filename.unsafe_clear();
+    data.unsafe_clear();
 }
 /*
 fat_inode::fat_inode(fat_inode&& other) {
@@ -187,6 +189,7 @@ fat_inode::~fat_inode() {
 static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLFNs) {
     fat_file_entry* file = &entries[nLFNs].file;
     fat_inode* inode = new fat_inode(file->file_size, file->attributes, parent, (uint32_t)file->cluster_high << 16 | file->cluster_low);
+    inode->filename.reserve(nLFNs * 13);
     for (int lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
         fat_file_lfn* lfn = &entries[lfnIdx].lfn;
         int offset = ((lfn->position & 0x3f) - 1) * 13;
@@ -200,7 +203,6 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLF
         for (int i = 0; !br && i < 2; i++) 
             if (lfn->chars_3[i]) inode->filename.at(offset + i + 11) = lfn->chars_3[i];
             else br = true;
-        
     }
     //printf("name: %S\r\n", &inode->filename);
     return inode;
@@ -323,7 +325,7 @@ FILE file_open(FILE& directory, rostring filename) {
 FILE file_open(rostring absolute_path) {
     vector<rostring> parts = absolute_path.split("\\/");
     FILE file = globals->fat_data.root_directory;
-    for (int i = 0; i < parts.size(); i++) {
+    for (int i = 1; i < parts.size(); i++) {
         if (!file.inode) return FILE();
         if (!parts[i].size()) continue;
         if (parts[i] == ".") continue;

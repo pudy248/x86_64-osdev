@@ -16,21 +16,20 @@ float sqrtf(float x) {
     return z;
 }
 
-float rsqrtf(float number)
+float rsqrtf(float x)
 {
-    long i;
-    float x2, y;
-    const float threehalfs = 1.5f;
-
-    x2 = number * 0.5f;
-    y  = number;
-    i  = * ( long * ) &y;
-    i  = 0x5f3759df - ( i >> 1 );
-    y  = * ( float * ) &i;
-    y  = y * ( threehalfs - ( x2 * y * y ) );
-    y  = y * ( threehalfs - ( x2 * y * y ) );
-
-    return y;
+    //long i;
+    //float x2, y;
+    //const float threehalfs = 1.5f;
+    //x2 = x * 0.5f;
+    //y  = x;
+    //i  = * ( long * ) &y;
+    //i  = 0x5f3759df - ( i >> 1 );
+    //y  = * ( float * ) &i;
+    //y  = y * ( threehalfs - ( x2 * y * y ) );
+    //y  = y * ( threehalfs - ( x2 * y * y ) );
+    //return y;
+    return 1.f / sqrtf(x);
 }
 
 static double angle_shift ( double alpha, double beta )

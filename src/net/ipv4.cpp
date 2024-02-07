@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <net/ipv4.hpp>

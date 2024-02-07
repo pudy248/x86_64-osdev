@@ -39,16 +39,8 @@
         "tcp.h": "c",
         "udp.h": "c",
         "kstddefs.h": "c",
-        "type_traits": "cpp",
-        "string_view": "cpp",
-        "string": "cpp",
-        "array": "cpp",
         "initializer_list": "cpp",
         "utility": "cpp",
-        "istream": "cpp",
-        "vector": "cpp",
-        "deque": "cpp",
-        "sstream": "cpp"
     },
     "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe",
     "clangd.arguments": [

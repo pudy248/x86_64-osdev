@@ -8,11 +8,15 @@ extern "C" {
     void memset(void* dest, uint8_t src, uint64_t size);
 }
 
+static constexpr inline uint64_t align_to(uint64_t ptr, uint16_t alignment) {
+    if (ptr & (alignment - 1))
+        return ((ptr & ~(alignment - 1)) + alignment);
+    else return ptr;
+}
+
 void mem_init();
-__attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
-__attribute__((malloc)) void* __malloc(uint64_t size);
-__attribute__((malloc)) void* __malloc_tracked(uint64_t size, const char* file, int line);
-#define malloc(sz) __malloc_tracked(sz, __FILE__, __LINE__)
+__attribute__((returns_nonnull)) __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
+__attribute__((returns_nonnull)) __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment = 0x10);
 void free(void* ptr);
 
 struct heap_allocation {
@@ -102,16 +106,16 @@ static inline a_noreturn void cpu_halt(void) {
     asmv("cli; hlt");
 }
 
-void* operator new(uint64_t size);
-void* operator new[](uint64_t size);
+__attribute__((returns_nonnull)) void* operator new(uint64_t size);
+__attribute__((returns_nonnull)) void* operator new[](uint64_t size);
 void operator delete(void* ptr);
 void operator delete(void* ptr, uint64_t size);
 void operator delete[](void* ptr);
 void operator delete[](void* ptr, uint64_t size);
 
-template<typename T> T* waterline_new(uint64_t size, int alignment) {
+template<typename T> T* waterline_new(uint64_t size, uint16_t alignment) {
     return (T*)walloc(size, alignment);
 }
-template<typename T> T* waterline_new(int alignment) {
+template<typename T> T* waterline_new(uint16_t alignment) {
     return waterline_new<T>(sizeof(T), alignment);
 }

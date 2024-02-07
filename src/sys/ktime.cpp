@@ -1,12 +1,12 @@
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <sys/global.h>
 #include <sys/ktime.hpp>
 
 void inc_pit() {
-    globals->elapsedPITs++;
+    globals->elapsedPITs = globals->elapsedPITs + 1;
     //Print diagnostics
     {
         int x;

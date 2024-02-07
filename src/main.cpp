@@ -1,5 +1,5 @@
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <sys/idt.h>
 #include <sys/ktime.hpp>
 #include <sys/global.h>
@@ -15,7 +15,7 @@
 #include <graphics/transform.h>
 #include <graphics/pipeline.h>
 
-extern "C" void atexit(void (*)(void) __attribute__((cdecl))) {}
+extern "C" void atexit(void (*)(void)) {}
 
 static void http_main() {
     net_init();

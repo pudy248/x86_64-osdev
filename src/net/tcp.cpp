@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <net/net.hpp>
 #include <net/ipv4.hpp>
 #include <net/tcp.hpp>
@@ -54,7 +54,7 @@ static void tcp_checksum(ip_header ip, tcp_header* tcp) {
     tcp->checksum = sum;
 }
 static tcp_flags set_flags(uint16_t dat) {
-    tcp_flags f;
+    tcp_flags f = {};
     *(uint16_t*)&f = dat;
     return f;
 }
@@ -296,7 +296,7 @@ void tcp_connection::listen(uint16_t port) {
 }
 int tcp_connection::send(tcp_packet p) {
     if (p.contents.size() > TCP_CLI_MSS) {
-        printf("LARGE PACKET: %i bytes\r\n", p.contents.size());
+        if (TCP_VERBOSE_LOGGING) printf("LARGE PACKET: %i bytes\r\n", p.contents.size());
         int offset = 0;
         int handle = 0;
         while (true) {

@@ -1,4 +1,4 @@
-#include <kprint.h>
+#include <kstdio.hpp>
 
 #include <graphics/math.h>
 #include <graphics/vectypes.h>

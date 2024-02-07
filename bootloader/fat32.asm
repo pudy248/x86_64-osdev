@@ -12,7 +12,7 @@ bits 64
 db 0, 0, 0
 
 FAT_BPB:
-    oem_name: db "kefka-os"
+    oem_name: db "INVALID?"
     bytes_per_sector: dw 512
     sectors_per_cluster: db SECTORS_PER_CLUSTER
     reserved_sectors: dw RESERVED_SECTORS
@@ -24,7 +24,7 @@ FAT_BPB:
     sectors_per_track: dw 63
     num_heads: dw 255
     num_hidden_sectors: dd 0
-    large_sector_count: dd 0xffe000
+    large_sector_count: dd SECTORS_PER_FAT32 * 64 + 2 * SECTORS_PER_FAT32 + RESERVED_SECTORS
 FAT32_EBPB:
     sectors_per_fat32: dd SECTORS_PER_FAT32
     flags: dw 0

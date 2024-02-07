@@ -1,24 +1,29 @@
-ifneq ("$(wildcard /usr/bin/clang-17)","")
-    CC:=clang-17
-	LD:=ld.lld-17
-else ifneq ("$(wildcard /usr/bin/clang)","")
-    CC:=clang
-	LD:=ld.lld
+CLANG_ENABLE:=1
+ifdef CLANG_ENABLE
+	CC:=$(wildcard /usr/bin/clang) $(wildcard /usr/bin/clang-1*)
+	LD:=$(wildcard /usr/bin/ld.lld) $(wildcard /usr/bin/ld.lld-1*)
+	CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
+	CFLAGS_CC_DBG:=-fdebug-macro
 else
-    CC:=gcc
+	CC:=gcc
 	LD:=ld
+	CFLAGS_CC:=
+	CFLAGS_CC_DBG:=
 endif
 
 ASM:=nasm
 ASMFLAGS:=-f elf64
 
+CFLAGS_DBG:= -g $(CFLAGS_CC_DBG)
 CFLAGS:=\
 -m64 -march=haswell -std=c++20 -ffreestanding -ffunction-sections -fdata-sections \
--nostdlib -fno-pie -fno-exceptions -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--Ofast -Iinclude -Iinclude/std \
+-nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
+-fno-exceptions -fno-finite-loops -felide-constructors \
+-Os -Iinclude -Iinclude/std \
 -Wall -Wextra \
--Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter
-#-Weverything -Wno-c++98-compat -Wno-pre-c++14-compat -Wno-unsafe-buffer-usage -Wno-conversion -Wno-old-style-cast
+-Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
+$(CFLAGS_CC) $(CFLAGS_DBG)
+
 LDFLAGS:=
 
 ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
@@ -57,7 +62,7 @@ start-flash: disk_2.img
 start-trace: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 start-gdb: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S &
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null 2> /dev/null &
 	gdb -tui -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf" -ex "target remote $(LOCAL_IP):1234"
 #	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
 start-ping: disk.img
@@ -75,6 +80,7 @@ tmp/obj.o : $(C_SRC)
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS) -e kernel_main -r -o $@ $^
+	@objdump -d $^ > tmp/base.S 2> /dev/null
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS) -e kernel_main -T link.ld -o $@ tmp/kernel.elf

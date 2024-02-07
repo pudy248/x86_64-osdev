@@ -14,7 +14,6 @@ struct global_data_t {
     uint64_t waterline;
     uint64_t mem_used;
     uint64_t mem_avail;
-    void* allocs;
 
     void(*irq_fns[16])(void);
     volatile uint64_t elapsedPITs;

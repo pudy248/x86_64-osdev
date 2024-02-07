@@ -142,12 +142,6 @@ template<typename T> class vector : public span<T> {
 protected:
 	constexpr static float resize_ratio = 2;
 	int m_capacity;
-
-	void unsafe_clear() {
-		this->m_arr = nullptr;
-		this->m_length = 0;
-		m_capacity = 0;
-	}
 public:
 	constexpr vector() : span<T>(nullptr, 0), m_capacity(0) { }
 	vector(int size) : m_capacity(size) {
@@ -194,7 +188,12 @@ public:
 		clear();
 	}
 
-	void unsafe_set(T* arr, int l, int c) {
+	constexpr void unsafe_clear() {
+		this->m_arr = nullptr;
+		this->m_length = 0;
+		m_capacity = 0;
+	}
+	constexpr void unsafe_set(T* arr, int l, int c) {
 		this->m_arr = arr;
 		this->m_length = l;
 		this->m_capacity = c;

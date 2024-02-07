@@ -117,6 +117,6 @@ partitionTable:
         sysid: db 0x0c ;fat32 LBA
         chs_end: db 0xff, 0xff, 0xff
         lba_start: dd PARTITION_LBA
-        lba_size: dd 0x100000
+        lba_size: dd 0x01f000
     partitions2to4: times 48 db 0
     dw 0xaa55

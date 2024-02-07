@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <kstring.hpp>
 
 class console {
 private:
@@ -16,4 +17,13 @@ public:
     void newline();
     void putchar(char c);
     void putstr(const char* s);
+
+    void hexdump(void* ptr, uint32_t bytes);
+    void hexdump_rev(void* ptr, uint32_t bytes, uint32_t swap_width);
 };
+
+void print(rostring str);
+void print(const char* str);
+template <typename... Args> void printf(const char* fmt, Args... args);
+template <typename... Args> void printf(rostring fmt, Args... args);
+#define kassert(condition, msg) if (!(condition)) { printf("%s:%i: %s\r\n", __FILE__, __LINE__, msg); inf_wait(); }

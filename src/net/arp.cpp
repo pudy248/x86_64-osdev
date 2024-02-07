@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <kstddefs.h>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <stl/vector.hpp>

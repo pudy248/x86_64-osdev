@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
+#include <kcstring.h>
+#include <sys/global.h>
 
 console::console() {
     for (int i = 0; i < rect[2] * rect[3]; i++)
@@ -46,4 +48,40 @@ void console::putchar(char c) {
 }
 void console::putstr(const char* s) {
     for (int i = 0; s[i]; i++) putchar(s[i]);
+}
+
+static void hexdump_impl(console& c, uint8_t* src, uint32_t size, bool reversed) {
+    const char* hextable = "0123456789ABCDEF";
+    for(int i = reversed ? size - 1 : 0; reversed ? i >= 0 : i < size; reversed ? i-- : i++) {
+        c.putchar(hextable[src[i] >> 4]);
+        c.putchar(hextable[src[i] & 0xf]);
+        if (!((i + !reversed) & 3)) c.putchar(' ');
+    }
+}
+
+void console::hexdump(void* src, uint32_t size) {
+    hexdump_impl(*this, (uint8_t*)src, size, false);
+    putstr("\r\n");
+}
+void console::hexdump_rev(void* src, uint32_t size, uint32_t swap_width) {
+    for (uint32_t i = 0; i < size; i += swap_width)
+        hexdump_impl(*this, (uint8_t*)((uint64_t)src + i), swap_width, true);
+    putstr("\r\n");
+}
+
+
+void print(const char* str) {
+    globals->vga_console.putstr(str);
+}
+void print(rostring str) {
+    for (int i = 0; str.size(); i++) globals->vga_console.putchar(str[i]);
+}
+
+template <typename... Args> void printf(const char* fmt, Args... args) {
+    string s = format(rostring(fmt), args...);
+    globals->vga_console.putstr(s.c_str_this());
+}
+template <typename... Args> void printf(rostring fmt, Args... args) {
+    string s = format(fmt, args...);
+    globals->vga_console.putstr(s.c_str_this());
 }

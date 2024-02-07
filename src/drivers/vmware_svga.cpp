@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <drivers/pci.h>
 #include <drivers/vmware_svga.h>
 

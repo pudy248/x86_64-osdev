@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <sys/global.h>
 #include <drivers/pci.h>
 

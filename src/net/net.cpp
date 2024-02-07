@@ -2,7 +2,7 @@
 #include <utility>
 
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <stl/vector.hpp>
 #include <sys/ktime.hpp>
 #include <net/net.hpp>

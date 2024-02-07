@@ -1,10 +1,11 @@
 #include <kstdlib.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 
 #include <sys/init.h>
 #include <sys/idt.h>
 #include <sys/pic.h>
 #include <sys/ktime.hpp>
+#include <sys/global.h>
 #include <drivers/pci.h>
 #include <drivers/ahci.h>
 #include <lib/fat.hpp>
@@ -54,6 +55,7 @@ extern "C" void stage2_main(unsigned int driveNum) {
 
         kassert(kernel.inode, "Kernel image not found!\r\n");
         uint64_t kernel_link_loc = *(uint64_t*)kernel.inode->data.unsafe_arr();
+        //printf("Loading kernel to 0x%x.\r\n", kernel_link_loc);
         memcpy((void*)kernel_link_loc, kernel.inode->data.unsafe_arr(), kernel.inode->data.size());
     }
 

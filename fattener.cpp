@@ -23,7 +23,7 @@ uint8_t fat_lfn_checksum(const uint8_t *pFCBName)
 }
 
 #define SECTORS_PER_CLUSTER 8
-#define SECTORS_PER_FAT32 8
+#define SECTORS_PER_FAT32 32
 
 int main(int argc, char** argv) {
     if (argc == 1) {

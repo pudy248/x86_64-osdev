@@ -1,6 +1,6 @@
 #include <kstddefs.h>
 #include <kstring.hpp>
-#include <kprint.h>
+#include <kstdio.hpp>
 #include <stl/vector.hpp>
 #include <lib/fat.hpp>
 #include <net/tcp.hpp>
