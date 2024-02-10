@@ -21,11 +21,11 @@ static volatile vector<ethernet_packet>* packet_queue_back;
 void net_init() {
     pci_device* e1000_pci = pci_match(PCI_CLASS::NETWORK, PCI_SUBCLASS::NETWORK_ETHERNET);
     if (!e1000_pci) {
-        print("Failed to locate Ethernet controller!\r\n");
+        print("Failed to locate Ethernet controller!\n");
         pci_print();
         inf_wait();
     }
-    printf("Detected Ethernet device: %04x:%04x\r\n", e1000_pci->vendor_id, e1000_pci->device_id);
+    printf("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
     e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
     global_mac = new_mac(e1000_dev->mac);
     packet_queue_front = new vector<ethernet_packet>();

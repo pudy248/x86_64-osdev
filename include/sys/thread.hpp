@@ -16,7 +16,7 @@ template <typename R> struct thread_context {
 
 void threading_init();
 
-template <typename R, typename... Args> thread<R> thread_spawn(R(*fn)(Args...), Args... args);
+template <typename R, typename... Args> thread<R> thread_create(R(*fn)(Args...), Args... args);
 template <typename R> void thread_kill(thread<R> t);
 template <typename R> void thread_switch(thread<R> t);
 void thread_exit();

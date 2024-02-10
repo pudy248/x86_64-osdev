@@ -115,4 +115,6 @@ public:
     }
 };
 
-string format(const rostring fmt, ...);
+int formats(vector<char>& output, const rostring fmt, ...);
+template <typename... Args> int formats(char* output, int output_size, const rostring fmt, Args... args);
+template <typename... Args> string format(rostring fmt, Args... args);

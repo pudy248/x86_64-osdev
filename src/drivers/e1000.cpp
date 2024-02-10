@@ -26,7 +26,7 @@ static uint16_t e1000_read_eeprom(uint8_t addr) {
         tmp = e1000_read(E1000_REG::EERD);
         if (tmp & 0x10) break;
         if (i > 1000) {
-            printf("EEPROM Read Error: %08x %08x\r\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
+            printf("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
             inf_wait();
         }
     }
@@ -50,7 +50,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
 
     set_page_flags((void*)e1000_dev->mmio_base, PAGE_WT);
     pci_enable_mem(e1000_pci.address);
-    //printf("Using Ethernet MMIO at %08x\r\n", e1000_pci.bars[0]);    
+    //printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);    
 
     //Clear and disable interrupts
     e1000_write(E1000_REG::IMC, 0xFFFFFFFF);
@@ -74,7 +74,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
 
     //Read MAC
     if (e1000_dev->eeprom) {
-        //print("Device has EEPROM\r\n");
+        //print("Device has EEPROM\n");
         e1000_write(E1000_REG::EECD, 0xB);
         uint16_t v;
         v = e1000_read_eeprom(0);
@@ -88,7 +88,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
         e1000_dev->mac[5] = v >> 8;
     }
     else {
-        //print("Device no has EEPROM\r\n");
+        //print("Device no has EEPROM\n");
         uint32_t* mac = (uint32_t*)(e1000_dev->mmio_base + 0x5400);
         uint32_t v = mac[0];
         e1000_dev->mac[0] = v & 0xff;
@@ -100,7 +100,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
         e1000_dev->mac[5] = v >> 8;
     }
 
-    printf("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\r\n", 
+    printf("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
         e1000_dev->mac[0], e1000_dev->mac[1], e1000_dev->mac[2], e1000_dev->mac[3], e1000_dev->mac[4], e1000_dev->mac[5]);
 
     
@@ -143,12 +143,12 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     //pci_write_register(e1000_pci.address, 15, 5);
     //e1000_pci.interrupt_line = 5;
 
-    //printf("Using interrupt line %i\r\n", e1000_pci.interrupt_line);
+    //printf("Using interrupt line %i\n", e1000_pci.interrupt_line);
     irq_set(e1000_pci.interrupt_line, &e1000_int_handler);
     outb(0x21, 0x2);
     outb(0xA1, 0x80);
     //e1000_write(E1000_REG::ITR, 0);
-    print("e1000e network card initialized.\r\n\n");
+    print("e1000e network card initialized.\n\n");
 }
 
 void e1000_enable() {
@@ -158,17 +158,17 @@ void e1000_enable() {
 void e1000_int_handler() {
     e1000_write(E1000_REG::IMS, 0x1);
     uint32_t status = e1000_read(E1000_REG::ICR);
-    //printf("%02x\r\n", status);
+    //printf("%02x\n", status);
     if(status & 0x02) {
 
     }
     if(status & 0x04)
         e1000_link();
     if(status & 0x40) {
-        print("RXO\r\n");
-        printf("  RCTRL %08x\r\n", e1000_read(E1000_REG::RCTRL));
-        printf("  RXDH %i RXDT %i\r\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
-        printf("  RX0 ADDR %08x STATUS %02x\r\n", e1000_dev->rx_descs->addr, e1000_dev->rx_descs->status);
+        print("RXO\n");
+        printf("  RCTRL %08x\n", e1000_read(E1000_REG::RCTRL));
+        printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
+        printf("  RX0 ADDR %08x STATUS %02x\n", e1000_dev->rx_descs->addr, e1000_dev->rx_descs->status);
     }
     if(status & 0x80)
         e1000_receive();
@@ -178,16 +178,16 @@ void e1000_receive() {
     int tail = e1000_read(E1000_REG::RXDESCTL);
     int head = e1000_read(E1000_REG::RXDESCHD);
     if (head < tail) head += E1000_NUM_RX_DESC;
-    //printf("%02i:%02i\r\n", tail, head);
+    //printf("%02i:%02i\n", tail, head);
     uint16_t old_cur = tail;
     //double t1 = timepoint().unix_seconds();
     while (e1000_dev->rx_descs[e1000_dev->rx_cur].status & 0x1) {
-        //printf("Reading %i\r\n", e1000_dev->rx_cur);
+        //printf("Reading %i\n", e1000_dev->rx_cur);
         uint8_t *buf = (uint8_t *)e1000_dev->rx_descs[e1000_dev->rx_cur].addr;
         uint16_t len = e1000_dev->rx_descs[e1000_dev->rx_cur].length;
         receive_fn(buf, len);
         //double t2 = timepoint().unix_seconds();
-        //printf("Done reading %i in %fms\r\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
+        //printf("Done reading %i in %fms\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
         //t1 = t2;
         e1000_dev->rx_descs[e1000_dev->rx_cur].status = 0;
         old_cur = e1000_dev->rx_cur;

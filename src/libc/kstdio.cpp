@@ -5,7 +5,7 @@
 #include <sys/global.h>
 
 console::console() {
-    for (int i = 0; i < rect[2] * rect[3]; i++)
+    for (int i = 0; i < 80 * 25; i++)
         c[i] = 0x0f00;
 }
 void console::update_cursor() {
@@ -15,23 +15,27 @@ void console::update_cursor() {
     outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
 }
+char console::get(int x, int y) {
+    return c[80 * y + x];
+}
 void console::set(char ch, int x, int y) {
-    c[rect[2] * y + x] = 0x0f00 | ch;
-
+    c[80 * y + x] = 0x0f00 | ch;
 }
 void console::newline() {
     cy++;
     if (cy == rect[3] - rect[1]) {
         for (int y = rect[1]; y < rect[1] + rect[3] - 1; y++) {
             for (int x = rect[0]; x < rect[0] + rect[2]; x++) {
-                c[y * rect[2] + x] = c[(y + 1) * rect[2] + x];
+                set(get(x, y + 1), x, y);
             }
         }
         cy--;
     }
     for (int x = rect[0]; x < rect[0] + rect[2]; x++) {
-        c[cy * rect[2] + x] = 0;
+        set(0, x, cy);
     }
+    //Unix or Windows?
+    cx = 0;
 }
 void console::putchar(char c) {
     if (!c) return;
@@ -50,7 +54,7 @@ void console::putstr(const char* s) {
     for (int i = 0; s[i]; i++) putchar(s[i]);
 }
 
-static void hexdump_impl(console& c, uint8_t* src, uint32_t size, bool reversed) {
+static void hexdump_impl(console& c, uint8_t* src, int size, bool reversed) {
     const char* hextable = "0123456789ABCDEF";
     for(int i = reversed ? size - 1 : 0; reversed ? i >= 0 : i < size; reversed ? i-- : i++) {
         c.putchar(hextable[src[i] >> 4]);
@@ -61,12 +65,12 @@ static void hexdump_impl(console& c, uint8_t* src, uint32_t size, bool reversed)
 
 void console::hexdump(void* src, uint32_t size) {
     hexdump_impl(*this, (uint8_t*)src, size, false);
-    putstr("\r\n");
+    putstr("\n");
 }
 void console::hexdump_rev(void* src, uint32_t size, uint32_t swap_width) {
     for (uint32_t i = 0; i < size; i += swap_width)
         hexdump_impl(*this, (uint8_t*)((uint64_t)src + i), swap_width, true);
-    putstr("\r\n");
+    putstr("\n");
 }
 
 

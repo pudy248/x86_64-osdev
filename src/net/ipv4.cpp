@@ -30,11 +30,11 @@ void ipv4_process(ethernet_packet packet) {
     uint16_t actual_size = packet.contents.size() - sizeof(ip_header);
 
     if(expected_size > actual_size) {
-        printf("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\r\n", ip->src_ip, expected_size, actual_size);
+        printf("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip, expected_size, actual_size);
         return;
     }
 
-    //printf("[IPv4] %I -> %I (%i/%i bytes)\r\n", ip->src_ip, ip->dst_ip, expected_size, actual_size);
+    //printf("[IPv4] %I -> %I (%i/%i bytes)\n", ip->src_ip, ip->dst_ip, expected_size, actual_size);
     
     arp_update(packet.src, ip->src_ip);
 

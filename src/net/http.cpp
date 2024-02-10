@@ -27,7 +27,7 @@ bool http_process(tcp_connection* conn, tcp_packet p) {
             return true;
         }
     }
-    printf("%S\r\n", &file.inode->filename);
+    printf("%S\n", &file.inode->filename);
     if (file.inode->filename.ends_with(rostring(".png")))
         http_send(conn, rostring("image/png"), rostring(file.inode->data));
     else if (file.inode->filename.ends_with(rostring(".webp")))
@@ -46,12 +46,12 @@ bool http_process(tcp_connection* conn, tcp_packet p) {
 
 void http_send(tcp_connection* conn, rostring type, rostring response) {
     rostring fstr(
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: %S\r\n"
-        "Content-Length: %i\r\n"
-        "Accept-Ranges: bytes\r\n"
-        "Connection: keep-alive\r\n"
-        "\r\n%S"
+        "HTTP/1.1 200 OK\n"
+        "Content-Type: %S\n"
+        "Content-Length: %i\n"
+        "Accept-Ranges: bytes\n"
+        "Connection: keep-alive\n"
+        "\n%S"
     );
     
     string fresponse = format(fstr, &type, response.size(), &response);
@@ -60,9 +60,9 @@ void http_send(tcp_connection* conn, rostring type, rostring response) {
 
 void http_error(tcp_connection* conn, rostring code) {
     rostring fstr(
-        "HTTP/1.1 %S\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
+        "HTTP/1.1 %S\n"
+        "Content-Length: 0\n"
+        "Connection: close\n"
     );
     string fresponse = format(fstr, &code);
     conn->send({ span<char>(fresponse) });

@@ -22,7 +22,7 @@ static void create_frag(RenderPipeline* pipeline, int x, int y, Vec4 color, floa
     //if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
     //pipeline->fragBuffer[idx] = (Fragment){depth};
     pipeline->fragTexture[idx] = 0xffff00ff;//rgba2u32(color);
-    //printf("%i:%i\r\n", idx, pipeline->fragTexture[idx]);
+    //printf("%i:%i\n", idx, pipeline->fragTexture[idx]);
 }
 
 void raster_point(RenderPipeline* pipeline, uint32_t p) {

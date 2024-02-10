@@ -265,7 +265,7 @@ fat_file get_fat_metadata(fat_disk_entry* entries) {
     char shortname[12];
     shortname[11] = 0;
     memcpy(shortname, entries->filename, 11);
-    //printf("%08x - %s : %i lfns -> %s\r\n", (uint32_t)entries, shortname, nLFNs, f.filename);
+    //printf("%08x - %s : %i lfns -> %s\n", (uint32_t)entries, shortname, nLFNs, f.filename);
     return f;
 }
 int enum_dir(fat_file dir, fat_file* dest) {
