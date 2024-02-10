@@ -16,7 +16,7 @@ void ahci_init(pci_device ahci_pci) {
     volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
     set_page_flags((void*)ahci_mem, PAGE_WT);
     pci_enable_mem(ahci_pci.address);
-    //printf("Using AHCI MMIO at %08x\r\n", ahci_pci.bars[5]);    
+    //printf("Using AHCI MMIO at %08x\n", ahci_pci.bars[5]);    
     volatile hba_port* ports = (volatile hba_port*)(uint64_t)(ahci_pci.bars[5] + 0x100);
 
     int port_idx = -1;
@@ -27,13 +27,13 @@ void ahci_init(pci_device ahci_pci) {
             break;
         }
     }
-    //printf("Selecting port %i.\r\n", port_idx);
+    //printf("Selecting port %i.\n", port_idx);
 
     ports[port_idx].cmd &= 0xffffffee;
-    //printf("Waiting for FR/CR bits to clear. CMD:%08x\r\n", ports[port_idx].cmd);
+    //printf("Waiting for FR/CR bits to clear. CMD:%08x\n", ports[port_idx].cmd);
     while (*(volatile uint32_t*)(&ports[port_idx].cmd) & 0xc000);
 
-    //printf("Creating CLB and FB.\r\n");
+    //printf("Creating CLB and FB.\n");
     ports[port_idx].clb = (uint64_t)cmd_list;
     ports[port_idx].clbu = 0;
     ports[port_idx].fb = (uint64_t)fis;
@@ -46,15 +46,15 @@ void ahci_init(pci_device ahci_pci) {
     }
     
     ports[port_idx].cmd |= 0x11;
-    //printf("Waiting for CR bit to set. CMD: %08x\r\n", ports[port_idx].cmd);
+    //printf("Waiting for CR bit to set. CMD: %08x\n", ports[port_idx].cmd);
     for (int i = 0; (*(volatile uint32_t*)&ports[port_idx].cmd & 0xc000) != 0xc000; i++) {
         if (i > 0x2000000) {
-            printf("Init stalled. CMD: %08x\r\n", ports[port_idx].cmd);
+            printf("Init stalled. CMD: %08x\n", ports[port_idx].cmd);
             inf_wait();
         }
     }
 
-    //printf("Returning initialized AHCI port handle. CMD: %08x\r\n", ports[port_idx].cmd);
+    //printf("Returning initialized AHCI port handle. CMD: %08x\n", ports[port_idx].cmd);
     *globals->ahci = {ahci_mem, &ports[port_idx], cmd_list, fis, ctbas};
 }
 
@@ -83,11 +83,11 @@ void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
     //print("2 ");
     while (*(volatile uint32_t*)&dev.port->tfd & 0x84);
     dev.port->ci |= 1;
-    //print("3\r\n");
+    //print("3\n");
     while ((*(volatile uint32_t*)&dev.port->ci & 1) && !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
-        //printf("Write: %08x %08x\r\n", dev.port->cmd, dev.port->serr); //4017 800
+        //printf("Write: %08x %08x\n", dev.port->cmd, dev.port->serr); //4017 800
     }
-    if (dev.port->is & 0x40000000) print("Disk read error!\r\n");
+    if (dev.port->is & 0x40000000) print("Disk read error!\n");
 }
 
 void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
@@ -95,7 +95,7 @@ void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
     int slot;
     for (slot = 0; slot < 32; slot++) if (((slots >> slot) & 1) == 0) break;
     if (slot == 32) {
-        print("No available command slots!\r\n");
+        print("No available command slots!\n");
         return;
     }
 
@@ -122,7 +122,7 @@ void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
     while (dev.port->tfd & 0x84);
     dev.port->ci = 1 << slot;
     while ((dev.port->ci & (1 << slot)) && (dev.port->is & 0x40000000) == 0);
-    //if (dev.port->is & 0x40000000) console_printf("Disk write error!\r\n");
+    //if (dev.port->is & 0x40000000) console_printf("Disk write error!\n");
 }
 
 void read_disk(void* address, uint32_t lbaStart, uint16_t lbaCount) {

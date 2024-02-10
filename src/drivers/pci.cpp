@@ -69,7 +69,7 @@ void pci_init() {
 
 void pci_print() {
     for (int i = 0; i < globals->pci->numDevs; i++) {
-        printf("(%i:%i:%i) dev:%04x vendor:%04x class %02x:%02x:%02x:%02x\r\n", 
+        printf("(%i:%i:%i) dev:%04x vendor:%04x class %02x:%02x:%02x:%02x\n", 
             globals->pci->devices[i].address.bus, globals->pci->devices[i].address.slot, globals->pci->devices[i].address.func,
             globals->pci->devices[i].device_id, globals->pci->devices[i].vendor_id,
             globals->pci->devices[i].class_id, globals->pci->devices[i].subclass, globals->pci->devices[i].prog_if, globals->pci->devices[i].rev_id

@@ -15,6 +15,9 @@
 #include <graphics/transform.h>
 #include <graphics/pipeline.h>
 
+#include <stl/functional.hpp>
+#include <sys/debug.hpp>
+
 extern "C" void atexit(void (*)(void)) {}
 
 static void http_main() {
@@ -53,7 +56,7 @@ static void http_main() {
 
 static void svga_main() {
     pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
-    kassert(svga_pci, "No VGA display device detected!\r\n");
+    kassert(svga_pci, "No VGA display device detected!\n");
     svga_init(*svga_pci);
     
     //svga_disable();
@@ -107,7 +110,7 @@ static void svga_main() {
     }
     p.nVertices = vi;
     p.nTriangles = ti;
-    printf("loaded model with %i verts, %i tris\r\n", vi, ti);
+    printf("loaded model with %i verts, %i tris\n", vi, ti);
 
     projectionMatrix = project(4, 3, 2);
     int iters = 0;
@@ -148,6 +151,19 @@ static void svga_main() {
     
 }
 
+very_verbose_class test(very_verbose_class c) {
+    printf("Calling test function.\n");
+    return very_verbose_class(c.id + 1);
+}
+
+void demo() {
+    very_verbose_class c1(123);
+    function_instance<very_verbose_class(very_verbose_class)> f(test);
+    f.set_args(c1);
+    very_verbose_class c2 = f();
+    printf("Return value: %i\n", c2.id);
+}
+
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void);
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void) {
     idt_init();
@@ -156,7 +172,9 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     time_init();
     globals->fat_data.root_directory.inode->purge();
 
-    http_main();
+    demo();
+
+    //http_main();
     //svga_main();
     
     //terminal_init(rootDir);

@@ -47,7 +47,7 @@ void svga_init(pci_device svga_pci) {
 
     svga_write(SVGA_REG::ID, 2);
     if (svga_read(SVGA_REG::ID) != 2) svga_write(SVGA_REG::ID, 1);
-    kassert(svga_read(SVGA_REG::ID), "VMware SVGA device too old!\r\n");
+    kassert(svga_read(SVGA_REG::ID), "VMware SVGA device too old!\n");
 
     svga_dev->fb_size = svga_read(SVGA_REG::FB_SIZE);
     svga_dev->fifo_size = svga_read(SVGA_REG::MEM_SIZE);

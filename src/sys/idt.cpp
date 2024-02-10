@@ -69,22 +69,22 @@ void irq_set(uint8_t index, void(*fn)(void)) {
 }
 
 void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_file* registers) {
-    printf("\r\nException v=%02x e=%04x %s\r\n", int_num, err_code, int_num >= 0x20 ? "IRQ" : exceptions[int_num]);
-    printf("IP: %02x:%016x\r\n", registers->cs, registers->rip);
-    print("Register dump:\r\n");
-    printf("%016x %016x %016x %016x\r\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
-    printf("%016x %016x %016x %016x\r\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
-    printf("%016x %016x %016x %016x\r\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
-    printf("%016x %016x %016x %016x\r\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
-    printf("%016x %016x %016x %016x\r\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
-    //printf("RAX%016x RBX%016x RCX%016x RDX%016x\r\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
-    //printf("RSI%016x RDI%016x RBP%016x RSP%016x\r\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
-    //printf("R08%016x R09%016x R10%016x R11%016x\r\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
-    //printf("R12%016x R13%016x R14%016x R15%016x\r\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
-    //printf("CR0%016x CR2%016x CR3%016x CR4%016x\r\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+    printf("\nException v=%02x e=%04x %s\n", int_num, err_code, int_num >= 0x20 ? "IRQ" : exceptions[int_num]);
+    printf("IP: %02x:%016x\n", registers->cs, registers->rip);
+    print("Register dump:\n");
+    printf("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
+    printf("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
+    printf("%016x %016x %016x %016x\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
+    printf("%016x %016x %016x %016x\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
+    printf("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+    //printf("RAX%016x RBX%016x RCX%016x RDX%016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
+    //printf("RSI%016x RDI%016x RBP%016x RSP%016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
+    //printf("R08%016x R09%016x R10%016x R11%016x\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
+    //printf("R12%016x R13%016x R14%016x R15%016x\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
+    //printf("CR0%016x CR2%016x CR3%016x CR4%016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
 
     if (err) {
-        print("Unrecoverable exception - halting...\r\n");
+        print("Unrecoverable exception - halting...\n");
         inf_wait();
     }
 }

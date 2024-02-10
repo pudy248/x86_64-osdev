@@ -1,9 +1,12 @@
 #pragma once
 #include <cstdint>
 #include <cstdarg>
+#include <utility>
 #include <kstddefs.h>
 #include <kcstring.h>
 #include <kstring.hpp>
+#include <kstdio.hpp>
+#include <sys/global.h>
 #include <stl/vector.hpp>
 #include <net/net.hpp>
 
@@ -76,6 +79,7 @@ void ostringstream::write_i(int64_t n, int leading, int radix, char leadChar, co
     if (n < 0) {
         n = -n;
         write<char>('-');
+        leading--;
     }
     write_u(n, leading, radix, leadChar, letters);
 }
@@ -231,14 +235,13 @@ vector<rostring> rostring::split(char c) const {
     return split(rostring(&c, 1));
 }
 
-
-string format(const rostring fmt, ...) {
+int formats(vector<char>& output, const rostring fmt, ...) {
     va_list l;
     va_start(l, fmt);
     
     istringstream fmts(fmt);
     ostringstream ostr;
-    ostr.data.reserve(fmt.size());
+    ostr.data = std::move(output);
 
     const rostring fmtchars("ixXpbfsSIM");
     
@@ -246,45 +249,51 @@ string format(const rostring fmt, ...) {
         char c = fmts.read<char>();
         if (c == '%') {
             istringstream fmtArg(fmts.read_until_any_inc(fmtchars));
-            int leadingZeroes = 0;
-            int trailingZeroes = 3;
+            int leadingChars = 0;
+            int decimals = 3;
             char leadingChar = ' ';
 
             while(fmtArg.readable()) {
                 char front = fmtArg.read_c<char>();
                 if(fmtchars.contains(front)) break;
                 else if (front == 'l' || front == 'z') fmtArg.read<char>();
+                else if (front == 'n') {
+                    fmtArg.read<char>();
+                    leadingChars = va_arg(l, uint64_t);
+                }
                 else if (front == '.') {
                     fmtArg.read<char>();
-                    trailingZeroes = fmtArg.read<int64_t>();
+                    decimals = fmtArg.read<int64_t>();
                 }
                 else {
                     leadingChar = fmtArg.read<char>();
-                    leadingZeroes = fmtArg.read<int64_t>();
+                    leadingChars = fmtArg.read<int64_t>();
                 }
             }
             char c2 = fmtArg.data.at(fmtArg.data.size() - 1);
             if (c2 == 'i') {
-                ostr.write_i(va_arg(l, int64_t), leadingZeroes, 10, leadingChar);
+                ostr.write_i(va_arg(l, int64_t), leadingChars, 10, leadingChar);
             }
             else if (c2 == 'X') {
-                ostr.write_u(va_arg(l, uint64_t), leadingZeroes, 16, leadingChar);
+                ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
             }
             else if (c2 == 'x') {
-                ostr.write_u(va_arg(l, uint64_t), leadingZeroes, 16, leadingChar, "0123456789abcdef");
+                ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar, "0123456789abcdef");
             }
             else if (c2 == 'p') {
                 ostr.write<const char*>("0x");
-                ostr.write_u(va_arg(l, uint64_t), leadingZeroes, 16, leadingChar);
+                ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
             }
             else if (c2 == 'b') {
-                ostr.write_u(va_arg(l, uint64_t), leadingZeroes, 2, leadingChar);
+                ostr.write_u(va_arg(l, uint64_t), leadingChars, 2, leadingChar);
             }
             else if (c2 == 'f') {
-                ostr.write_d(va_arg(l, double), leadingZeroes, trailingZeroes, leadingChar);
+                ostr.write_d(va_arg(l, double), leadingChars, decimals, leadingChar);
             }
             else if (c2 == 's') {
-                ostr.write<const char*>(va_arg(l, const char*));
+                const char* ptr = va_arg(l, const char*);
+                if (leadingChars) ostr.write<rostring>(rostring(ptr, leadingChars));
+                else ostr.write<const char*>(ptr);
             }
             else if (c2 == 'S') {
                 ostr.write<rostring>(*va_arg(l, rostring*));
@@ -305,7 +314,21 @@ string format(const rostring fmt, ...) {
             }
         }
         else ostr.write<char>(c);
+
     }
     va_end(l);
-    return ostr.data;
+    
+    output = std::move(ostr.data);
+    return output.size();
+}
+template <typename... Args> int formats(char* output, int output_size, const rostring fmt, Args... args) {
+    vector<char> v;
+    v.unsafe_set(output, 0, output_size);
+    return formats(v, fmt, args...);
+}
+
+template <typename... Args> string format(rostring fmt, Args... args) {
+    vector<char> v{};
+    formats(v, fmt, args...);
+    return string(v);
 }

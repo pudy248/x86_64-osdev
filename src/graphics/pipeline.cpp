@@ -38,7 +38,7 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
             float lighting = dot(normal, lookdir);
             //if (lighting < 0.f) continue;
             if (lighting > 1.f) {
-                printf("%f %f %f dot %f %f %f = %f\r\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z, lighting);
+                printf("%f %f %f dot %f %f %f = %f\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z, lighting);
                 continue;
             }
 
@@ -86,7 +86,7 @@ void pipeline_execute(RenderPipeline* pipeline, void** params) {
     //pipeline->fragmentShader(pipeline, params);
 
     uint64_t tp4 = rdtsc();
-    printf("times: %i %i %i | %i\r\n", (uint32_t)(tp2 - tp1), (uint32_t)(tp3 - tp2), (uint32_t)(tp4 - tp3), (uint32_t)(tp4 - tp1));
+    printf("times: %i %i %i | %i\n", (uint32_t)(tp2 - tp1), (uint32_t)(tp3 - tp2), (uint32_t)(tp4 - tp3), (uint32_t)(tp4 - tp1));
 }
 
 void pipeline_flush(RenderPipeline* pipeline) {

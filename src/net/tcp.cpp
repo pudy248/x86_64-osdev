@@ -114,7 +114,7 @@ void tcp_process(ip_packet packet) {
                 conn->cur_seq = conn->start_seq;
                 conn->cli_ack = conn->start_seq;
 
-                if (TCP_VERBOSE_LOGGING) printf("[TCP] Opening connection to port %i with %I:%i.\r\n", conn->cur_port, conn->cli_ip, conn->cli_port);
+                if (TCP_VERBOSE_LOGGING) printf("[TCP] Opening connection to port %i with %I:%i.\n", conn->cur_port, conn->cli_ip, conn->cli_port);
                 tcp_mss mss = {
                     0x02, 0x04, htons(TCP_MSS)
                 };
@@ -138,7 +138,7 @@ void tcp_process(ip_packet packet) {
         }
         
         if (tcp->flags.rst) {
-            printf("[TCP] %I:%i->%i: RST recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+            printf("[TCP] %I:%i->%i: RST recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
             tcp_packet p_ack = { span<char>() };
             tcp_transmit(conn, p_ack, TCP_DATA_OFFSET(0) | TCP_FLAG_RST | TCP_FLAG_ACK);
             conn->state = TCP_STATE::CLOSED;
@@ -147,22 +147,22 @@ void tcp_process(ip_packet packet) {
 
         if (conn->state == TCP_STATE::SYN_SENT) {
             if (!tcp->flags.syn || !tcp->flags.ack) {
-                print("[TCP] Spurious packet recieved during handshake, expected SYN/ACK\r\n");
+                print("[TCP] Spurious packet recieved during handshake, expected SYN/ACK\n");
                 return;
             }
             conn->cur_ack = htonl(tcp->seq_num) + 1;
             tcp_packet p_ack = { span<char>() };
             tcp_transmit(conn, p_ack, TCP_DATA_OFFSET(0) | TCP_FLAG_ACK);
-            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: SYN/ACK recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: SYN/ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
             return;
         }
         else if (conn->state == TCP_STATE::SYNACK_SENT) {
             if (tcp->flags.syn || !tcp->flags.ack || tcp->flags.psh) {
-                print("[TCP] Spurious packet recieved during handshake, expected ACK\r\n");
+                print("[TCP] Spurious packet recieved during handshake, expected ACK\n");
                 return;
             }
             conn->cur_seq++;
-            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Handshake ACK recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Handshake ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
             conn->state = TCP_STATE::ESTABLISHED;
             return;
         }
@@ -170,14 +170,14 @@ void tcp_process(ip_packet packet) {
             if (tcp->flags.fin) {
                 conn->cur_ack++;
                 tcp_transmit(conn, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_ACK);
-                if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: FIN/ACK recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+                if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: FIN/ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
                 conn->state = TCP_STATE::CLOSED;
                 return;
             }
         }
         else if (conn->state == TCP_STATE::FINACK_SENT) {
             if (tcp->flags.ack) {
-                if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Final ACK recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+                if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Final ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
                 conn->state = TCP_STATE::CLOSED;
             }
             return;
@@ -185,10 +185,10 @@ void tcp_process(ip_packet packet) {
 
         if (tcp->flags.psh) {
             if (conn->state != TCP_STATE::ESTABLISHED) {
-                printf("[TCP] PSH recieved during invalid state %i.\r\n", conn->state);
+                printf("[TCP] PSH recieved during invalid state %i.\n", conn->state);
                 return;
             }
-            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: PSH recieved: %i bytes.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port, size);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: PSH recieved: %i bytes.\n", conn->cli_ip, conn->cli_port, conn->cur_port, size);
             uint32_t tmp_ack = conn->cur_ack;
 
             conn->cur_ack = htonl(tcp->seq_num) + size;
@@ -230,7 +230,7 @@ void tcp_process(ip_packet packet) {
                 return;
             }
             else {
-                //if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Unknown ACK. CURSEQ %i CLIACK %i), tcp (SEQ %i ACK %i).\r\n", 
+                //if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Unknown ACK. CURSEQ %i CLIACK %i), tcp (SEQ %i ACK %i).\n", 
                 //    conn->cli_ip, conn->cli_port, conn->cur_port, conn->cur_seq, conn->cli_ack, htonl(tcp->seq_num), htonl(tcp->ack_num));
                 return;
             }
@@ -238,7 +238,7 @@ void tcp_process(ip_packet packet) {
         if (tcp->flags.fin) {
             conn->cur_ack++;
             tcp_transmit(conn, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
-            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: FIN recieved.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+            if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: FIN recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
             conn->state = TCP_STATE::FINACK_SENT;
             return;
         }
@@ -252,10 +252,10 @@ void tcp_process(ip_packet packet) {
         conn->cur_port = htons(tcp->dst_port);
         conn->start_ack = htonl(tcp->seq_num);
         conn->state = TCP_STATE::WAITING;
-        if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: SYN recieved, waiting.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+        if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: SYN recieved, waiting.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
         return;
     }
-    printf("[TCP] Invalid packet: SRC %i, Flags=%02x, SYN=%i, ACK=%i\r\n", htons(tcp->src_port), *(uint16_t*)&tcp->flags >> 8, htonl(tcp->seq_num), htonl(tcp->ack_num));
+    printf("[TCP] Invalid packet: SRC %i, Flags=%02x, SYN=%i, ACK=%i\n", htons(tcp->src_port), *(uint16_t*)&tcp->flags >> 8, htonl(tcp->seq_num), htonl(tcp->ack_num));
 }
 
 tcp_connection* tcp_create() {
@@ -277,7 +277,7 @@ tcp_connection* tcp_accept(uint16_t port) {
         conn->cli_ack = conn->cur_seq;
         conn->state = TCP_STATE::SYNACK_SENT;
 
-        if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Accepting SYN.\r\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+        if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Accepting SYN.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
         tcp_mss mss = {
             0x02, 0x04, htons(TCP_MSS)
         };
@@ -296,7 +296,7 @@ void tcp_connection::listen(uint16_t port) {
 }
 int tcp_connection::send(tcp_packet p) {
     if (p.contents.size() > TCP_CLI_MSS) {
-        if (TCP_VERBOSE_LOGGING) printf("LARGE PACKET: %i bytes\r\n", p.contents.size());
+        if (TCP_VERBOSE_LOGGING) printf("LARGE PACKET: %i bytes\n", p.contents.size());
         int offset = 0;
         int handle = 0;
         while (true) {
@@ -325,7 +325,7 @@ tcp_packet tcp_connection::recv() {
     return p;
 }
 void tcp_connection::close() {
-    if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Sending FIN.\r\n", this->cli_ip, this->cli_port, this->cur_port);
+    if (TCP_VERBOSE_LOGGING) printf("[TCP] %I:%i->%i: Sending FIN.\n", this->cli_ip, this->cli_port, this->cur_port);
     tcp_transmit((tcp_connection*)this, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
     this->state = TCP_STATE::FIN_SENT;
     while(this->state != TCP_STATE::CLOSED) net_process();

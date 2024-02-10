@@ -59,34 +59,34 @@ void arp_process(ethernet_packet packet) {
 
     switch ((sMac << 0) | (sIp << 1) | (tMac << 2) | (tIp << 3) | (htons(h->op) << 4)) {
         case 0x19: //Probe
-            printf("[ARP] %M wants to know: Is %I available?\r\n", selfMac, targetIP);
+            printf("[ARP] %M wants to know: Is %I available?\n", selfMac, targetIP);
             if (targetIP == global_ip) {
-                printf("[ARP] No, %I belongs to %M.\r\n", global_ip, global_mac);   
+                printf("[ARP] No, %I belongs to %M.\n", global_ip, global_mac);   
                 arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
             }
             break;
         case 0x1B:
             if (selfIP != targetIP) {  //Request
-                printf("[ARP] %I wants to know: Who is %I?\r\n", selfIP, targetIP);
+                printf("[ARP] %I wants to know: Who is %I?\n", selfIP, targetIP);
                 if (targetIP == new_ipv4(10,0,2,15))
                     global_ip = targetIP;
                 
                 if (targetIP == global_ip) {
-                    printf("[ARP] Responding to %I: %I is %M.\r\n", selfIP, global_ip, global_mac);
+                    printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
                     arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
                 }
             } else { //Gratuitous announcement
-                printf("[ARP] Announcement: %I belongs to %M.\r\n", selfIP, selfMac);
+                printf("[ARP] Announcement: %I belongs to %M.\n", selfIP, selfMac);
             }
             break;
         case 0x1F:
             if (targetIP == global_ip) {
-                printf("[ARP] Responding to %I: %I is %M.\r\n", selfIP, global_ip, global_mac);   
+                printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);   
                 arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
             }
             break;
         default:
-            printf("[ARP] Not sure what to do with %s. (%M %I) (%M %I)\r\n", htons(h->op) == 2 ? "reply" : "request", h->selfMac, h->selfIP, h->targetMac, h->targetIP);
+            printf("[ARP] Not sure what to do with %s. (%M %I) (%M %I)\n", htons(h->op) == 2 ? "reply" : "request", h->selfMac, h->selfIP, h->targetMac, h->targetIP);
             break;
     }
 }
@@ -122,6 +122,6 @@ int arp_send(uint16_t op, arp_entry self, arp_entry target) {
 
 void arp_announce(ipv4_t ip) {
     global_ip = ip;
-    printf("[ARP] Announcement: %I belongs to %M.\r\n", global_ip, global_mac);
+    printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac);
     arp_send(ARP_OP_REQUEST, arp_entry(global_mac, global_ip), arp_entry(0, global_ip));
 }

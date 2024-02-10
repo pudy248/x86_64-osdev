@@ -9,19 +9,23 @@ void inc_pit() {
     globals->elapsedPITs = globals->elapsedPITs + 1;
     //Print diagnostics
     {
-        int x;
+        int x, l;
         int tmp_mem = globals->mem_used;
+        char heap_buffer[20];
+        vector<char> v;
 
+        v.unsafe_set(heap_buffer, 0, 20);
         x = 79;
-        string heap_mem = format("   %i", tmp_mem);
-        for (int i = heap_mem.size() - 1; i >= 0; --i)
-            globals->vga_console.set(heap_mem[i], x--, 0);
+        l = formats(v, "   %i", tmp_mem);
+        for (int i = l - 1; i >= 0; --i)
+            globals->vga_console.set(heap_buffer[i], x--, 0);
         
-        
+        v.unsafe_set(heap_buffer, 0, 20);
         x = 79;
-        string waterline_mem = format("   %i", globals->waterline - 0x400000);
-        for (int i = waterline_mem.size() - 1; i >= 0; --i)
-            globals->vga_console.set(waterline_mem[i], x--, 1);
+        l = formats(v, "   %i", globals->waterline - 0x400000);
+        for (int i = l - 1; i >= 0; --i)
+            globals->vga_console.set(heap_buffer[i], x--, 1);
+        v.unsafe_clear();
     }
 }
 
@@ -85,7 +89,7 @@ timepoint::timepoint() {
 	subcnt |= ((uint32_t)inb(0x40))<<8;
     subcnt = 65536 - subcnt;
     uint64_t cnt = (uint64_t)((int64_t)globals->elapsedPITs * 65536 + subcnt);
-    //printf("%i %i\r\n", globals->elapsedPITs, subcnt);
+    //printf("%i %i\n", globals->elapsedPITs, subcnt);
     this->micros = cnt * 1000000LLU / 1193182LLU;
 }
 
@@ -107,7 +111,7 @@ void pit_delay(double seconds) {
 /*
 void print_lres_timepoint(lres_timepoint rtc, int fmt) {
     switch(fmt) {
-        case 0: printf("%s %i, 20%02i - %02i:%02i:%02i\r\n", months[rtc.month], rtc.day, rtc.year, rtc.hour, rtc.minute, rtc.second); break;
+        case 0: printf("%s %i, 20%02i - %02i:%02i:%02i\n", months[rtc.month], rtc.day, rtc.year, rtc.hour, rtc.minute, rtc.second); break;
         case 1: printf("%02i/%02i/%02i %02i:%02i", rtc.month, rtc.day, rtc.year, rtc.hour, rtc.minute); break;
         case 2: printf("%02i:%02i:%02i", rtc.hour, rtc.minute, rtc.second); break;
     }

@@ -134,10 +134,10 @@ void fat_init() {
     int i = 0;
     for (; i < 4; i++)
         if (partTable->entries[i].sysid == SIG_MBR_FAT32) break;
-    kassert(i < 4, "No FAT32 partition found, was the MBR corrupted?\r\n");
+    kassert(i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
     fat32_bpb* bpb = new fat32_bpb();
     read_disk(bpb, partTable->entries[i].lba_start, 1);
-    kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\r\n");
+    kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
     globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
     globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
     globals->fat_data.bytes_per_cluster = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
@@ -168,7 +168,7 @@ fat_inode::fat_inode(fat_inode&& other) {
     *this = std::move(other);
 }
 fat_inode& fat_inode::operator=(fat_inode&& other) {
-    print("FAT inode move assignment called!\r\n");
+    print("FAT inode move assignment called!\n");
     filename = other.filename;
     filesize = other.filesize;
     attributes = other.attributes;
@@ -204,7 +204,7 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLF
             if (lfn->chars_3[i]) inode->filename.at(offset + i + 11) = lfn->chars_3[i];
             else br = true;
     }
-    //printf("name: %S\r\n", &inode->filename);
+    //printf("name: %S\n", &inode->filename);
     return inode;
 }
 static void* read_from_disk_layout(fat_inode* inode) {
@@ -242,11 +242,11 @@ void fat_inode::read() {
                 continue;
             }
             int sidx = idx;
-            //printf("%i:%i\r\n", sidx, idx);
+            //printf("%i:%i\n", sidx, idx);
             while (entries[idx].file.attributes == FAT_ATTRIBS::LFN) idx++;
             int nLFNs = idx - sidx;
             children.append(from_dir_ents(this, &entries[sidx], nLFNs));
-            //print("\r\n");
+            //print("\n");
             //pit_delay(1);
             idx++;
         }

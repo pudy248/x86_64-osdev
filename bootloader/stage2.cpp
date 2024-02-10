@@ -21,7 +21,7 @@ static int clockspeed_MHz() {
 
     double eSec = (t2 - t1);
     double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-    printf("%iMHz (%li cycles in %ius)\r\n", (uint32_t)freqMHz, etsc - stsc, (uint32_t)(eSec * 1000000));
+    printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc, (uint32_t)(eSec * 1000000));
     return freqMHz;
 }
 
@@ -41,8 +41,8 @@ extern "C" void stage2_main(unsigned int driveNum) {
     //////////////////////////////////////////////////////////
     pci_init();
     pci_device* ahci_pci = pci_match(PCI_CLASS::STORAGE, PCI_SUBCLASS::STORAGE_SATA);
-    kassert(ahci_pci, "No AHCI controller detected!\r\n");
-    //printf("Detected AHCI device: %04x:%04x\r\n", ahci_pci->vendor_id, ahci_pci->device_id);
+    kassert(ahci_pci, "No AHCI controller detected!\n");
+    //printf("Detected AHCI device: %04x:%04x\n", ahci_pci->vendor_id, ahci_pci->device_id);
     ahci_init(*ahci_pci);
 
     ///////////////////////////////////
@@ -53,9 +53,9 @@ extern "C" void stage2_main(unsigned int driveNum) {
     {
         FILE kernel = file_open("/kernel.img");
 
-        kassert(kernel.inode, "Kernel image not found!\r\n");
+        kassert(kernel.inode, "Kernel image not found!\n");
         uint64_t kernel_link_loc = *(uint64_t*)kernel.inode->data.unsafe_arr();
-        //printf("Loading kernel to 0x%x.\r\n", kernel_link_loc);
+        //printf("Loading kernel to 0x%x.\n", kernel_link_loc);
         memcpy((void*)kernel_link_loc, kernel.inode->data.unsafe_arr(), kernel.inode->data.size());
     }
 

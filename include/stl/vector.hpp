@@ -1,4 +1,5 @@
 #pragma once
+#include <initializer_list>
 
 template<typename T> class span {
 protected:
@@ -7,6 +8,7 @@ protected:
 public:
 	constexpr span() : m_arr(nullptr), m_length(0) { }
 	constexpr span(const T* _arr, int size, int offset = 0) : m_arr((T*)_arr + offset), m_length(size) { }
+	//template <std::size_t N> constexpr span(T arr[N]) : m_arr(arr), m_length(N) { }
 	constexpr span(const span<T>& vec, int length, int offset = 0) : m_arr(vec.m_arr + offset), m_length(length) { }
 
 	constexpr span(const span<T>& vec) : span(vec, vec.size(), 0) { }
@@ -159,6 +161,7 @@ public:
 		for (int i = 0; i < this->m_length; i++)
 			this->m_arr[i] = _arr[start + i];
 	}
+	vector(std::initializer_list<int> list) : vector(list.begin(), list.size(), 0) { }
 	vector(const vector<T>& other, int start = 0) : vector(other.unsafe_arr(), other.size(), start) { }
 	vector(const span<T>& other, int start = 0) : vector(other.unsafe_arr(), other.size(), start) { }
 

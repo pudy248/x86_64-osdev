@@ -76,7 +76,7 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
     uint64_t adj_size = max(16, (size + sizeof(heap_meta) + sizeof(heap_blk) - 1) & ~0xfLLU); //Add space for blk size, round up to boundary
     heap_blk* target_block = heap;
 #ifdef HEAP_VERBOSE_LISTS
-    globals->vga_console.putstr("\r\nMALLOC: ");
+    globals->vga_console.putstr("\nMALLOC: ");
     globals->vga_console.hexdump_rev(&size, 4, 4);
     heap_blk* dbg_block = heap;
     while (dbg_block->blk_size) {
@@ -96,7 +96,7 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
             break;
         }
         if (!target_block->data) {
-            globals->vga_console.putstr("\r\nMALLOC FAIL:\r\n");
+            globals->vga_console.putstr("\nMALLOC FAIL:\n");
             target_block = heap;
             while (target_block) {
                 globals->vga_console.hexdump(target_block, sizeof(heap_blk));
@@ -124,7 +124,7 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
 void free(void* ptr) {
     if(!ptr) return;
 #ifdef HEAP_VERBOSE_LISTS
-    globals->vga_console.putstr("\r\nFREE: ");
+    globals->vga_console.putstr("\nFREE: ");
     globals->vga_console.hexdump_rev(&ptr, 4, 4);
     heap_blk* dbg_block = heap;
     while (dbg_block->blk_size) {
