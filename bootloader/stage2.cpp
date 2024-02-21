@@ -48,15 +48,14 @@ extern "C" void stage2_main(unsigned int driveNum) {
     ///////////////////////////////////
     // Load kernel modules from disk //
     ///////////////////////////////////
-
     fat_init();
     {
         FILE kernel = file_open("/kernel.img");
 
         kassert(kernel.inode, "Kernel image not found!\n");
-        uint64_t kernel_link_loc = *(uint64_t*)kernel.inode->data.unsafe_arr();
+        uint64_t kernel_link_loc = *(uint64_t*)kernel.inode->data.begin();
         //printf("Loading kernel to 0x%x.\n", kernel_link_loc);
-        memcpy((void*)kernel_link_loc, kernel.inode->data.unsafe_arr(), kernel.inode->data.size());
+        memcpy((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->data.size());
     }
 
     kernel_main();

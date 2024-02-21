@@ -328,8 +328,8 @@ FILE file_open(rostring absolute_path) {
     for (int i = 1; i < parts.size(); i++) {
         if (!file.inode) return FILE();
         if (!parts[i].size()) continue;
-        if (parts[i] == ".") continue;
-        if (parts[i] == "..") {
+        if (parts[i] == "."_RO) continue;
+        if (parts[i] == ".."_RO) {
             file = FILE(file.inode->parent);
             continue;
         }

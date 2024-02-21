@@ -1,185 +1,97 @@
 #pragma once
+#include <cstddef>
+#include <utility>
+#include <concepts>
 #include <initializer_list>
+#include <kstdlib.hpp>
+#include <stl/container.hpp>
 
-template<typename T> class span {
+void print(const char*);
+
+template <typename T> class span_v {
 protected:
 	T* m_arr;
-	int m_length;
+	int m_size;
 public:
-	constexpr span() : m_arr(nullptr), m_length(0) { }
-	constexpr span(const T* _arr, int size, int offset = 0) : m_arr((T*)_arr + offset), m_length(size) { }
-	//template <std::size_t N> constexpr span(T arr[N]) : m_arr(arr), m_length(N) { }
-	constexpr span(const span<T>& vec, int length, int offset = 0) : m_arr(vec.m_arr + offset), m_length(length) { }
+	constexpr span_v() : m_arr(nullptr), m_size(0) { };
+	constexpr span_v(const T* begin, const T* end) : m_arr((T*)begin), m_size(end - begin) { };
+	template <container<T> C> constexpr span_v(const C& other) : span_v<T>(other.begin(), other.end()) { };
 
-	constexpr span(const span<T>& vec) : span(vec, vec.size(), 0) { }
-	constexpr span(span<T>&& other) = default;
-
-	constexpr span& operator=(const span<T>& other) {
-		m_arr = other.m_arr;
-		m_length = other.m_length;
-		return *this;
-	}
-	constexpr span& operator=(span<T>&& other) {
-		m_arr = other.m_arr;
-		m_length = other.m_length;
-		return *this;
-	}
-	
 	constexpr T& at(int idx) {
-		if (size() == 0) {
-			return *new T();
+		if (idx < 0 || idx >= size()) {
+			//error
+			print("OOB access in span_v.at()");
+			inf_wait();
 		}
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		if (size() == 0) {
-			return *new T();
+		if (idx < 0 || idx >= size()) {
+			//error
+			print("OOB access in span_v.at()");
+			inf_wait();
 		}
 		return m_arr[idx];
 	}
-	constexpr T& operator[](int idx) {
-		return at(idx);
-	}
-	constexpr const T& operator[](int idx) const {
-		return at(idx);
-	}
-	constexpr T& front() {
-		return at(0);
-	}
-	constexpr const T& front() const {
-		return at(0);
-	}
-	constexpr T& back() {
-		return at(size() - 1);
-	}
-	constexpr const T& back() const {
-		return at(size() - 1);
-	}
-	constexpr span<T> subspan(int start) {
-		return span<T>(*this, this->size() - start, start);
-	}
-	constexpr const span<T> subspan(int start) const {
-		return span<T>(*this, this->size() - start, start);
-	}
-
-	constexpr int find(const T& elem) const {
-		for (int i = 0; i < size(); i++) if (at(i) == elem) return i;
-		return -1;
-	}
-	constexpr int find(const span<T>& elems) const {
-		int index = m_length;
-		for (int i = 0; i < elems.size(); i++) {
-			int index2 = find(elems[i]);
-			if (index2 != -1 && index2 < index)
-				index = index2;
-		}
-		if (index == m_length)
-			index = -1;
-		return index;
-	}
-	constexpr bool contains(const T& elem) const {
-		return find(elem) > -1;
-	}
-	constexpr bool contains(const span<T>& elems) const {
-		return find(elems) > -1;
-	}
-	constexpr bool contains_which(const span<T>& elems) const {
-		for (int i = 0; i < elems.size(); i++) {
-			if (find(elems[i]) >= 0) return i;
-		}
-		return -1;
-	}
-
-    constexpr bool starts_with(const span<T> other) const {
-		if (size() < other.size()) return false;
-		for (int i = 0; i < other.size(); i++)
-			if(at(i) != other.at(i))
-				return false;
-		return true;
-	}
-    constexpr bool starts_with(const T t) const {
-		return starts_with(span<T>(&t, 1));
-	}
-    constexpr bool starts_with(const T* ptr, int length) const {
-		return starts_with(span<T>(ptr, length));
-	}
-
-    constexpr bool ends_with(const span<T> other) const {
-		if (size() < other.size()) return false;
-		for (int i = size() - 1; i >= size() - other.size(); i--)
-			if(at(i) != other.at(i - size() + other.size()))
-				return false;
-		return true;
-	}
-    constexpr bool ends_with(const T t) const {
-		return ends_with(span<T>(&t, 1));
-	}
-    constexpr bool ends_with(const T* ptr, int length) const {
-		return ends_with(span<T>(ptr, length));
-	}
-
 	constexpr T* begin() const {
-		return unsafe_arr();
-	}
-	constexpr T* end() const {
-		return unsafe_arr() + size();
-	}
-
-	constexpr bool equals(const span<T> other) const {
-		return size() == other.size() && starts_with(other);
-	}
-	constexpr bool equals(const T* ptr, int length) const {
-		return equals(span<T>(ptr, length));
-	}
-
-	constexpr T* unsafe_arr() const volatile {
 		return m_arr;
 	}
-	constexpr int size() const volatile {
-		return m_length;
+	constexpr int size() const {
+		return m_size;
 	}
 };
 
-template<typename T> class vector : public span<T> {
+template <typename T> class span : public basic_container<T, span_v<T>> {
+public:
+	using basic_container<T, span_v<T>>::basic_container;
+	template <container<T> C> constexpr span(const C& other) : basic_container<T, span_v<T>>(other.begin(), other.end()) { };
+	template <std::size_t N> constexpr span(const T(&other)[N]) : basic_container<T, span_v<T>>(other, other + N) { };
+};
+
+template<typename T> class vector_v {
 protected:
 	constexpr static float resize_ratio = 2;
+	T* m_arr;
+	int m_size;
 	int m_capacity;
 public:
-	constexpr vector() : span<T>(nullptr, 0), m_capacity(0) { }
-	vector(int size) : m_capacity(size) {
-		this->m_length = 0;
+	constexpr vector_v() : m_arr(nullptr), m_size(0), m_capacity(0) { };
+
+	vector_v(int size) : m_size(0), m_capacity(size) {
 		this->m_arr = new T[m_capacity];
 	}
-	vector(vector<T>&& other) : span<T>(other.m_arr, other.m_length), m_capacity(other.m_capacity) {
+	template <std::convertible_to<T> R>
+	vector_v(const R* begin, const R* end) : m_size(end - begin), m_capacity(end - begin) {
+		this->m_arr = new T[m_capacity];
+		for (int i = 0; i < this->m_size; i++)
+			new (&this->m_arr[i]) T (begin[i]);
+	}
+	
+	template <container<T> C2>
+	vector_v(const C2& other) : vector_v(other.begin(), other.end()) { }
+
+	vector_v(const vector_v<T>& other) : vector_v<T>(other.begin(), other.end()) { }
+	constexpr vector_v(vector_v<T>&& other) : m_arr(other.m_arr), m_size(other.m_size), m_capacity(other.m_capacity) {
 		other.unsafe_clear();
 	}
 	
-	vector(const T* _arr, int size, int start = 0) {
-		m_capacity = size;
-		this->m_length = m_capacity;
-		this->m_arr = new T[m_capacity];
-		for (int i = 0; i < this->m_length; i++)
-			this->m_arr[i] = _arr[start + i];
-	}
-	vector(std::initializer_list<int> list) : vector(list.begin(), list.size(), 0) { }
-	vector(const vector<T>& other, int start = 0) : vector(other.unsafe_arr(), other.size(), start) { }
-	vector(const span<T>& other, int start = 0) : vector(other.unsafe_arr(), other.size(), start) { }
+	vector_v(std::initializer_list<int> list) : vector_v(list.begin(), list.end()) { }
 
-	vector& operator=(const vector<T> &other) {
+	vector_v& operator=(const vector_v<T> &other) {
         if (&other == this) return *this;
 		clear();
 		m_capacity = other.size();
-		this->m_length = m_capacity;
+		this->m_size = m_capacity;
 		this->m_arr = new T[m_capacity];
-		for (int i = 0; i < this->m_length; i++)
+		for (int i = 0; i < this->m_size; i++)
 			this->m_arr[i] = other.m_arr[i];
         return *this;
     }
-    vector& operator=(vector<T> &&other) {
+    vector_v& operator=(vector_v<T> &&other) {
 		clear();
 		this->m_arr = other.m_arr;
 		m_capacity = other.m_capacity;
-		this->m_length = other.m_length;
+		this->m_size = other.m_size;
 		other.unsafe_clear();
         return *this;
     }
@@ -187,18 +99,18 @@ public:
 		delete[] this->m_arr;
 		unsafe_clear();
 	}
-	~vector() {
+	~vector_v() {
 		clear();
 	}
 
 	constexpr void unsafe_clear() {
 		this->m_arr = nullptr;
-		this->m_length = 0;
+		this->m_size = 0;
 		m_capacity = 0;
 	}
 	constexpr void unsafe_set(T* arr, int l, int c) {
 		this->m_arr = arr;
-		this->m_length = l;
+		this->m_size = l;
 		this->m_capacity = c;
 	}
 
@@ -208,16 +120,27 @@ public:
 			while (newCap <= idx) newCap *= resize_ratio;
 			reserve(newCap);
 		}
-		this->m_length = max(this->m_length, idx + 1);
+		this->m_size = max(this->m_size, idx + 1);
 		return this->m_arr[idx];
+	}
+	constexpr const T& at(int idx) const {
+		if (idx < 0 || idx >= size()) {
+			//error
+			print("OOB access in vector_v.at()");
+			inf_wait();
+		}
+		return m_arr[idx];
+	}
+	constexpr T* begin() const {
+		return m_arr;
 	}
 
 	void reserve(int size) {
 		if (m_capacity >= size) return;
 		T* newArr = new T[size];
 		if (this->m_arr) {
-			for (int i = 0; i < this->m_length; i++)
-				newArr[i] = this->m_arr[i];
+			for (int i = 0; i < this->m_size; i++)
+				newArr[i] = std::move(this->m_arr[i]);
 			delete[] this->m_arr;
 		}
 		this->m_arr = newArr;
@@ -225,39 +148,54 @@ public:
     }
 	void resize(int size) {
 		reserve(size);
-		this->m_length = size;
+		this->m_size = size;
 	}
 
-	void append(T elem) {
-		this->at(this->size()) = elem;
+	constexpr void append(T& elem) {
+		this->at(this->size()) = std::forward<T>(elem);
 	}
-	void append(const span<T>& other) {
+	constexpr void append(T&& elem) {
+		this->at(this->size()) = std::forward<T>(elem);
+	}
+	template <container<T> C2>
+	constexpr void append(const C2& other) {
 		for(int i = 0; i < other.size(); i++)
 			append(other.at(i));
 	}
-	void append(const T* elems, int count) {
+	constexpr void append(const T* elems, int count) {
 		append(span<T>(elems, count));
 	}
 
-	void insert(T elem, int idx) {
+	constexpr void insert(T& elem, int idx) {
 		if (idx >= this->size()) this->at(idx) = elem;
 		else {
 			int i = this->size();
 			this->at(i) = this->m_arr[i - 1];
 			for (i--; i > idx; i--)
-				this->m_arr[i] = this->m_arr[i - 1];
-			this->m_arr[i] = elem;
+				this->m_arr[i] = std::move(this->m_arr[i - 1]);
+			this->m_arr[i] = std::forward<T>(elem);
 		}
 	}
-	void insert(const span<T>& elems, int idx) {
-		for (int i = 0; i < elems.size(); i++)
-			insert(elems.at(i), idx + i);
+	constexpr void insert(T&& elem, int idx) {
+		if (idx >= this->size()) this->at(idx) = elem;
+		else {
+			resize(size() + 1);
+			for (int i = this->size() - 1; i > idx; i--)
+				this->m_arr[i] = std::move(this->m_arr[i - 1]);
+			this->m_arr[idx] = std::forward<T>(elem);
+		}
 	}
-	void insert(const T* elems, int count, int idx) {
-		insert(span<T>(elems, count), idx);
-	}
+	//template <container<T> C2>
+	//constexpr void insert(const C2& elems, int idx) {
+	//	for (int i = 0; i < elems.size(); i++)
+	//		insert(elems.at(i), idx + i);
+	//}
+	//void insert(const T* elems, int count, int idx) {
+	//	insert(span<T>(elems, count), idx);
+	//}
 	
-	void blit(const span<T>& elems, int idx) {
+	template <container<T> C2>
+	void blit(const C2& elems, int idx) {
 		for (int i = 0; i < elems.size(); i++) {
 			this->at(idx + i) = elems.at(i);
 		}
@@ -267,7 +205,7 @@ public:
 		if (idx >= this->size()) return;
 		for (int i = idx + 1; i < this->size(); i++)
 			this->m_arr[i - 1] = this->m_arr[i];
-		this->m_length--;
+		this->m_size--;
 	}
 	void erase(int idx, int count) {
 		if (idx >= this->size()) return;
@@ -281,59 +219,145 @@ public:
 			arr2[i] = this->m_arr[i];
 		return arr2;
 	}
+	constexpr int size() const volatile {
+		return m_size;
+	}
 	constexpr int capacity() const volatile {
 		return m_capacity;
 	}
 };
 
-template <typename T> class ostream {
+template <typename T> class vector : public basic_container<T, vector_v<T>> {
 public:
-    vector<T> data;
-    ostream() = default;
-
-	void swrite(T elem) {
-		data.append(elem);
+	using basic_container<T, vector_v<T>>::basic_container;
+	constexpr vector(const vector<T>& other) : basic_container<T, vector_v<T>>(other) { }
+	constexpr vector(vector<T>&& other) : basic_container<T, vector_v<T>>(other) { }
+	constexpr vector<T>& operator=(const vector<T>& other) {
+		*(vector_v<T>*)this = *(vector_v<T>*)&other;
+		return *this;
 	}
-	void swrite(span<T> elems) {
-		for (int i = 0; i < elems.size(); i++)
-			write(elems[i]);
+	constexpr vector<T>& operator=(vector<T>&& other) {
+		*(vector_v<T>*)this = std::move(*(vector_v<T>*)&other);
+		return *this;
+	}
+	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : basic_container<T, vector_v<T>>(other, other + N) { };
+};
+
+template <typename T, std::size_t N> class array_v {
+protected:
+	T m_arr[N];
+public:
+	constexpr array_v() : m_arr() { };
+	template <std::convertible_to<T> R>
+	constexpr array_v(const R* begin, const R* end) {
+		std::size_t i = 0;
+		for (; i < min((std::size_t)(end - begin), N); i++) {
+			new (&m_arr[i]) T (begin[i]);
+		}
+		for (; i < N; i++) {
+			m_arr[i] = R();
+		}
+	};
+
+	constexpr T& at(int idx) {
+		if (idx < 0 || idx >= size()) {
+			//error
+			print("OOB access in array_v.at()");
+			inf_wait();
+		}
+		return m_arr[idx];
+	}
+	constexpr const T& at(int idx) const {
+		if (idx < 0 || idx >= size()) {
+			//error
+			print("OOB access in array_v.at()");
+			inf_wait();
+		}
+		return m_arr[idx];
+	}
+	constexpr T* begin() {
+		return m_arr;
+	}
+	constexpr const T* begin() const {
+		return m_arr;
+	}
+	constexpr int size() const {
+		return N;
 	}
 };
 
-template <typename T> class istream {
+template <typename T, std::size_t N> class array : public basic_container<T, array_v<T, N>> {
 public:
-    span<T> data;
-    int idx = 0;
-    istream() = default;
-    istream(const span<T> s) : data(s) {}
+	using basic_container<T, array_v<T, N>>::basic_container;
+	template <container<T> C> constexpr array(const C& other) : basic_container<T, array_v<T, N>>(other.begin(), other.end()) { };
+	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : basic_container<T, array_v<T, N2>>(other, other + N) { };
+};
+
+template <typename C, typename T>
+requires container<C, T>
+class basic_ostream {
+public:
+    C data;
+	int offset = 0;
+	
+    constexpr basic_ostream() = default;
+	template <container<T> C2>
+    constexpr basic_ostream(C2&& s) : data(s) {}
+
+	constexpr void swrite(T elem) {
+		data.at(offset++) = elem;
+	}
+	template <container<T> C2>
+	constexpr void swrite(const C2& elems) {
+		for (int i = 0; i < elems.size(); i++)
+			swrite(elems[i]);
+	}
+};
+
+template <typename C, typename T>
+requires container<C, T>
+class basic_istream {
+public:
+    C data;
+    int offset = 0;
+    constexpr basic_istream() = default;
+	template <container<T> C2>
+    constexpr basic_istream(const C2& s) : data(s) {}
+	template <container<T> C2>
+    constexpr basic_istream(C2&& s) : data(s) {}
 
     constexpr bool readable() const {
-		return idx < data.size();
+		return offset < data.size();
+	}
+	constexpr operator bool() const {
+		return readable();
+	}
+	constexpr T front() {
+        return data.at(offset);
+    }
+	constexpr T sread() {
+		return data.at(offset++);
 	}
 
-	T sread() {
-		return data.at(idx++);
+	template <container<T> C2, container<T> C3>
+	constexpr C2 read_while(bool(*condition)(C3)) {
+		int sIdx = offset;
+		while(condition(C3(data, data.size() - offset, sIdx)) && readable())
+			offset++;
+		return C2(data, offset - sIdx, sIdx);
 	}
-	span<T> sread(int count) {
-		span<T> tmp = span<T>(data, idx, count);
-		idx += count;
-		return tmp;
+	template <container<T> C2, container<T> C3>
+	constexpr C2 read_until(bool(*condition)(C3), bool inclusive = false) {
+		int sIdx = offset;
+		while(!condition(C3(data, data.size() - offset, sIdx)) && readable()) offset++;
+		if (inclusive && readable()) offset++;
+		return C2(data, offset - sIdx, sIdx);
 	}
-
-	span<T> read_while(bool(*condition)(span<T>)) {
-		int sIdx = idx;
-		while(condition(data.subspan(idx)) && readable()) idx++;
-		return span<T>(data, idx - sIdx, sIdx);
-	}
-	span<T> read_until(bool(*condition)(span<T>)) {
-		int sIdx = idx;
-		while(!condition(data.subspan(idx)) && readable()) idx++;
-		return span<T>(data, idx - sIdx, sIdx);
-	}
-	span<T> read_until_inc(bool(*condition)(span<T>)) {
-		int sIdx = idx;
-		while(!condition(data.subspan(idx)) && readable()) idx++;
-		idx++;
-		return span<T>(data, idx - sIdx, sIdx);
+	template <container<T> C2>
+	constexpr C2 read_until_v(const T val, bool inclusive = false) {
+		int sIdx = offset;
+		while(front() != val && readable()) offset++;
+		if (inclusive && readable()) offset++;
+		return C2(data, offset - sIdx, sIdx);
 	}
 };

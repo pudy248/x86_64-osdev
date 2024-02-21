@@ -23,14 +23,14 @@ static void ip_checksum(ip_header* ip){
 }
 
 void ipv4_process(ethernet_packet packet) {
-    ip_header* ip = (ip_header*)packet.contents.unsafe_arr();
+    ip_header* ip = (ip_header*)packet.contents.begin();
 
-    void* contents = (void*)((uint64_t)packet.contents.unsafe_arr() + sizeof(ip_header));
+    void* contents = (void*)((uint64_t)packet.contents.begin() + sizeof(ip_header));
     uint16_t expected_size = htons(ip->total_length) - sizeof(ip_header);
     uint16_t actual_size = packet.contents.size() - sizeof(ip_header);
 
     if(expected_size > actual_size) {
-        printf("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip, expected_size, actual_size);
+        qprintf<100>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip, expected_size, actual_size);
         return;
     }
 
@@ -67,7 +67,7 @@ int ipv4_send(ip_packet packet) {
     ip->dst_ip = packet.dst;
     ip_checksum(ip);
 
-    memcpy((void*)((uint64_t)buf + sizeof(ip_header)), packet.contents.unsafe_arr(), packet.contents.size());
+    memcpy((void*)((uint64_t)buf + sizeof(ip_header)), packet.contents.begin(), packet.contents.size());
     ethernet_packet eth;
     eth.type = ETHERTYPE_IPv4;
     eth.src = global_mac;

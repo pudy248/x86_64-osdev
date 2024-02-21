@@ -3,6 +3,7 @@
 #include <sys/idt.h>
 #include <sys/ktime.hpp>
 #include <sys/global.h>
+#include <sys/debug.hpp>
 
 #include <drivers/keyboard.h>
 #include <drivers/pci.h>
@@ -16,7 +17,6 @@
 #include <graphics/pipeline.h>
 
 #include <stl/functional.hpp>
-#include <sys/debug.hpp>
 
 extern "C" void atexit(void (*)(void)) {}
 
@@ -48,7 +48,7 @@ static void http_main() {
                     conns.erase(i);
                     i--;
                 }
-                free(p.contents.unsafe_arr());
+                free(p.contents.begin());
             }
         }
     }
@@ -56,7 +56,7 @@ static void http_main() {
 
 static void svga_main() {
     pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
-    kassert(svga_pci, "No VGA display device detected!\n");
+    kassert(svga_pci, "No VGA display device detected!\r\n");
     svga_init(*svga_pci);
     
     //svga_disable();
@@ -76,41 +76,38 @@ static void svga_main() {
     FILE f = file_open("/cow.obj");
     istringstream obj(f.inode->data);
     while (obj.readable()) {
-        if (rostring(obj).starts_with(rostring("v "))) {
-            obj.read<char>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            float x = obj.read<double>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            float y = obj.read<double>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            float z = obj.read<double>();
-            obj.read_until([](rostring s){ return s.starts_with('\n'); });
+        if (rostring(obj.data).starts_with(rostring("v "))) {
+            obj.read_c();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            float x = obj.read_f();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            float y = obj.read_f();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            float z = obj.read_f();
+            obj.read_until<rostring, rostring>([](rostring s){ return s.starts_with('\n'); }, true);
             p.vertexBuffer[vi++] = (Vertex){(Vec4){x, y, z, 0}, (Vec4){255.f, 255.f, 255.f, 0}};
-            obj.read<char>();
         }
-        else if (rostring(obj).starts_with(rostring("f "))) {
-            obj.read<char>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            int v1 = obj.read<int64_t>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            int v2 = obj.read<int64_t>();
-            obj.read_while([](rostring s){ return s.starts_with(' '); });
-            int v3 = obj.read<int64_t>();
-            obj.read_until([](rostring s){ return s.starts_with('\n'); });
+        else if (rostring(obj.data).starts_with(rostring("f "))) {
+            obj.read_c();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            int v1 = obj.read_i();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            int v2 = obj.read_i();
+            obj.read_while<rostring, rostring>([](rostring s){ return s.starts_with(' '); });
+            int v3 = obj.read_i();
+            obj.read_until<rostring, rostring>([](rostring s){ return s.starts_with('\n'); }, true);
             p.triangleBuffer[3 * ti] = v1;
             p.triangleBuffer[3 * ti + 1] = v2;
             p.triangleBuffer[3 * ti + 2] = v3;
             ti++;
-            obj.read<char>();
         }
         else {
-            obj.read_until([](rostring s){ return s.starts_with('\n'); });
-            obj.read<char>();
+            obj.read_until<rostring, rostring>([](rostring s){ return s.starts_with('\n'); }, true);
         }
     }
     p.nVertices = vi;
     p.nTriangles = ti;
-    printf("loaded model with %i verts, %i tris\n", vi, ti);
+    printf("loaded model with %i verts, %i tris\r\n", vi, ti);
 
     projectionMatrix = project(4, 3, 2);
     int iters = 0;
@@ -128,7 +125,7 @@ static void svga_main() {
 
         void* params[] = {&iters, &rot};
         pipeline_flush(&p);
-        pipeline_execute(&p, params);
+        //pipeline_execute(&p, params);
         /*
         for (int i = 0; i < ti; i++) {
             Vec3 w1 = vertices[triangles[3 * i]];
@@ -148,20 +145,6 @@ static void svga_main() {
         */
         svga_update();
     }
-    
-}
-
-very_verbose_class test(very_verbose_class c) {
-    printf("Calling test function.\n");
-    return very_verbose_class(c.id + 1);
-}
-
-void demo() {
-    very_verbose_class c1(123);
-    function_instance<very_verbose_class(very_verbose_class)> f(test);
-    f.set_args(c1);
-    very_verbose_class c2 = f();
-    printf("Return value: %i\n", c2.id);
 }
 
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void);
@@ -172,7 +155,23 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     time_init();
     globals->fat_data.root_directory.inode->purge();
 
-    demo();
+    /*print("Enclosing scope entry.\n");
+    {
+        very_verbose_class lval{1};
+        vector<vector<very_verbose_class>> nested_container;
+        print("Container and lval initialized.\n");
+        print("Appending empty container to nested container.\n");
+        nested_container.append(vector<very_verbose_class>());
+        print("Appending lval to container.\n");
+        nested_container.back().append(lval);
+        print("Appending rval to container.\n");
+        nested_container.back().append(very_verbose_class(2));
+        print("Inserting new container at front of nested container.\n");
+        nested_container.insert(vector<very_verbose_class>(), 0);
+        print("Inserting new rval at front of container.\n");
+        nested_container.back().append(very_verbose_class(3));
+    }
+    print("End.\n");*/
 
     //http_main();
     //svga_main();

@@ -79,7 +79,7 @@ static int tcp_transmit(tcp_connection* conn, tcp_packet packet, uint16_t flags)
     ip.total_length = htons(20 + packet.contents.size() + sizeof(tcp_header));
     ip.src_ip = conn->cur_ip;
     ip.dst_ip = conn->cli_ip;
-    memcpy((void*)((uint64_t)buf + sizeof(tcp_header)), packet.contents.unsafe_arr(), packet.contents.size());
+    memcpy((void*)((uint64_t)buf + sizeof(tcp_header)), packet.contents.begin(), packet.contents.size());
     tcp_checksum(ip, tcp);
 
     ip_packet p_ip;
@@ -93,11 +93,11 @@ static int tcp_transmit(tcp_connection* conn, tcp_packet packet, uint16_t flags)
 }
 
 void tcp_process(ip_packet packet) {
-    tcp_header* tcp = (tcp_header*)packet.contents.unsafe_arr();
+    tcp_header* tcp = (tcp_header*)packet.contents.begin();
 
     uint16_t header_size = 4 * tcp->flags.data_offset;
     uint16_t size = packet.contents.size() - header_size;
-    void* contents = (void*)((uint64_t)packet.contents.unsafe_arr() + header_size);
+    void* contents = (void*)((uint64_t)packet.contents.begin() + header_size);
     
     for (int i = 0; i < open_connections.size(); i++) {
         tcp_connection* conn = open_connections.at(i);
@@ -320,7 +320,7 @@ tcp_packet tcp_connection::recv() {
         net_process();
         if (this->state == TCP_STATE::CLOSED) return { span<char>() };
     }
-    tcp_packet p = this->recieved_packets.unsafe_arr()[0];
+    tcp_packet p = this->recieved_packets.at(0);
     ((tcp_connection*)this)->recieved_packets.erase(0);
     return p;
 }
@@ -334,7 +334,7 @@ void tcp_connection::close() {
 
 void tcp_destroy(tcp_connection* conn) {
     for (int i = 0; i < conn->recieved_packets.size(); i++)
-        free(conn->recieved_packets.unsafe_arr()[i].contents.unsafe_arr());
+        free(conn->recieved_packets.at(i).contents.begin());
     for (int i = 0; i < open_connections.size(); i++) {
         if(open_connections[i] == conn) {
             open_connections.erase(i);

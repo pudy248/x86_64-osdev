@@ -8,12 +8,6 @@ extern "C" {
     void memset(void* dest, uint8_t src, uint64_t size);
 }
 
-static constexpr inline uint64_t align_to(uint64_t ptr, uint16_t alignment) {
-    if (ptr & (alignment - 1))
-        return ((ptr & ~(alignment - 1)) + alignment);
-    else return ptr;
-}
-
 void mem_init();
 __attribute__((returns_nonnull)) __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
 __attribute__((returns_nonnull)) __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment = 0x10);
@@ -107,11 +101,13 @@ static inline a_noreturn void cpu_halt(void) {
 }
 
 __attribute__((returns_nonnull)) void* operator new(uint64_t size);
+__attribute__((returns_nonnull)) void* operator new(uint64_t size, void* ptr) noexcept;
 __attribute__((returns_nonnull)) void* operator new[](uint64_t size);
-void operator delete(void* ptr);
-void operator delete(void* ptr, uint64_t size);
-void operator delete[](void* ptr);
-void operator delete[](void* ptr, uint64_t size);
+__attribute__((returns_nonnull)) void* operator new[](uint64_t size, void* ptr) noexcept;
+void operator delete(void* ptr) noexcept;
+void operator delete(void* ptr, uint64_t size) noexcept;
+void operator delete[](void* ptr) noexcept;
+void operator delete[](void* ptr, uint64_t size) noexcept;
 
 template<typename T> T* waterline_new(uint64_t size, uint16_t alignment) {
     return (T*)walloc(size, alignment);

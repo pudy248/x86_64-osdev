@@ -40,7 +40,7 @@ mac_t arp_translate_ip(ipv4_t ip) {
 }
 
 void arp_process(ethernet_packet packet) {
-    arp_header<ipv4_t>* h = (arp_header<ipv4_t>*)packet.contents.unsafe_arr();
+    arp_header<ipv4_t>* h = (arp_header<ipv4_t>*)packet.contents.begin();
     ipv4_t selfIP, targetIP;
     mac_t selfMac, targetMac;
     selfMac = targetMac = 0;

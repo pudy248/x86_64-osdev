@@ -25,10 +25,10 @@ public:
     very_verbose_class& operator=(very_verbose_class&& other) {
         id = other.id;
         other.id = 0;
-        printf("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
+        qprintf<60>("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
         return *this;
     }
     ~very_verbose_class() {
-        printf("Destructing with id %i at %p.\n", id, this);
+        qprintf<40>("Destructing with id %i at %p.\n", id, this);
     }
 };

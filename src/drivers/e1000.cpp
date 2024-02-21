@@ -109,7 +109,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
     
     //Initialize RX
     for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
-        e1000_dev->rx_descs[i].addr = (volatile uint64_t)walloc(E1000_BUFSIZE, 0x10);
+        e1000_dev->rx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
         e1000_dev->rx_descs[i].status = 0;
     }
     e1000_write(E1000_REG::RXDESCLO, (uint64_t)e1000_dev->rx_descs);
@@ -124,7 +124,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
 
     //Initialize TX
     for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-        e1000_dev->tx_descs[i].addr = (volatile uint64_t)walloc(E1000_BUFSIZE, 0x10);
+        e1000_dev->tx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
         e1000_dev->tx_descs[i].cmd = 0;
         e1000_dev->tx_descs[i].status = E1000_TSTA::DD;
     }

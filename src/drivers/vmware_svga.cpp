@@ -64,9 +64,9 @@ void svga_init(pci_device svga_pci) {
     svga_write(SVGA_REG::CONFIG_DONE, 1);
 
     svga_set_mode(640, 480, 32);
-    //for (int i = 0; i < 640 * 480; i++) {
-    //    svga_dev->fb[i] = 0xffff00ff;
-    //}
+    for (int i = 0; i < 640 * 480; i++) {
+        svga_dev->fb[i] = 0xffff00ff;
+    }
     svga_update();
 }
 

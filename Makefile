@@ -16,15 +16,16 @@ ASMFLAGS:=-f elf64
 
 CFLAGS_DBG:= -g $(CFLAGS_CC_DBG)
 CFLAGS:=\
--m64 -march=haswell -std=c++20 -ffreestanding -ffunction-sections -fdata-sections \
+-m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
 -fno-exceptions -fno-finite-loops -felide-constructors \
--Os -Iinclude -Iinclude/std \
+-Og -Iinclude -Iinclude/std \
 -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC) $(CFLAGS_DBG)
 
-LDFLAGS:=
+LDFLAGS_I:=
+LDFLAGS_F:=-gc-sections
 
 ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
 C_SRC:=$(wildcard src/**/*.cpp) $(wildcard src/*.cpp)
@@ -79,11 +80,11 @@ tmp/obj.o : $(C_SRC)
 	$(CC) $(CFLAGS) -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
-	$(LD) $(LDFLAGS) -e kernel_main -r -o $@ $^
+	$(LD) $(LDFLAGS_I) -e kernel_main -r -o $@ $^
 	@objdump -d $^ > tmp/base.S 2> /dev/null
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
-	$(LD) $(LDFLAGS) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
+	$(LD) $(LDFLAGS_F) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
 	@objdump -d $^ > tmp/kernel.S 2> /dev/null
@@ -102,6 +103,6 @@ $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
 tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
 	objcopy -S -x -K kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
 	objcopy -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
-	ld $(LDFLAGS) -gc-sections -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf -R tmp/kernel_entry.elf
+	ld $(LDFLAGS_F) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf -R tmp/kernel_entry.elf
 	@objdump -d tmp/bootloader.img.elf > tmp/bootloader.S 2> /dev/null
 	@objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img

@@ -89,3 +89,8 @@ template <typename... Args> void printf(rostring fmt, Args... args) {
     string s = format(fmt, args...);
     globals->vga_console.putstr(s.c_str_this());
 }
+template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args) {
+    array<char, N> buf;
+    buf.at(formats(buf, fmt, args...)) = 0;
+    globals->vga_console.putstr(buf.begin());
+}

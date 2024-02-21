@@ -25,7 +25,7 @@ void net_init() {
         pci_print();
         inf_wait();
     }
-    printf("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
+    qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
     e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
     global_mac = new_mac(e1000_dev->mac);
     packet_queue_front = new vector<ethernet_packet>();
@@ -64,7 +64,7 @@ void net_process() {
                     ipv4_process(p);
                     break;
             }
-            free(p.contents.unsafe_arr());
+            free(p.contents.begin());
         }
         ((vector<ethernet_packet>*)packet_queue_front)->clear();
     }
@@ -78,7 +78,7 @@ int ethernet_send(ethernet_packet packet) {
     memcpy(&frame->src, &packet.src, 6);
     frame->type = htons(packet.type);
 
-    memcpy((void*)((uint64_t)buf + sizeof(etherframe_t)), packet.contents.unsafe_arr(), packet.contents.size());
+    memcpy((void*)((uint64_t)buf + sizeof(etherframe_t)), packet.contents.begin(), packet.contents.size());
     int handle = e1000_send_async(buf, packet.contents.size() + sizeof(etherframe_t));
     free(buf);
     return handle;
