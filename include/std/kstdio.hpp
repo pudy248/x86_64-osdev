@@ -5,18 +5,18 @@
 
 class console {
 private:
-    uint16_t* c = (uint16_t*)0xb8000;
+    void putchar_noupdate(char c);
+    void newline();
 public:
     int cx = 0;
     int cy = 0;
-    int rect[4] = {0, 0, 72, 25};
+    int text_rect[4];
+    char(*get_char)(uint32_t, uint32_t);
+    void(*set_char)(uint32_t, uint32_t, char);
+    void(*refresh)();
 
-    console();
+    console(char(*)(uint32_t, uint32_t), void(*)(uint32_t, uint32_t, char), void(*)(), int[2]);
     void clear();
-    void update_cursor();
-    char get(int x, int y);
-    void set(char ch, int x, int y);
-    void newline();
     void putchar(char c);
     void putstr(const char* s);
 

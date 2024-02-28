@@ -5,6 +5,8 @@
 #include <sys/global.h>
 #include <sys/debug.hpp>
 
+#include <lib/fat.hpp>
+
 #include <drivers/keyboard.h>
 #include <drivers/pci.h>
 #include <drivers/vmware_svga.h>
@@ -15,6 +17,8 @@
 
 #include <graphics/transform.h>
 #include <graphics/pipeline.h>
+
+#include <text/graphical_console.h>
 
 #include <stl/functional.hpp>
 
@@ -54,10 +58,10 @@ static void http_main() {
     }
 }
 
-static void svga_main() {
+static void graphics_main() {
     pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
     kassert(svga_pci, "No VGA display device detected!\r\n");
-    svga_init(*svga_pci);
+    svga_init(*svga_pci, 640, 480);
     
     //svga_disable();
 
@@ -147,6 +151,13 @@ static void svga_main() {
     }
 }
 
+static void console_main() {
+    graphics_text_init();
+    globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
+    print("MS Gothic is simply the optimal font face.\n");
+    print("Backslashes are still yen. \\\\\n");
+}
+
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void);
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void) {
     idt_init();
@@ -174,9 +185,9 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     print("End.\n");*/
 
     //http_main();
-    //svga_main();
-    
-    //terminal_init(rootDir);
-    //terminal_input_loop();
+    //graphics_main();
+    console_main();
+
+    print("Kernel reached end of execution. Error?");
     inf_wait();
 }

@@ -1,6 +1,5 @@
 #pragma once
 #include <kstddefs.h>
-#include <sys/paging.h>
 #include <drivers/pci.h>
 
 namespace SVGA_REG { enum SVGA_REG {
@@ -70,8 +69,9 @@ struct svga_device {
 
 extern svga_device* svga_dev;
 
-void svga_init(pci_device svga_pci);
+void svga_init(pci_device svga_pci, uint32_t w, uint32_t h);
 void svga_disable();
 void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp);
 void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+void svga_set(uint32_t x, uint32_t y, uint32_t color);
 void svga_update();

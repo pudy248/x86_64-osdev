@@ -1,7 +1,6 @@
 #pragma once
 #include <cstddef>
 #include <utility>
-#include <concepts>
 #include <initializer_list>
 #include <kstdlib.hpp>
 #include <stl/container.hpp>
@@ -13,9 +12,9 @@ protected:
 	T* m_arr;
 	int m_size;
 public:
-	constexpr span_v() : m_arr(nullptr), m_size(0) { };
-	constexpr span_v(const T* begin, const T* end) : m_arr((T*)begin), m_size(end - begin) { };
-	template <container<T> C> constexpr span_v(const C& other) : span_v<T>(other.begin(), other.end()) { };
+	constexpr span_v() : m_arr(nullptr), m_size(0) { }
+	constexpr span_v(const T* begin, const T* end) : m_arr((T*)begin), m_size(end - begin) { }
+	template <container<T> C> constexpr span_v(const C& other) : span_v<T>(other.begin(), other.end()) { }
 
 	constexpr T& at(int idx) {
 		if (idx < 0 || idx >= size()) {
@@ -44,18 +43,18 @@ public:
 template <typename T> class span : public basic_container<T, span_v<T>> {
 public:
 	using basic_container<T, span_v<T>>::basic_container;
-	template <container<T> C> constexpr span(const C& other) : basic_container<T, span_v<T>>(other.begin(), other.end()) { };
-	template <std::size_t N> constexpr span(const T(&other)[N]) : basic_container<T, span_v<T>>(other, other + N) { };
+	template <container<T> C> constexpr span(const C& other) : basic_container<T, span_v<T>>(other.begin(), other.end()) { }
+	template <std::size_t N> constexpr span(const T(&other)[N]) : basic_container<T, span_v<T>>(other, other + N) { }
 };
 
 template<typename T> class vector_v {
 protected:
-	constexpr static float resize_ratio = 2;
+	static constexpr float resize_ratio = 2;
 	T* m_arr;
 	int m_size;
 	int m_capacity;
 public:
-	constexpr vector_v() : m_arr(nullptr), m_size(0), m_capacity(0) { };
+	constexpr vector_v() : m_arr(nullptr), m_size(0), m_capacity(0) { }
 
 	vector_v(int size) : m_size(0), m_capacity(size) {
 		this->m_arr = new T[m_capacity];
@@ -117,7 +116,7 @@ public:
 	constexpr T& at(int idx) {
 		if (this->capacity() <= idx) {
 			int newCap = m_capacity < 1 ? 1 : m_capacity;
-			while (newCap <= idx) newCap *= resize_ratio;
+			while (newCap <= idx) newCap = (float)newCap * resize_ratio;
 			reserve(newCap);
 		}
 		this->m_size = max(this->m_size, idx + 1);
@@ -240,14 +239,14 @@ public:
 		*(vector_v<T>*)this = std::move(*(vector_v<T>*)&other);
 		return *this;
 	}
-	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : basic_container<T, vector_v<T>>(other, other + N) { };
+	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : basic_container<T, vector_v<T>>(other, other + N) { }
 };
 
 template <typename T, std::size_t N> class array_v {
 protected:
 	T m_arr[N];
 public:
-	constexpr array_v() : m_arr() { };
+	constexpr array_v() : m_arr() { }
 	template <std::convertible_to<T> R>
 	constexpr array_v(const R* begin, const R* end) {
 		std::size_t i = 0;
@@ -257,7 +256,7 @@ public:
 		for (; i < N; i++) {
 			m_arr[i] = R();
 		}
-	};
+	}
 
 	constexpr T& at(int idx) {
 		if (idx < 0 || idx >= size()) {
@@ -289,8 +288,8 @@ public:
 template <typename T, std::size_t N> class array : public basic_container<T, array_v<T, N>> {
 public:
 	using basic_container<T, array_v<T, N>>::basic_container;
-	template <container<T> C> constexpr array(const C& other) : basic_container<T, array_v<T, N>>(other.begin(), other.end()) { };
-	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : basic_container<T, array_v<T, N2>>(other, other + N) { };
+	template <container<T> C> constexpr array(const C& other) : basic_container<T, array_v<T, N>>(other.begin(), other.end()) { }
+	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : basic_container<T, array_v<T, N2>>(other, other + N) { }
 };
 
 template <typename C, typename T>

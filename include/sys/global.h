@@ -6,10 +6,11 @@
 
 #include <drivers/pci.h>
 #include <drivers/ahci.h>
+#include <drivers/vmware_svga.h>
 #include <lib/fat.hpp>
 
 struct global_data_t {
-    console vga_console;
+    console g_console;
 
     uint64_t waterline;
     uint64_t mem_used;
@@ -20,6 +21,7 @@ struct global_data_t {
 
     pci_devices* pci;
     ahci_device* ahci;
+    svga_device* svga;
     fat_sys_data fat_data;
 };
 

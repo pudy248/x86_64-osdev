@@ -93,10 +93,10 @@ static inline uint64_t rdtsc(void) {
     asmv("rdtsc":"=a"(low),"=d"(high));
     return ((uint64_t)high << 32) | low;
 }
-static inline a_noreturn void inf_wait(void) {
+static inline __attribute__((noreturn)) void inf_wait(void) {
     while (1) asmv("");
 }
-static inline a_noreturn void cpu_halt(void) {
+static inline __attribute__((noreturn)) void cpu_halt(void) {
     asmv("cli; hlt");
 }
 

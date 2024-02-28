@@ -1,5 +1,4 @@
 #pragma once
-#include "graphics/pipeline.h"
 #include <cstdint>
 #include <graphics/vectypes.h>
 

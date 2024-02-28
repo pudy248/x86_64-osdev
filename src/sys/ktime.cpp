@@ -12,15 +12,17 @@ void inc_pit() {
         int x, l;
         int tmp_mem = globals->mem_used;
         basic_string<array<char, 20>> arr;
-        x = 79;
+        x = globals->g_console.text_rect[2] - 1;
         l = formats(arr, "   %i", tmp_mem);
         for (int i = l - 1; i >= 0; --i)
-            globals->vga_console.set(arr[i], x--, 0);
+            globals->g_console.set_char(x--, 0, arr[i]);
         
-        x = 79;
+        x = x = globals->g_console.text_rect[2] - 1;
         l = formats(arr, "   %i", globals->waterline - 0x400000);
         for (int i = l - 1; i >= 0; --i)
-            globals->vga_console.set(arr[i], x--, 1);
+            globals->g_console.set_char(x--, 1, arr[i]);
+            
+        globals->g_console.refresh();
     }
 }
 

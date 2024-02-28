@@ -1,7 +1,9 @@
 #include <cstdint>
 #include <kstdlib.hpp>
+#include <kstdio.hpp>
 #include <sys/global.h>
 #include <sys/init.h>
+#include <text/vga_console.h>
 
 extern uint64_t start_ctors;
 extern uint64_t end_ctors;
@@ -22,6 +24,7 @@ void global_dtors() {
 }
 void init_libcpp() {
     mem_init();
-    globals->vga_console = console();
+    vga_text_init();
+    globals->g_console = console(&vga_text_get_char, &vga_text_set_char, &vga_text_update, vga_text_dimensions);
     global_ctors();
 }

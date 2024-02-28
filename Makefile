@@ -15,6 +15,7 @@ ASM:=nasm
 ASMFLAGS:=-f elf64
 
 CFLAGS_DBG:= -g $(CFLAGS_CC_DBG)
+CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
 CFLAGS:=\
 -m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \

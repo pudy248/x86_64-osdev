@@ -111,7 +111,7 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
             break;
         }
         if (!target_block->data) {
-            globals->vga_console.putstr("\nMALLOC FAIL! HEAP DUMP:\n");
+            qprintf<30>("\nMALLOC FAIL! HEAP DUMP:\n");
             target_block = heap;
             while (target_block->data) {
                 qprintf<80>("%08p [%08p bytes]\n", target_block->data, target_block->blk_size);

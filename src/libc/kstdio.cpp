@@ -4,54 +4,43 @@
 #include <kcstring.h>
 #include <sys/global.h>
 
-console::console() {
-    for (int i = 0; i < 80 * 25; i++)
-        c[i] = 0x0f00;
-}
-void console::update_cursor() {
-    int pos = cy * rect[2] + cx;
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, (uint8_t) (pos & 0xFF));
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
-}
-char console::get(int x, int y) {
-    return c[80 * y + x];
-}
-void console::set(char ch, int x, int y) {
-    c[80 * y + x] = 0x0f00 | ch;
-}
+console::console(char(*g)(uint32_t, uint32_t), void(*s)(uint32_t, uint32_t, char), void(*r)(), int d[2]) : get_char(g), set_char(s), refresh(r), text_rect{0, 0, d[0], d[1]} { }
 void console::newline() {
     cy++;
-    if (cy == rect[3] - rect[1]) {
-        for (int y = rect[1]; y < rect[1] + rect[3] - 1; y++) {
-            for (int x = rect[0]; x < rect[0] + rect[2]; x++) {
-                set(get(x, y + 1), x, y);
+    if (cy == text_rect[3] - text_rect[1]) {
+        for (int y = text_rect[1]; y < text_rect[1] + text_rect[3] - 1; y++) {
+            for (int x = text_rect[0]; x < text_rect[0] + text_rect[2]; x++) {
+                set_char(x, y, get_char(x, y + 1));
             }
         }
         cy--;
     }
-    for (int x = rect[0]; x < rect[0] + rect[2]; x++) {
-        set(0, x, cy);
+    for (int x = text_rect[0]; x < text_rect[0] + text_rect[2]; x++) {
+        set_char(x, cy, 0);
     }
     //Unix or Windows?
     cx = 0;
 }
-void console::putchar(char c) {
+void console::putchar_noupdate(char c) {
     if (!c) return;
     else if (c == '\r') cx = 0;
     else if (c == '\n') newline();
     else {
-        set(c, cx, cy);
+        set_char(cx, cy, c);
         cx++;
-        if (cx == rect[0] + rect[2]) {
-            cx = rect[0];
+        if (cx == text_rect[0] + text_rect[2]) {
+            cx = text_rect[0];
             newline();
         }
     }
 }
+void console::putchar(char c) {
+    putchar_noupdate(c);
+    refresh();
+}
 void console::putstr(const char* s) {
     for (int i = 0; s[i]; i++) putchar(s[i]);
+    refresh();
 }
 
 static void hexdump_impl(console& c, uint8_t* src, int size, bool reversed) {
@@ -75,22 +64,22 @@ void console::hexdump_rev(void* src, uint32_t size, uint32_t swap_width) {
 
 
 void print(const char* str) {
-    globals->vga_console.putstr(str);
+    globals->g_console.putstr(str);
 }
 void print(rostring str) {
-    for (int i = 0; str.size(); i++) globals->vga_console.putchar(str[i]);
+    for (int i = 0; str.size(); i++) globals->g_console.putchar(str[i]);
 }
 
 template <typename... Args> void printf(const char* fmt, Args... args) {
     string s = format(rostring(fmt), args...);
-    globals->vga_console.putstr(s.c_str_this());
+    globals->g_console.putstr(s.c_str_this());
 }
 template <typename... Args> void printf(rostring fmt, Args... args) {
     string s = format(fmt, args...);
-    globals->vga_console.putstr(s.c_str_this());
+    globals->g_console.putstr(s.c_str_this());
 }
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args) {
     array<char, N> buf;
     buf.at(formats(buf, fmt, args...)) = 0;
-    globals->vga_console.putstr(buf.begin());
+    globals->g_console.putstr(buf.begin());
 }

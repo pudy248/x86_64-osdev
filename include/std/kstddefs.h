@@ -4,7 +4,6 @@
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
 
-#define a_noreturn    __attribute__((noreturn))
 #define a_inline      inline
 #define a_noinline    __attribute__((noinline))
 #define a_forceinline __attribute__((forceinline))
