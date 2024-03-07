@@ -236,5 +236,5 @@ public:
 	template <container<char> C2> istringstream(const C2& other) : basic_istringstream<rostring>(other) { }
 };
 
-template <container<char> C> int formats(C& output, const rostring fmt, ...);
+int formats(container_wrapper<char> output, const rostring fmt, ...);
 template <typename... Args> string format(rostring fmt, Args... args);

@@ -20,7 +20,7 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
 -fno-exceptions -fno-finite-loops -felide-constructors \
--Og -Iinclude -Iinclude/std \
+-Os -Iinclude -Iinclude/std \
 -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC) $(CFLAGS_DBG)

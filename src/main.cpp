@@ -1,3 +1,4 @@
+#include "stl/vector.hpp"
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 #include <sys/idt.h>
@@ -156,6 +157,7 @@ static void console_main() {
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
     print("MS Gothic is simply the optimal font face.\n");
     print("Backslashes are still yen. \\\\\n");
+    
 }
 
 extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void);
@@ -188,6 +190,6 @@ extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) vo
     //graphics_main();
     console_main();
 
-    print("Kernel reached end of execution. Error?");
+    print("Kernel reached end of execution. Error?\n");
     inf_wait();
 }

@@ -4,7 +4,7 @@
 #include <kcstring.h>
 #include <sys/global.h>
 
-console::console(char(*g)(uint32_t, uint32_t), void(*s)(uint32_t, uint32_t, char), void(*r)(), int d[2]) : get_char(g), set_char(s), refresh(r), text_rect{0, 0, d[0], d[1]} { }
+console::console(char(*g)(uint32_t, uint32_t), void(*s)(uint32_t, uint32_t, char), void(*r)(), int d[2]) : text_rect{0, 0, d[0], d[1]}, get_char(g), set_char(s), refresh(r) { }
 void console::newline() {
     cy++;
     if (cy == text_rect[3] - text_rect[1]) {

@@ -42,13 +42,12 @@ CRet basic_string<C>::split(const char* c) const {
     return split(rostring(c));
 }
 
-template <container<char> C>
-int formats(C& output, const rostring fmt, ...) {
+int formats(container_wrapper<char> output, const rostring fmt, ...) {
     va_list l;
     va_start(l, fmt);
     
     istringstream fmts(fmt);
-    basic_ostringstream<C> ostr(output);
+    basic_ostringstream<container_wrapper<char>> ostr(output);
 
     const rostring fmtchars("ixXpbfsSIM");
     

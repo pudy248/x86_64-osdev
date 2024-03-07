@@ -1,4 +1,5 @@
 #pragma once
+#include "stl/vector.hpp"
 #include <cstddef>
 #include <utility>
 #include <initializer_list>
@@ -359,4 +360,34 @@ public:
 		if (inclusive && readable()) offset++;
 		return C2(data, offset - sIdx, sIdx);
 	}
+};
+
+template <typename T> class container_wrapper_v {
+public:
+	void* _container;
+	T&(*_at)(void*, int);
+	T*(*_begin)(void*);
+	int(*_size)(void*);
+
+	template <container<T> C>
+	constexpr container_wrapper_v(C& other) : _container(&other), _at((T&(*)(void*,int))&C::static_at), _begin((T*(*)(void*))&C::static_begin), _size((int(*)(void*))&C::static_size) { }
+	constexpr container_wrapper_v(T* begin, T* end) { 
+		print("container_wrapper_v initialization with pointers not supported!\n");
+		inf_wait();
+	}
+	T& at(int idx) {
+		return _at(_container, idx);
+	}
+	T* begin() {
+		return _begin(_container);
+	}
+	int size() {
+		return _size(_container);
+	}
+};
+
+template <typename T> class container_wrapper : public basic_container<T, container_wrapper_v<T>> {
+public:
+	using basic_container<T, container_wrapper_v<T>>::basic_container;
+	template <container<T> C> constexpr container_wrapper(C& other) : basic_container<T, container_wrapper_v<T>>(other) { }
 };

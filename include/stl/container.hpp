@@ -145,4 +145,14 @@ public:
 	constexpr bool operator!=(const C2 other) const {
 		return !equals(other);
 	}
+
+	static constexpr T& static_at(basic_container* _this, int idx) {
+		return _this->at(idx);
+	}
+	static constexpr T* static_begin(basic_container* _this) {
+		return _this->begin();
+	}
+	static constexpr int static_size(basic_container* _this) {
+		return _this->size();
+	}
 };

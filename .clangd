@@ -3,3 +3,5 @@ CompileFlags: # Tweak the parse settings
     - "--include-directory=C:/Users/pudy248/Desktop/dev-work/osdev/include"
     - "--include-directory=C:/Users/pudy248/Desktop/dev-work/osdev/include/std"
     - "--std=c++20"
+    - "-Wall"
+    - "-Wextra"
