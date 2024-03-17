@@ -85,6 +85,9 @@ static inline void write_cr4(uint64_t val) {
     asmv("mov %0, %%cr4" : "=r"(val));
 }
 
+static a_noinline void* get_rip() {
+    return __builtin_return_address(0);
+}
 static inline void invlpg(void* m) {
     asmv("invlpg (%0)" : : "b"(m) : "memory");
 }

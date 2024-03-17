@@ -77,6 +77,8 @@ void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_fil
     qprintf<80>("%016x %016x %016x %016x\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
     qprintf<80>("%016x %016x %016x %016x\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
     qprintf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+    
+    stacktrace();
 
     if (err) {
         print("Unrecoverable exception - halting...\n");
@@ -121,5 +123,5 @@ void idt_init() {
     }
     idtptr = (void*)&idt->pointer;
     load_idt(idtptr);
-    //asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
+    asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
 }

@@ -152,16 +152,17 @@ static void graphics_main() {
     }
 }
 
-static void console_main() {
+void console_main() {
     graphics_text_init();
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
-    print("MS Gothic is simply the optimal font face.\n");
-    print("Backslashes are still yen. \\\\\n");
-    
+    load_debug_symbs("/symbols.txt");
+    load_debug_symbs("/symbols2.txt");
+
+    stacktrace();
 }
 
-extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void);
-extern "C" __attribute__((noreturn)) __attribute__((force_align_arg_pointer)) void kernel_main(void) {
+extern "C" __attribute__((force_align_arg_pointer)) void kernel_main(void);
+extern "C" __attribute__((force_align_arg_pointer)) void kernel_main(void) {
     idt_init();
     irq_set(0, &inc_pit);
     irq_set(1, &keyboard_irq);

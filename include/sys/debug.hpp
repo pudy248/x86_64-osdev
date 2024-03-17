@@ -1,34 +1,47 @@
 #pragma once
 #include <kstdio.hpp>
+#include <kstring.hpp>
+#include <stl/vector.hpp>
 
 class very_verbose_class {
 public:
     int id;
     very_verbose_class() : id(0) {
-        qprintf<60>("Default-constructing with id %i at %p.\n", id, this);
+        qprintf<80>("Default-constructing with id %i at %p.\n", id, this);
     }
     very_verbose_class(int id) : id(id) {
-        qprintf<60>("Constructing new instance with id %i at %p.\n", id, this);
+        qprintf<80>("Constructing new instance with id %i at %p.\n", id, this);
     }
     very_verbose_class(const very_verbose_class& copy) : id(copy.id) {
-        qprintf<60>("Copy-constructing with id %i at %p (from %p).\n", id, this, &copy);
+        qprintf<80>("Copy-constructing with id %i at %p (from %p).\n", id, this, &copy);
     }
     very_verbose_class(very_verbose_class&& other) : id(other.id) {
         other.id = 0;
-        qprintf<60>("Move-constructing with id %i at %p (from %p).\n", id, this, &other);
+        qprintf<80>("Move-constructing with id %i at %p (from %p).\n", id, this, &other);
     }
     very_verbose_class& operator=(const very_verbose_class& copy) {
         id = copy.id;
-        qprintf<60>("Copy-assigning with id %i at %p (from %p).\n", id, this, &copy);
+        qprintf<80>("Copy-assigning with id %i at %p (from %p).\n", id, this, &copy);
         return *this;
     }
     very_verbose_class& operator=(very_verbose_class&& other) {
         id = other.id;
         other.id = 0;
-        qprintf<60>("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
+        qprintf<80>("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
         return *this;
     }
     ~very_verbose_class() {
-        qprintf<60>("Destructing with id %i at %p.\n", id, this);
+        qprintf<80>("Destructing with id %i at %p.\n", id, this);
     }
 };
+
+struct debug_symbol {
+    void* addr;
+    uint32_t size;
+    array<char, 256> name;
+};
+extern vector<debug_symbol> symbol_table;
+
+void load_debug_symbs(const char* filename);
+debug_symbol& nearest_symbol(void* address, bool* out_contains = NULL);
+void stacktrace();

@@ -340,17 +340,17 @@ public:
 	}
 
 	template <container<T> C2, container<T> C3>
-	constexpr C2 read_while(bool(*condition)(C3)) {
-		int sIdx = offset;
-		while(condition(C3(data, data.size() - offset, sIdx)) && readable())
-			offset++;
-		return C2(data, offset - sIdx, sIdx);
-	}
-	template <container<T> C2, container<T> C3>
 	constexpr C2 read_until(bool(*condition)(C3), bool inclusive = false) {
 		int sIdx = offset;
 		while(!condition(C3(data, data.size() - offset, sIdx)) && readable()) offset++;
 		if (inclusive && readable()) offset++;
+		return C2(data, offset - sIdx, sIdx);
+	}
+	template <container<T> C2, container<T> C3>
+	constexpr C2 read_while(bool(*condition)(C3)) {
+		int sIdx = offset;
+		while(condition(C3(data, data.size() - offset, sIdx)) && readable())
+			offset++;
 		return C2(data, offset - sIdx, sIdx);
 	}
 	template <container<T> C2>
@@ -359,6 +359,12 @@ public:
 		while(front() != val && readable()) offset++;
 		if (inclusive && readable()) offset++;
 		return C2(data, offset - sIdx, sIdx);
+	}
+	constexpr int read_while_v(const T val) {
+		int sIdx = offset;
+		while(front() == val && readable())
+			offset++;
+		return offset - sIdx;
 	}
 };
 

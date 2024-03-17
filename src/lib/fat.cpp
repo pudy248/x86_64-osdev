@@ -325,7 +325,7 @@ FILE file_open(FILE& directory, rostring filename) {
 FILE file_open(rostring absolute_path) {
     vector<rostring> parts = absolute_path.split("\\/");
     FILE file = globals->fat_data.root_directory;
-    for (int i = 1; i < parts.size(); i++) {
+    for (int i = 0; i < parts.size(); i++) {
         if (!file.inode) return FILE();
         if (!parts[i].size()) continue;
         if (parts[i] == "."_RO) continue;

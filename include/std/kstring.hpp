@@ -78,7 +78,7 @@ public:
         } while (tmp > 0);
         int tmpctr = ctr--;
 
-        for (int i = 0; i < leading - ctr; i++)
+        for (int i = 0; i < leading - ctr - 1; i++)
             write_c(leadChar);
         
         basic_string<array<char, 25>> tmpstr;
@@ -115,7 +115,7 @@ public:
         } while ((int)tmp > 0);
         int tmpctr = ctr--;
 
-        for (int i = 0; i < leading - ctr; i++)
+        for (int i = 0; i < leading - ctr - 1; i++)
             write_c(leadChar);
         
         basic_string<array<char, 15>> tmpstr;
@@ -173,6 +173,22 @@ public:
             val += read_c() - '0';
         }
         if (neg) val = -val;
+        return val;
+    }
+    uint64_t read_x() {
+        uint64_t val = 0;
+        bool isN = this->front() >= '0' && this->front() <= '9';
+        bool isU = this->front() >= 'A' && this->front() <= 'F';
+        bool isL = this->front() >= 'f' && this->front() <= 'a';
+        while (isN || isU || isL) {
+            val *= 16;
+            if (isN) val += read_c() - '0';
+            if (isU) val += read_c() - 'A' + 10;
+            if (isL) val += read_c() - 'a' + 10;
+            isN = this->front() >= '0' && this->front() <= '9';
+            isU = this->front() >= 'A' && this->front() <= 'F';
+            isL = this->front() >= 'a' && this->front() <= 'f';
+        }
         return val;
     }
     double read_f() {

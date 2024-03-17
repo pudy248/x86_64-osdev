@@ -59,5 +59,6 @@ extern "C" void stage2_main(unsigned int driveNum) {
     }
 
     kernel_main();
-    inf_wait();
+    
+    //inf_wait();
 }
