@@ -101,7 +101,15 @@ int main(int argc, char** argv) {
         }
         if(ctr == 6 && j < extStart) {
             f.filename[ctr++] = '~';
-            f.filename[ctr++] = '1';
+            char idx = '1';
+            for (int k = 0; k < rootCtr; k++) {
+                f.filename[ctr] = idx;
+                if (!strncmp(f.filename, rootDir[k].filename, 8)) {
+                    idx++;
+                    k = -1;
+                }
+            }
+            ctr++;
         }
         ctr = 0;
         for (j = extStart; argv[i + 1][j] != 0 && ctr < 3; j++) {

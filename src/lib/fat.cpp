@@ -159,7 +159,8 @@ void fat_init() {
 }
 
 fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, uint32_t start_cluster) :
-    filesize(filesize), attributes(attributes), opened(0), loaded(0), edited(0), references(0), parent(parent), start_cluster(start_cluster), disk_layout() {
+    filesize(filesize), attributes(attributes), opened(0), loaded(0), edited(0), references(0), 
+    internal_references(0), parent(parent), start_cluster(start_cluster), disk_layout() {
     filename.unsafe_clear();
     data.unsafe_clear();
 }
@@ -254,34 +255,28 @@ void fat_inode::read() {
     else data = vector<char>((char*)dat, filesize);
     free(dat);
     loaded = 1;
+    if (parent) parent->internal_references++;
 }
-void fat_inode::close() {
-    if (!opened) return;
-    if (attributes & FAT_ATTRIBS::DIR) {
-        for (int i = 0; i < children.size(); i++) {
-            if(!children.at(i)->references) delete children.at(i);
-        }
-        children.clear();
-    }
-    else data.clear();
-    disk_layout.clear();
 
-    opened = 0;
-    loaded = 0;
-}
+
 void fat_inode::purge() {
     if (attributes & FAT_ATTRIBS::DIR) {
-        for (int i = 0; i < children.size(); i++) children.at(i)->purge();
-         
+        for (int i = 0; i < children.size(); i++)
+            children.at(i)->purge();
     }
-    if (!references) {
+    if (!references && !internal_references) {
         if (attributes & FAT_ATTRIBS::DIR) children.clear();
         else data.clear();
         disk_layout.clear();
 
         opened = 0;
         loaded = 0;
+        if (parent) parent->internal_references--;
     }
+}
+
+void fat_inode::close() {
+    purge();
 }
 
 FILE::FILE() : FILE(NULL) { };
@@ -310,7 +305,7 @@ FILE& FILE::operator=(FILE&& other) {
 FILE::~FILE() {
     if (inode) {
         inode->references--;
-        //if (!inode->references) inode->close();
+        if (!inode->references) inode->close();
     }
 }
 

@@ -64,10 +64,10 @@ debug_symbol& nearest_symbol(void* address, bool* out_contains) {
 void stacktrace() {
     if(!is_enabled) return;
     uint64_t* rbp = (uint64_t*)__builtin_frame_address(0);
-    print("IDX:  RETURN    STACKPTR  NAME\n");
-    qprintf<600>("  0:  %08x  %08x  %s\n", get_rip(), rbp, nearest_symbol(get_rip()).name);
+    print("\nIDX:  RETURN    STACKPTR  NAME\n");
+    qprintf<512>("  0:  %08x  %08x  %s\n", get_rip(), rbp, nearest_symbol(get_rip()).name);
     for (int i = 1; rbp[1]; i++) {
-        qprintf<600>("% 3i:  %08x  %08x  %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1]).name);
+        qprintf<512>("% 3i:  %08x  %08x  %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1]).name);
         rbp = (uint64_t*)*rbp;
     }
     print("\n");

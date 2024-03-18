@@ -29,6 +29,3 @@ void print(const char* str);
 template <typename... Args> void printf(const char* fmt, Args... args);
 template <typename... Args> void printf(rostring fmt, Args... args);
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args);
-
-extern void stacktrace();
-#define kassert(condition, msg) { if (!(condition)) { printf("%s:%i: %s\n", __FILE__, __LINE__, msg); stacktrace(); inf_wait(); } }

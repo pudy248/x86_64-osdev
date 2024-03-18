@@ -20,6 +20,21 @@ struct fat_disk_span {
     uint32_t span_length;
 };
 
+struct FILE {
+    struct fat_inode* inode;
+
+    FILE();
+    FILE(struct fat_inode* inode);
+    FILE(const FILE& other);
+    FILE(FILE&& other);
+    FILE& operator=(const FILE& other);
+    FILE& operator=(FILE&& other);
+    ~FILE();
+
+    vector<char>& data() const;
+    vector<FILE>& children() const;
+};
+
 struct fat_inode {
     string filename;
     uint32_t filesize;
@@ -33,6 +48,7 @@ struct fat_inode {
     //timepoint accessed;
 
     uint16_t references;
+    uint16_t internal_references;
 
     union {
         vector<char> data;
@@ -53,18 +69,6 @@ struct fat_inode {
     void write();
     void close();
     void purge();
-};
-
-struct FILE {
-    fat_inode* inode;
-
-    FILE();
-    FILE(fat_inode* inode);
-    FILE(const FILE& other);
-    FILE(FILE&& other);
-    FILE& operator=(const FILE& other);
-    FILE& operator=(FILE&& other);
-    ~FILE();
 };
 
 struct fat_sys_data {

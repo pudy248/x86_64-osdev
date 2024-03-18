@@ -6,8 +6,6 @@
 #include <kstdlib.hpp>
 #include <stl/container.hpp>
 
-void print(const char*);
-
 template <typename T> class span_v {
 protected:
 	T* m_arr;
@@ -18,19 +16,11 @@ public:
 	template <container<T> C> constexpr span_v(const C& other) : span_v<T>(other.begin(), other.end()) { }
 
 	constexpr T& at(int idx) {
-		if (idx < 0 || idx >= size()) {
-			//error
-			print("OOB access in span_v.at()");
-			inf_wait();
-		}
+		kassert(idx >= 0 && idx < size(), "OOB access in span_v.at()\n");
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		if (idx < 0 || idx >= size()) {
-			//error
-			print("OOB access in span_v.at()");
-			inf_wait();
-		}
+		kassert(idx >= 0 && idx < size(), "OOB access in span_v.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() const {
@@ -124,11 +114,7 @@ public:
 		return this->m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		if (idx < 0 || idx >= size()) {
-			//error
-			print("OOB access in vector_v.at()");
-			inf_wait();
-		}
+		kassert(idx >= 0 && idx < size(), "OOB access in vector_v.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() const {
@@ -260,19 +246,11 @@ public:
 	}
 
 	constexpr T& at(int idx) {
-		if (idx < 0 || idx >= size()) {
-			//error
-			print("OOB access in array_v.at()");
-			inf_wait();
-		}
+		kassert(idx >= 0 && idx < size(), "OOB access in array_v.at()\n");
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		if (idx < 0 || idx >= size()) {
-			//error
-			print("OOB access in array_v.at()");
-			inf_wait();
-		}
+		kassert(idx >= 0 && idx < size(), "OOB access in array_v.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() {

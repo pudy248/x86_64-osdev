@@ -122,3 +122,9 @@ template<typename T> T* waterline_new(uint64_t size, uint16_t alignment) {
 template<typename T> T* waterline_new(uint16_t alignment) {
     return waterline_new<T>(sizeof(T), alignment);
 }
+
+void stacktrace();
+void print(const char*);
+#define STRINGIZE(x) STRINGIZE2(x)
+#define STRINGIZE2(x) #x
+#define kassert(condition, msg) { if (!(condition)) { print("ASSERT " __FILE__ ":" STRINGIZE(__LINE__) ": " msg); stacktrace(); inf_wait(); } }

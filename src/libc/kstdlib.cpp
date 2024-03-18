@@ -88,14 +88,14 @@ __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment) {
 }
 
 __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
-    stacktrace();
+    //stacktrace();
     alignment = min(alignment, sizeof(heap_blk));
     uint32_t adj_size = heap_alloc_size(size);
 #ifdef HEAP_VERBOSE_LISTS
-    qprintf<80>("\nMALLOC HEAP DUMP: REQUESTED %08p BYTES\n", size);
+    qprintf<64>("\nMALLOC HEAP DUMP: REQUESTED %08p BYTES\n", size);
     heap_blk* dbg_block = heap;
     while (dbg_block->data) {
-        qprintf<80>("%08p [%08p bytes]\n", dbg_block->data, dbg_block->blk_size);
+        qprintf<64>("%08p [%08p bytes]\n", dbg_block->data, dbg_block->blk_size);
         dbg_block = heap_next(dbg_block);
     }
 #endif
@@ -112,13 +112,13 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
             break;
         }
         if (!target_block->data) {
-            qprintf<30>("\nMALLOC FAIL! HEAP DUMP:\n");
+            qprintf<32>("\nMALLOC FAIL! HEAP DUMP:\n");
             target_block = heap;
             while (target_block->data) {
-                qprintf<80>("%08p [%08p bytes]\n", target_block->data, target_block->blk_size);
+                qprintf<64>("%08p [%08p bytes]\n", target_block->data, target_block->blk_size);
                 target_block = heap_next(target_block);
             }
-            inf_wait();
+            kassert(false, "");
         }
         target_block = heap_next(target_block);
     }
@@ -151,18 +151,24 @@ __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
 void free(void* ptr) {
     if(!ptr) return;
 #ifdef HEAP_VERBOSE_LISTS
-    qprintf<80>("\nFREE HEAP DUMP: PTR %08p\n", ptr);
+    qprintf<64>("\nFREE HEAP DUMP: PTR %08p\n", ptr);
     heap_blk* dbg_block = heap;
     while (dbg_block->data) {
-        qprintf<80>("%08p [%08p bytes]\n", dbg_block->data, dbg_block->blk_size);
+        qprintf<64>("%08p [%08p bytes]\n", dbg_block->data, dbg_block->blk_size);
         dbg_block = heap_next(dbg_block);
     }
 #endif
     heap_meta_head* head_ptr = (heap_meta_head*)((uint64_t)ptr - sizeof(heap_meta_head));
     heap_meta_tail* tail_ptr = (heap_meta_tail*)((uint64_t)ptr + head_ptr->size);
 #ifdef HEAP_ALLOC_PROTECTOR
-    if (head_ptr->protector != protector_head_magic) qprintf<100>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head.", ptr, head_ptr->protector);
-    if (tail_ptr->protector != protector_tail_magic) qprintf<100>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail.", ptr, tail_ptr->protector);
+    if (head_ptr->protector != protector_head_magic) {
+        qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n", ptr, head_ptr->protector, protector_head_magic);
+        kassert(false, "");
+    }
+    if (tail_ptr->protector != protector_tail_magic) {
+        qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail, expected [%08X].\n", ptr, tail_ptr->protector, protector_tail_magic);
+        kassert(false, "");
+    }
     if (head_ptr->protector != protector_head_magic || tail_ptr->protector != protector_tail_magic) inf_wait();
 #endif
 

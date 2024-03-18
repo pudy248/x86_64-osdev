@@ -26,7 +26,7 @@ static uint16_t e1000_read_eeprom(uint8_t addr) {
         tmp = e1000_read(E1000_REG::EERD);
         if (tmp & 0x10) break;
         if (i > 1000) {
-            printf("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
+            qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
             inf_wait();
         }
     }
@@ -100,7 +100,7 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
         e1000_dev->mac[5] = v >> 8;
     }
 
-    printf("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+    qprintf<80>("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
         e1000_dev->mac[0], e1000_dev->mac[1], e1000_dev->mac[2], e1000_dev->mac[3], e1000_dev->mac[4], e1000_dev->mac[5]);
 
     

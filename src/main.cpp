@@ -154,7 +154,7 @@ static void console_main() {
     graphics_text_init();
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
 
-    //http_main();
+    http_main();
 }
 
 extern "C" void kernel_main(void) {
@@ -164,24 +164,6 @@ extern "C" void kernel_main(void) {
     time_init();
     load_debug_symbs("/symbols.txt");
     globals->fat_data.root_directory.inode->purge();
-
-    /*print("Enclosing scope entry.\n");
-    {
-        very_verbose_class lval{1};
-        vector<vector<very_verbose_class>> nested_container;
-        print("Container and lval initialized.\n");
-        print("Appending empty container to nested container.\n");
-        nested_container.append(vector<very_verbose_class>());
-        print("Appending lval to container.\n");
-        nested_container.back().append(lval);
-        print("Appending rval to container.\n");
-        nested_container.back().append(very_verbose_class(2));
-        print("Inserting new container at front of nested container.\n");
-        nested_container.insert(vector<very_verbose_class>(), 0);
-        print("Inserting new rval at front of container.\n");
-        nested_container.back().append(very_verbose_class(3));
-    }
-    print("End.\n");*/
 
     //http_main();
     //graphics_main();

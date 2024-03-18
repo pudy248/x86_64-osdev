@@ -4,9 +4,9 @@
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
 #include <text/graphical_console.hpp>
-#include <resources/ms_gothic.hpp>
+#include <resources/ms_gothic_small.hpp>
 
-int graphics_text_dimensions[2] = {240, 60};
+int graphics_text_dimensions[2] = {120, 30}; //{240, 60};
 
 static char* storage_buffer;
 
