@@ -123,5 +123,5 @@ void idt_init() {
     }
     idtptr = (void*)&idt->pointer;
     load_idt(idtptr);
-    asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
+    //asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
 }

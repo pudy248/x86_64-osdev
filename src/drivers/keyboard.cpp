@@ -1,4 +1,3 @@
-#include "kstdio.hpp"
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <drivers/keyboard.h>

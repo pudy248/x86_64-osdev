@@ -6,7 +6,7 @@
 #include <text/graphical_console.h>
 #include <resources/ms_gothic.h>
 
-int graphics_text_dimensions[2] = {128, 48};
+int graphics_text_dimensions[2] = {240, 60};
 
 static char* storage_buffer;
 

@@ -25,8 +25,7 @@ static int clockspeed_MHz() {
     return freqMHz;
 }
 
-extern "C" void stage2_main(unsigned int driveNum);
-extern "C" void stage2_main(unsigned int driveNum) {
+extern "C" void stage2_main() {
     init_libcpp();
     idt_init();
     pic_init();

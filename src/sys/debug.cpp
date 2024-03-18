@@ -1,12 +1,15 @@
 #include <cstdint>
-#include <kstdio.hpp>
+#include <kstddefs.h>
 #include <kstdlib.hpp>
+#include <kstdio.hpp>
 #include <kstring.hpp>
 #include <sys/debug.hpp>
 #include <stl/vector.hpp>
 #include <lib/fat.hpp>
+#include <drivers/keyboard.h>
 
 vector<debug_symbol> symbol_table;
+static bool is_enabled = false;
 
 void load_debug_symbs(const char* filename) {
     FILE f = file_open(filename);
@@ -30,8 +33,10 @@ void load_debug_symbs(const char* filename) {
         }
         str.read_while_v(' ');
         rostring tmp = str.read_until_v<rostring>('\n');
-        memcpy(symb.name.begin(), tmp.begin(), tmp.size());
-        symb.name[tmp.size()] = 0;
+        char* name = (char*)walloc(tmp.size() + 1, 0x10);
+        memcpy(name, tmp.begin(), tmp.size());
+        name[tmp.size()] = 0;
+        symb.name = name;
         str.read_c();
 
         symbol_table.append(symb);
@@ -39,13 +44,14 @@ void load_debug_symbs(const char* filename) {
     }
 
     f.inode->close();
+    is_enabled = true;
 }
 
 debug_symbol& nearest_symbol(void* address, bool* out_contains) {
     int bestIdx = 0;
     uint64_t bestDistance = INT64_MAX;
     for (int i = 0; i < symbol_table.size(); i++) {
-        uint64_t distance = (uint64_t)address - (uint64_t)symbol_table[i].addr;
+        uint64_t distance = (uint64_t)address - (uint64_t)symbol_table[i].addr - 5;
         if (distance < bestDistance || (distance == bestDistance && symbol_table[i].size > symbol_table[bestIdx].size)) {
             bestIdx = i;
             bestDistance = distance;
@@ -56,12 +62,26 @@ debug_symbol& nearest_symbol(void* address, bool* out_contains) {
 }
 
 void stacktrace() {
+    if(!is_enabled) return;
     uint64_t* rbp = (uint64_t*)__builtin_frame_address(0);
-    print("IDX:   RETURN STACKPTR NAME\n");
-    printf("  0: %08x %08x %s\n", get_rip(), rbp, nearest_symbol(get_rip()).name.begin());
+    print("IDX:  RETURN    STACKPTR  NAME\n");
+    qprintf<600>("  0:  %08x  %08x  %s\n", get_rip(), rbp, nearest_symbol(get_rip()).name);
     for (int i = 1; rbp[1]; i++) {
-        printf("% 3i: %08x %08x %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1]).name.begin());
+        qprintf<600>("% 3i:  %08x  %08x  %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1]).name);
         rbp = (uint64_t*)*rbp;
     }
     print("\n");
+    wait_until_kbhit();
+}
+
+void wait_until_kbhit() {
+    while (true) {
+        if (*(volatile uint8_t*)&keyboardInput.pushIdx == keyboardInput.popIdx) continue;
+        else if (key_to_ascii(keyboardInput.loopqueue[keyboardInput.popIdx]) != 'c') {
+            keyboardInput.popIdx = keyboardInput.pushIdx;
+            continue;
+        }
+        else break;
+    }
+    keyboardInput.popIdx = keyboardInput.pushIdx;
 }

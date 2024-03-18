@@ -3,6 +3,7 @@
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/global.h>
+#include <sys/debug.hpp>
 #include <stl/vector.hpp>
 
 #define abs(a) (a < 0 ? -a : a)
@@ -88,6 +89,7 @@ __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment) {
 }
 
 __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
+    stacktrace();
     alignment = min(alignment, sizeof(heap_blk));
     uint32_t adj_size = heap_alloc_size(size);
 #ifdef HEAP_VERBOSE_LISTS

@@ -145,8 +145,6 @@ void e1000_init(pci_device e1000_pci, void(*receive_callback)(void* packet, uint
 
     //printf("Using interrupt line %i\n", e1000_pci.interrupt_line);
     irq_set(e1000_pci.interrupt_line, &e1000_int_handler);
-    outb(0x21, 0x2);
-    outb(0xA1, 0x80);
     //e1000_write(E1000_REG::ITR, 0);
     print("e1000e network card initialized.\n\n");
 }

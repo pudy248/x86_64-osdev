@@ -101,7 +101,11 @@ static inline __attribute__((noreturn)) void inf_wait(void) {
 }
 static inline __attribute__((noreturn)) void cpu_halt(void) {
     asmv("cli; hlt");
+    //The compiler is of the opinion that this may halt.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winvalid-noreturn"
 }
+#pragma clang diagnostic pop
 
 __attribute__((returns_nonnull)) void* operator new(uint64_t size);
 __attribute__((returns_nonnull)) void* operator new(uint64_t size, void* ptr) noexcept;

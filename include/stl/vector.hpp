@@ -1,5 +1,4 @@
 #pragma once
-#include "stl/vector.hpp"
 #include <cstddef>
 #include <utility>
 #include <initializer_list>

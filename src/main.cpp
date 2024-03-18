@@ -1,4 +1,3 @@
-#include "stl/vector.hpp"
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 #include <sys/idt.h>
@@ -21,6 +20,7 @@
 
 #include <text/graphical_console.h>
 
+#include <stl/vector.hpp>
 #include <stl/functional.hpp>
 
 extern "C" void atexit(void (*)(void)) {}
@@ -152,21 +152,19 @@ static void graphics_main() {
     }
 }
 
-void console_main() {
+static void console_main() {
     graphics_text_init();
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
-    load_debug_symbs("/symbols.txt");
-    load_debug_symbs("/symbols2.txt");
 
-    stacktrace();
+    http_main();
 }
 
-extern "C" __attribute__((force_align_arg_pointer)) void kernel_main(void);
-extern "C" __attribute__((force_align_arg_pointer)) void kernel_main(void) {
+extern "C" void kernel_main(void) {
     idt_init();
     irq_set(0, &inc_pit);
     irq_set(1, &keyboard_irq);
     time_init();
+    load_debug_symbs("/symbols.txt");
     globals->fat_data.root_directory.inode->purge();
 
     /*print("Enclosing scope entry.\n");

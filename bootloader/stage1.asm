@@ -53,9 +53,10 @@ LongMode:
     mov fs, ax
     mov gs, ax
     mov ss, ax
- 
+    
     mov rsp, 0x1ffff8
-    mov rbp, 0x1ffff8
+    mov rbp, rsp
+    mov qword [rbp], 0
 
     ; Blank out the screen to a blue color.
     mov edi, 0xB8000
@@ -78,7 +79,7 @@ LongMode:
     call enable_sse
     call enable_avx
     
-    jmp stage2_main                  ; You should replace this jump to wherever you want to jump to.
+    jmp stage2_main
 
 enable_sse:
     mov rax, cr0

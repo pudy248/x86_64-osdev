@@ -37,11 +37,12 @@ public:
 
 struct debug_symbol {
     void* addr;
+    const char* name;
     uint32_t size;
-    array<char, 256> name;
 };
 extern vector<debug_symbol> symbol_table;
 
 void load_debug_symbs(const char* filename);
 debug_symbol& nearest_symbol(void* address, bool* out_contains = NULL);
 void stacktrace();
+void wait_until_kbhit();

@@ -212,8 +212,9 @@ load_idt:
     cli
     lidt [rdi]
     ;disable PIC
-    mov al, 0xff
+    mov al, 0x7b ; Allow fallthrough
     out 0x21, al
+    mov al, 0xff
     out 0xa1, al
     sti
     ret
