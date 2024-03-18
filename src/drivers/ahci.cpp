@@ -1,10 +1,10 @@
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <drivers/pci.h>
-#include <drivers/ahci.h>
-#include <sys/global.h>
-#include <sys/paging.h>
+#include <drivers/pci.hpp>
+#include <drivers/ahci.hpp>
+#include <sys/global.hpp>
+#include <sys/paging.hpp>
 
 void ahci_init(pci_device ahci_pci) {
     globals->ahci = waterline_new<ahci_device>(0x10);

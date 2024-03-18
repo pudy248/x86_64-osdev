@@ -1,10 +1,12 @@
 #include <cstdint>
-#include <kstddefs.h>
+#include <cstddef>
+#include <kstddefs.hpp>
 #include <kstdlib.hpp>
+#include <kstdio.hpp>
 
-#include <sys/global.h>
-#include <sys/idt.h>
-#include <sys/pic.h>
+#include <sys/global.hpp>
+#include <sys/idt.hpp>
+#include <sys/pic.hpp>
 
 struct a_packed idt_entry {
     uint16_t offset_low;

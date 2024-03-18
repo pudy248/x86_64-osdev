@@ -1,10 +1,10 @@
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <sys/global.h>
-#include <sys/paging.h>
-#include <drivers/pci.h>
-#include <drivers/vmware_svga.h>
+#include <sys/global.hpp>
+#include <sys/paging.hpp>
+#include <drivers/pci.hpp>
+#include <drivers/vmware_svga.hpp>
 
 static bool enabled = false;
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <graphics/vectypes.h>
+#include <graphics/vectypes.hpp>
 
 struct Vertex {
     Vec4 pos;

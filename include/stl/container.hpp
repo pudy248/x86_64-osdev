@@ -1,7 +1,6 @@
 #pragma once
 #include <concepts>
 #include <type_traits>
-#include <kstdlib.hpp>
 
 template <typename I, typename T> concept iterator = std::same_as<std::remove_const_t<std::remove_pointer_t<I>>*, T*>;
 
@@ -17,8 +16,6 @@ requires(C c) {
 	{ *c.begin() } -> std::convertible_to<T>;
 	container_iterable_from<C, T*>;
 };
-
-template <typename T> class span;
 
 template <typename T, container<T> C>
 class basic_container : public C {

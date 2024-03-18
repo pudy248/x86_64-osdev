@@ -1,10 +1,9 @@
 #include <cstdint>
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
-#include <sys/global.h>
+#include <sys/global.hpp>
 #include <sys/debug.hpp>
-#include <stl/vector.hpp>
 
 #define abs(a) (a < 0 ? -a : a)
 #define min(a,b) ((a) < (b) ? (a) : (b))

@@ -1,7 +1,7 @@
 CLANG_ENABLE:=1
 ifdef CLANG_ENABLE
-	CC:=$(wildcard /usr/bin/clang) $(wildcard /usr/bin/clang-1*)
-	LD:=$(wildcard /usr/bin/ld.lld) $(wildcard /usr/bin/ld.lld-1*)
+	CC:=/usr/bin/clang-17
+	LD:=/usr/bin/ld.lld-17
 	CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 	CFLAGS_CC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
 else
@@ -24,6 +24,8 @@ CFLAGS:=\
 $(CFLAGS_CC) $(CFLAGS_DBG)
 CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
 
+IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-17/lib/clang/17/include
+
 LDFLAGS_INC:=
 LDFLAGS_FIN:=-gc-sections
 
@@ -43,7 +45,7 @@ QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_M
 #LOCAL_IP:=192.168.0.15
 LOCAL_IP:=172.29.244.210
 
-.PHONY: default clean start start-trace start-gdb
+.PHONY: default clean start start-trace start-gdb include-check
 default: disk_2.img
 clean:
 	@rm -f disk.img disk_2.img dump.pcap fattener
@@ -108,3 +110,8 @@ tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloa
 	@objdump -d tmp/bootloader.img.elf > tmp/bootloader.S 2> /dev/null
 	@readelf -W --demangle -s tmp/bootloader.img.elf > tmp/symbols2.txt 2> /dev/null
 	@objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
+
+include-check: 
+	for file in $(C_SRC) $(wildcard include/**/*.h) $(wildcard include/*.h) $(wildcard include/**/*.hpp) $(wildcard include/*.hpp); do \
+		iwyu $(IWYUFLAGS) $$file; \
+	done

@@ -2,8 +2,10 @@
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <kstdio.hpp>
-#include <sys/global.h>
+#include <sys/global.hpp>
 #include <sys/ktime.hpp>
+#include <stl/container.hpp>
+#include <stl/vector.hpp>
 
 void inc_pit() {
     globals->elapsedPITs = globals->elapsedPITs + 1;

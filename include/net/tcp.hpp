@@ -1,9 +1,10 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <net/net.hpp>
-#include <net/ipv4.hpp>
 #include <stl/vector.hpp>
+
+struct ip_packet;
 
 namespace TCP_STATE {
     enum TCP_STATE {

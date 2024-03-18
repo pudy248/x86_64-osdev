@@ -1,12 +1,7 @@
-#pragma once
 #include <cstdint>
 #include <cstdarg>
 #include <utility>
-#include <kstddefs.h>
-#include <kcstring.h>
 #include <kstring.hpp>
-#include <kstdio.hpp>
-#include <sys/global.h>
 #include <stl/vector.hpp>
 #include <net/net.hpp>
 

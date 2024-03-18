@@ -1,6 +1,6 @@
-#include <graphics/vectypes.h>
-#include <graphics/transform.h>
-#include <graphics/math.h>
+#include <graphics/vectypes.hpp>
+#include <graphics/transform.hpp>
+#include <graphics/math.hpp>
 
 Mat4x4 identity() {
     return (Mat4x4){{

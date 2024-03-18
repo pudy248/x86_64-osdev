@@ -1,15 +1,15 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <kstdio.hpp>
 #include <lib/fat.hpp>
 #include <sys/ktime.hpp>
-#include <sys/global.h>
+#include <sys/global.hpp>
 #include <stl/vector.hpp>
-#include <drivers/ahci.h>
+#include <drivers/ahci.hpp>
 
 struct a_packed partition_entry {
     uint8_t     attributes;

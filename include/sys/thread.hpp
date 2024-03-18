@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <sys/idt.h>
+#include <sys/idt.hpp>
 
 template <typename R> struct thread {
     uint32_t id;

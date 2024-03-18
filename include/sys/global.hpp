@@ -1,13 +1,12 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
-#include <kstdlib.hpp>
 #include <kstdio.hpp>
-
-#include <drivers/pci.h>
-#include <drivers/ahci.h>
-#include <drivers/vmware_svga.h>
 #include <lib/fat.hpp>
+
+struct ahci_device;
+struct pci_devices;
+struct svga_device;
+
 
 struct global_data_t {
     console g_console;

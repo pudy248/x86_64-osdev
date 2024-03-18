@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
-#include <kcstring.h>
+#include <kcstring.hpp>
 #include <stl/vector.hpp>
 
 template <container<char> C>

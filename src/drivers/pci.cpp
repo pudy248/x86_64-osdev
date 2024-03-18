@@ -2,8 +2,8 @@
 #include <cstddef>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <sys/global.h>
-#include <drivers/pci.h>
+#include <sys/global.hpp>
+#include <drivers/pci.hpp>
 
 uint32_t pci_read(pci_addr dev, uint8_t reg) {
     uint32_t lbus  = (uint32_t)dev.bus;

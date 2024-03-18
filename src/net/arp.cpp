@@ -1,10 +1,10 @@
 #include <cstdint>
-#include <kstddefs.h>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
+#include <stl/container.hpp>
+#include <stl/vector.hpp>
 #include <net/net.hpp>
 #include <net/arp.hpp>
-#include <stl/vector.hpp>
 
 constexpr mac_t MAC_BCAST = 0xffffffffffffULL;
 

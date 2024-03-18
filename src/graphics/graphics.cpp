@@ -1,11 +1,9 @@
-#include <kstdio.hpp>
-
-#include <graphics/math.h>
-#include <graphics/vectypes.h>
-#include <graphics/graphics.h>
-#include <graphics/pipeline.h>
-#include <graphics/transform.h>
-#include <graphics/color.h>
+#include <cstdint>
+#include <kstddefs.hpp>
+#include <graphics/math.hpp>
+#include <graphics/vectypes.hpp>
+#include <graphics/graphics.hpp>
+#include <graphics/pipeline.hpp>
 
 static char clip(Vec4 p) {
     return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;

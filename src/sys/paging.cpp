@@ -1,5 +1,5 @@
 #include <cstdint>
-#include <sys/paging.h>
+#include <sys/paging.hpp>
 
 //static PML4E* pml4 = (PML4E*)0x70000;
 //static PDPTE* pdpts = (PDPTE*)0x71000;

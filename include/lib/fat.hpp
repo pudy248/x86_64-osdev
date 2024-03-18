@@ -1,8 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
 #include <kstring.hpp>
-#include <sys/ktime.hpp>
 #include <stl/vector.hpp>
 
 namespace FAT_ATTRIBS {

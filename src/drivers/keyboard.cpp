@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <drivers/keyboard.h>
+#include <drivers/keyboard.hpp>
 
 KeyboardBuffer keyboardInput = { 0, 0, 0, 0, 0, 0, {} };
 

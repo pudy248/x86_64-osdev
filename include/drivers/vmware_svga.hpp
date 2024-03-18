@@ -1,6 +1,7 @@
 #pragma once
-#include <kstddefs.h>
-#include <drivers/pci.h>
+#include <cstdint>
+
+struct pci_device;
 
 namespace SVGA_REG { enum SVGA_REG {
     ID,

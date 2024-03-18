@@ -1,10 +1,10 @@
-#include "drivers/pci.h"
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <sys/idt.h>
-#include <sys/paging.h>
-#include <drivers/e1000.h>
+#include <sys/idt.hpp>
+#include <sys/paging.hpp>
+#include <drivers/pci.hpp>
+#include <drivers/e1000.hpp>
 
 e1000_handle* e1000_dev;
 static void(*receive_fn)(void* packet, uint16_t len);

@@ -1,13 +1,13 @@
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 
-#include <sys/init.h>
-#include <sys/idt.h>
-#include <sys/pic.h>
+#include <sys/init.hpp>
+#include <sys/idt.hpp>
+#include <sys/pic.hpp>
 #include <sys/ktime.hpp>
-#include <sys/global.h>
-#include <drivers/pci.h>
-#include <drivers/ahci.h>
+#include <sys/global.hpp>
+#include <drivers/pci.hpp>
+#include <drivers/ahci.hpp>
 #include <lib/fat.hpp>
 
 extern "C" void kernel_main(void);

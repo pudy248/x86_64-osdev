@@ -1,5 +1,5 @@
 #pragma once
-#include <inttypes.h>
+#include <inttypes.hpp>
 
 void beep(uint32_t nFrequency);
 void beep_off(void);

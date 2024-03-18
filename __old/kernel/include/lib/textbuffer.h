@@ -1,5 +1,5 @@
 #pragma once
-#include <inttypes.h>
+#include <inttypes.hpp>
 
 #define TEXTBUFFER_AUTOSCROLL   0x01
 #define TEXTBUFFER_LINELOCK     0x02

@@ -1,3 +1,3 @@
 #pragma once
-#include <inttypes.h>
+#include <inttypes.hpp>
 

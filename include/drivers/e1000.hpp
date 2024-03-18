@@ -1,6 +1,8 @@
 #pragma once
-#include <kstddefs.h>
-#include <drivers/pci.h>
+#include <cstdint>
+#include <kstddefs.hpp>
+
+struct pci_device;
 
 namespace E1000_REG { enum E1000_REG : uint16_t {
     CTRL    =0x0000,

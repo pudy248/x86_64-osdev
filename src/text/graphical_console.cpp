@@ -1,10 +1,10 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <kstring.hpp>
-#include <sys/global.h>
-#include <drivers/vmware_svga.h>
-#include <text/graphical_console.h>
-#include <resources/ms_gothic.h>
+#include <kstdio.hpp>
+#include <drivers/pci.hpp>
+#include <drivers/vmware_svga.hpp>
+#include <text/graphical_console.hpp>
+#include <resources/ms_gothic.hpp>
 
 int graphics_text_dimensions[2] = {240, 60};
 

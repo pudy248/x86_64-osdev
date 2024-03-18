@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
-#include <drivers/pci.h>
+
+struct pci_device;
  
 struct hba_port {
 	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned

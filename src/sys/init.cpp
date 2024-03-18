@@ -1,9 +1,9 @@
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <sys/global.h>
-#include <sys/init.h>
-#include <text/vga_console.h>
+#include <sys/global.hpp>
+#include <sys/init.hpp>
+#include <text/vga_console.hpp>
 
 extern uint64_t start_ctors;
 extern uint64_t end_ctors;

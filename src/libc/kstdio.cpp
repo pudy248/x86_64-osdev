@@ -1,8 +1,10 @@
 #include <cstdint>
-#include <kstdlib.hpp>
+#include <cstddef>
 #include <kstdio.hpp>
-#include <kcstring.h>
-#include <sys/global.h>
+#include <kstring.hpp>
+#include <stl/container.hpp>
+#include <stl/vector.hpp>
+#include <sys/global.hpp>
 
 console::console(char(*g)(uint32_t, uint32_t), void(*s)(uint32_t, uint32_t, char), void(*r)(), int d[2]) : text_rect{0, 0, d[0], d[1]}, get_char(g), set_char(s), refresh(r) { }
 void console::newline() {

@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <kstdlib.hpp>
 
 void vga_text_init();
 extern int vga_text_dimensions[2];

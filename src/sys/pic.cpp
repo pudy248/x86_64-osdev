@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kstdlib.hpp>
-#include <sys/pic.h>
+#include <sys/pic.hpp>
 
 #define ICW1_ICW4			(uint8_t)0x01	/* Indicates that ICW4 will be present */
 //#define ICW1_SINGLE			(uint8_t)0x02	/* Single (cascade) mode */

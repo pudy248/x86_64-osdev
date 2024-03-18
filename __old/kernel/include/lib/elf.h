@@ -1,5 +1,5 @@
 #pragma once
-#include <inttypes.h>
+#include <inttypes.hpp>
 
 #define ELF_TYPE_NONE       0x00
 #define ELF_TYPE_REL        0x01

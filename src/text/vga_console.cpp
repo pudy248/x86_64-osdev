@@ -1,6 +1,5 @@
 #include <cstdint>
-#include <kstdlib.hpp>
-#include <text/vga_console.h>
+#include <text/vga_console.hpp>
 
 static uint16_t* const fb = (uint16_t*)0xb8000;
 int vga_text_dimensions[2] = {80, 25};

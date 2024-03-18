@@ -1,6 +1,7 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
 #include <kstdio.hpp>
-#include <kstring.hpp>
 #include <stl/vector.hpp>
 
 class very_verbose_class {

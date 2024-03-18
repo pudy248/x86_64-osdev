@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 

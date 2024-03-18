@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
 
 #define sign(a) (a < 0 ? -1 : 1)
 

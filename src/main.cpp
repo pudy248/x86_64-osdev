@@ -1,27 +1,25 @@
+#include <cstdint>
+#include <cstddef>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
-#include <sys/idt.h>
+#include <kstring.hpp>
+#include <sys/idt.hpp>
 #include <sys/ktime.hpp>
-#include <sys/global.h>
+#include <sys/global.hpp>
 #include <sys/debug.hpp>
-
+#include <stl/vector.hpp>
 #include <lib/fat.hpp>
-
-#include <drivers/keyboard.h>
-#include <drivers/pci.h>
-#include <drivers/vmware_svga.h>
-
+#include <drivers/keyboard.hpp>
+#include <drivers/pci.hpp>
+#include <drivers/vmware_svga.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
 #include <net/http.hpp>
+#include <graphics/vectypes.hpp>
+#include <graphics/transform.hpp>
+#include <graphics/pipeline.hpp>
+#include <text/graphical_console.hpp>
 
-#include <graphics/transform.h>
-#include <graphics/pipeline.h>
-
-#include <text/graphical_console.h>
-
-#include <stl/vector.hpp>
-#include <stl/functional.hpp>
 
 extern "C" void atexit(void (*)(void)) {}
 
@@ -156,7 +154,7 @@ static void console_main() {
     graphics_text_init();
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
 
-    http_main();
+    //http_main();
 }
 
 extern "C" void kernel_main(void) {

@@ -1,6 +1,5 @@
 #include <cstdint>
 #include <utility>
-
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 #include <stl/vector.hpp>
@@ -8,9 +7,8 @@
 #include <net/net.hpp>
 #include <net/arp.hpp>
 #include <net/ipv4.hpp>
-#include <net/tcp.hpp>
-#include <drivers/pci.h>
-#include <drivers/e1000.h>
+#include <drivers/pci.hpp>
+#include <drivers/e1000.hpp>
 
 mac_t global_mac;
 ipv4_t global_ip;

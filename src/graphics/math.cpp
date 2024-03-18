@@ -1,4 +1,5 @@
-#include <graphics/math.h>
+#include <kstddefs.hpp>
+#include <graphics/math.hpp>
 
 static uint16_t lfsr = 0xACE1u;
 static uint8_t bit;

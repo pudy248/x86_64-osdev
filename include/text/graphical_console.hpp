@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <kstdlib.hpp>
 
 void graphics_text_init();
 extern int graphics_text_dimensions[2];

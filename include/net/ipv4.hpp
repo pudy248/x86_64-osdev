@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <net/net.hpp>
+#include <stl/vector.hpp>
 
 #define IP_PROTOCOL_ICMP    0x01
 #define IP_PROTOCOL_TCP     0x06

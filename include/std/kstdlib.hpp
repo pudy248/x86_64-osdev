@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 
 extern "C" {
     void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);

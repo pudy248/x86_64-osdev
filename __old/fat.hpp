@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 
 #define MBR_PARTITION_START     0x1b8
 #define PARTITION_ATTR_ACTIVE   0x80

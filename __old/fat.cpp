@@ -1,8 +1,8 @@
-#include <kstddefs.h>
+#include <kstddefs.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <kcstring.h>
-#include <drivers/ahci.h>
+#include <kcstring.hpp>
+#include <drivers/ahci.hpp>
 #include <lib/fat.hpp>
 
 static uint16_t sectorsPerCluster;

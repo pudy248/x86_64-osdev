@@ -1,7 +1,7 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <kstring.hpp>
-#include <kstdlib.hpp>
 
 class console {
 private:

@@ -1,11 +1,13 @@
+#include <cstdint>
+#include <kstddefs.hpp>
+#include <kstdlib.hpp>
 #include <kstdio.hpp>
-
-#include <graphics/math.h>
-#include <graphics/pipeline.h>
-#include <graphics/vectypes.h>
-#include <graphics/transform.h>
-#include <graphics/graphics.h>
-#include <graphics/color.h>
+#include <graphics/math.hpp>
+#include <graphics/pipeline.hpp>
+#include <graphics/vectypes.hpp>
+#include <graphics/transform.hpp>
+#include <graphics/graphics.hpp>
+#include <graphics/color.hpp>
 
 Mat4x4 projectionMatrix;
 

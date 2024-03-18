@@ -1,5 +1,5 @@
-#include <kstddefs.h>
-#include <kcstring.h>
+#include <kstddefs.hpp>
+#include <kcstring.hpp>
 
 /*constexpr int strlen(const char* str) {
     int i = 0;
