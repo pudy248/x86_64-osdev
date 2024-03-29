@@ -15,6 +15,8 @@ void load_debug_symbs(const char* filename) {
     FILE f = file_open(filename);
     istringstream str(rostring(f.inode->data));
 
+    
+    /* // readelf -s
     str.read_c();
     str.read_until_v<rostring>('\n', true);
     str.read_until_v<rostring>('\n', true);
@@ -32,6 +34,31 @@ void load_debug_symbs(const char* filename) {
             str.read_until_v<rostring>(' ');
         }
         str.read_while_v(' ');
+        rostring tmp = str.read_until_v<rostring>('\n');
+        char* name = (char*)walloc(tmp.size() + 1, 0x10);
+        memcpy(name, tmp.begin(), tmp.size());
+        name[tmp.size()] = 0;
+        symb.name = name;
+        str.read_c();
+
+        symbol_table.append(symb);
+        //printf("%08x %04x %10s\n", symb.addr, symb.size, symb.name.begin());
+    } */
+
+    // llvm-objdump --syms
+    str.read_c();
+    str.read_until_v<rostring>('\n', true);
+    str.read_c();
+    str.read_until_v<rostring>('\n', true);
+    
+    while (str.readable()) {
+        debug_symbol symb;
+        symb.addr = (void*)str.read_x();
+        char tmp2[16];
+        str.bzread(tmp2, 9);
+        str.read_until_v<rostring>('\t', true);
+        symb.size = str.read_x();
+        str.read_c();
         rostring tmp = str.read_until_v<rostring>('\n');
         char* name = (char*)walloc(tmp.size() + 1, 0x10);
         memcpy(name, tmp.begin(), tmp.size());

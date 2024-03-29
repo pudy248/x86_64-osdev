@@ -4,6 +4,7 @@
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <sys/idt.hpp>
+#include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/global.hpp>
 #include <sys/debug.hpp>
@@ -19,7 +20,6 @@
 #include <graphics/transform.hpp>
 #include <graphics/pipeline.hpp>
 #include <text/graphical_console.hpp>
-
 
 extern "C" void atexit(void (*)(void)) {}
 
@@ -154,6 +154,11 @@ static void console_main() {
     graphics_text_init();
     globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
 
+    fat_inode* tmp = globals->fat_data.root_directory.inode;
+    globals->fat_data.root_directory = FILE();
+    globals->fat_data.working_directory = FILE();
+    globals->fat_data.fat_tables.clear();
+    delete tmp;
     http_main();
 }
 
@@ -162,13 +167,15 @@ extern "C" void kernel_main(void) {
     irq_set(0, &inc_pit);
     irq_set(1, &keyboard_irq);
     time_init();
-    load_debug_symbs("/symbols.txt");
+    global_ctors();
+    //load_debug_symbs("/symbols.txt");
     globals->fat_data.root_directory.inode->purge();
 
     //http_main();
     //graphics_main();
     console_main();
 
-    print("Kernel reached end of execution. Error?\n");
+    print("Kernel reached end of execution.\n");
+    global_dtors();
     inf_wait();
 }

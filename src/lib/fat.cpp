@@ -255,23 +255,30 @@ void fat_inode::read() {
     else data = vector<char>((char*)dat, filesize);
     free(dat);
     loaded = 1;
-    if (parent) parent->internal_references++;
+    if (parent) {
+        parent->internal_references++;
+    }
 }
 
 
 void fat_inode::purge() {
     if (attributes & FAT_ATTRIBS::DIR) {
-        for (int i = 0; i < children.size(); i++)
-            children.at(i)->purge();
+        for (fat_inode* n : children)
+            if (!n->references && !n->internal_references) n->close();
     }
     if (!references && !internal_references) {
-        if (attributes & FAT_ATTRIBS::DIR) children.clear();
+        if (attributes & FAT_ATTRIBS::DIR) {
+            for (fat_inode* n : children) delete n;
+            children.clear();
+        }
         else data.clear();
         disk_layout.clear();
 
         opened = 0;
+        if (parent && loaded) {
+            parent->internal_references--;
+        }
         loaded = 0;
-        if (parent) parent->internal_references--;
     }
 }
 
@@ -293,11 +300,13 @@ FILE::FILE(FILE&& other) : inode(other.inode) {
     other.inode = NULL;
 }
 FILE& FILE::operator=(const FILE& other) {
+    this->~FILE();
     inode = other.inode;
     if (inode) inode->references++;
     return *this;
 }
 FILE& FILE::operator=(FILE&& other) {
+    this->~FILE();
     inode = other.inode;
     other.inode = NULL;
     return *this;
@@ -307,6 +316,7 @@ FILE::~FILE() {
         inode->references--;
         if (!inode->references) inode->close();
     }
+    inode = NULL;
 }
 
 FILE file_open(FILE& directory, rostring filename) {

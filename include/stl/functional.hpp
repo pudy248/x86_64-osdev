@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <utility>
 #include <type_traits>
+#include <kstdlib.hpp>
 #include <kstdio.hpp>
 #include <stl/vector.hpp>
 

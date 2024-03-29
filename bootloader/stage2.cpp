@@ -6,18 +6,18 @@
 #include <sys/pic.hpp>
 #include <sys/ktime.hpp>
 #include <sys/global.hpp>
+#include <sys/debug.hpp>
 #include <drivers/pci.hpp>
 #include <drivers/ahci.hpp>
+#include <drivers/keyboard.hpp>
 #include <lib/fat.hpp>
-
-extern "C" void kernel_main(void);
 
 static int clockspeed_MHz() {
     double t1 = timepoint().unix_seconds();
-    uint64_t stsc=rdtsc();
+    uint64_t stsc = rdtsc();
     tsc_delay(0x1000000LLU);
     double t2 = timepoint().unix_seconds();
-    long etsc=rdtsc();
+    long etsc = rdtsc();
 
     double eSec = (t2 - t1);
     double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
@@ -30,6 +30,7 @@ extern "C" void stage2_main() {
     idt_init();
     pic_init();
     irq_set(0, &inc_pit);
+    irq_set(1, &keyboard_irq);
     time_init();
 
     //for (int i = 0; i < 2; i++)
@@ -48,15 +49,17 @@ extern "C" void stage2_main() {
     // Load kernel modules from disk //
     ///////////////////////////////////
     fat_init();
+    void(*kernel_main)();
     {
         FILE kernel = file_open("/kernel.img");
 
         kassert(kernel.inode, "Kernel image not found!\n");
-        uint64_t kernel_link_loc = *(uint64_t*)kernel.inode->data.begin();
-        //printf("Loading kernel to 0x%x.\n", kernel_link_loc);
+        uint64_t kernel_link_loc = ((uint64_t*)kernel.inode->data.begin())[0];
+        kernel_main = (void(*)())((uint64_t*)kernel.inode->data.begin())[1];
         memcpy((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->data.size());
     }
 
+    global_dtors();
     kernel_main();
     
     //inf_wait();

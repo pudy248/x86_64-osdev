@@ -4,13 +4,19 @@ SECTIONS
 {
     .text 0x200000 : {
         QUAD(0x200000);
-        *(.text*);
+        QUAD(kernel_main)
+        . = ALIGN(8);
         start_ctors = .;
-        *(SORT(.ctors*))
+        *(.init_array*);
+        *(SORT(.ctors*));
+        . = ALIGN(8);
         end_ctors = .;
         start_dtors = .;
-        *(SORT(.dtors*))
+        *(.fini_array*);
+        *(SORT(.dtors*));
         end_dtors = .;
+        QUAD(0);
+        *(.text.*);
     }
     .data : {
         *(.data*);
@@ -21,7 +27,6 @@ SECTIONS
     }
 
     /DISCARD/ : {
-        *(.eh_frame)
         *(.comment)
     }
 }

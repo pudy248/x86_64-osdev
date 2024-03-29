@@ -11,15 +11,19 @@ extern uint64_t start_dtors;
 extern uint64_t end_dtors;
 
 void global_ctors() {
-    uint64_t i = start_ctors;
-    while(i != end_ctors) {
-        ((void(*)())i)();
+    uint64_t i = (uint64_t)&start_ctors;
+    uint64_t end = (uint64_t)&end_ctors;
+    while(i < end) {
+        ((void(*)())*(uint64_t*)i)();
+        i += sizeof(void*);
     }
 }
 void global_dtors() {
-    uint64_t i = start_dtors;
-    while(i != end_dtors) {
-        ((void(*)())i)();
+    uint64_t i = (uint64_t)&start_dtors;
+    uint64_t end = (uint64_t)&end_dtors;
+    while(i < end) {
+        ((void(*)())*(uint64_t*)i)();
+        i += sizeof(void*);
     }
 }
 void init_libcpp() {

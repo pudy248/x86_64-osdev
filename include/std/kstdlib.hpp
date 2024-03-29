@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <kstddefs.hpp>
+#include <type_traits>
 
 extern "C" {
     void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);
@@ -12,13 +13,6 @@ void mem_init();
 __attribute__((returns_nonnull)) __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
 __attribute__((returns_nonnull)) __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment = 0x10);
 void free(void* ptr);
-
-struct heap_allocation {
-    void* ptr;
-    uint64_t size;
-    const char* file;
-    int line;
-};
 
 extern uint64_t waterline;
 extern uint64_t mem_used;
@@ -109,18 +103,19 @@ static inline __attribute__((noreturn)) void cpu_halt(void) {
 
 __attribute__((returns_nonnull)) void* operator new(uint64_t size);
 __attribute__((returns_nonnull)) void* operator new(uint64_t size, void* ptr) noexcept;
+__attribute__((returns_nonnull)) void* operator new(uint64_t size, uint32_t alignment) noexcept;
 __attribute__((returns_nonnull)) void* operator new[](uint64_t size);
 __attribute__((returns_nonnull)) void* operator new[](uint64_t size, void* ptr) noexcept;
+__attribute__((returns_nonnull)) void* operator new[](uint64_t size, uint32_t alignment) noexcept;
 void operator delete(void* ptr) noexcept;
-void operator delete(void* ptr, uint64_t size) noexcept;
 void operator delete[](void* ptr) noexcept;
-void operator delete[](void* ptr, uint64_t size) noexcept;
-
-template<typename T> T* waterline_new(uint64_t size, uint16_t alignment) {
-    return (T*)walloc(size, alignment);
+template <typename T> static inline void destruct(T* ptr, int count) {
+    if (std::is_destructible_v<T>)
+        for (int i = 0; i < count; i++) ptr[i]->~T();
 }
-template<typename T> T* waterline_new(uint16_t alignment) {
-    return waterline_new<T>(sizeof(T), alignment);
+
+template<typename T> T* waterline_new(uint64_t count = 1, uint16_t alignment = alignof(T)) {
+    return (T*)walloc(count * sizeof(T), alignment);
 }
 
 void stacktrace();

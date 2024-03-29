@@ -13,8 +13,8 @@
 mac_t global_mac;
 ipv4_t global_ip;
 
-static volatile vector<ethernet_packet>* packet_queue_front;
-static volatile vector<ethernet_packet>* packet_queue_back;
+static volatile vector<ethernet_packet> packet_queue_front;
+static volatile vector<ethernet_packet> packet_queue_back;
 
 void net_init() {
     pci_device* e1000_pci = pci_match(PCI_CLASS::NETWORK, PCI_SUBCLASS::NETWORK_ETHERNET);
@@ -26,8 +26,6 @@ void net_init() {
     qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
     e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
     global_mac = new_mac(e1000_dev->mac);
-    packet_queue_front = new vector<ethernet_packet>();
-    packet_queue_back = new vector<ethernet_packet>();
     e1000_enable();
 }
 
@@ -48,12 +46,12 @@ void ethernet_recieve(void* buf, uint16_t size) {
     memcpy(&packet.src, &frame->src, 6);
     memcpy(&packet.dst, &frame->dst, 6);
     
-    ((vector<ethernet_packet>*)packet_queue_back)->append(packet);
+    ((vector<ethernet_packet>&)packet_queue_back).append(packet);
 }
 
 void net_process() {
-    if (packet_queue_front->size()) {
-        for (ethernet_packet p : *((vector<ethernet_packet>*)packet_queue_front)) {
+    if (packet_queue_front.size()) {
+        for (ethernet_packet p : (vector<ethernet_packet>&)packet_queue_front) {
             switch(p.type) {
                 case ETHERTYPE_ARP:
                     arp_process(p);
@@ -64,9 +62,9 @@ void net_process() {
             }
             free(p.contents.begin());
         }
-        ((vector<ethernet_packet>*)packet_queue_front)->clear();
+        ((vector<ethernet_packet>&)packet_queue_front).clear();
     }
-    std::swap(packet_queue_front, packet_queue_back);
+    std::swap((vector<ethernet_packet>&)packet_queue_front, (vector<ethernet_packet>&)packet_queue_back);
 }
 
 int ethernet_send(ethernet_packet packet) {

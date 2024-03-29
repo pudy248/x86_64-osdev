@@ -1,7 +1,6 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
-#include <kstring.hpp>
 
 class console {
 private:
@@ -24,8 +23,8 @@ public:
     void hexdump_rev(void* ptr, uint32_t bytes, uint32_t swap_width);
 };
 
-void print(rostring str);
+void print(class rostring str);
 void print(const char* str);
 template <typename... Args> void printf(const char* fmt, Args... args);
-template <typename... Args> void printf(rostring fmt, Args... args);
+template <typename... Args> void printf(class rostring fmt, Args... args);
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args);

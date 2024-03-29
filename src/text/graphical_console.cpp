@@ -1,9 +1,11 @@
 #include <cstdint>
+#include <type_traits>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
 #include <text/graphical_console.hpp>
+
 #include <resources/ms_gothic_small.hpp>
 
 int graphics_text_dimensions[2] = {120, 30}; //{240, 60};
@@ -13,7 +15,7 @@ static char* storage_buffer;
 static void render_char(uint32_t px, uint32_t py, char c, int scale) {
     if (!c) c = ' ';
     for (int y = 0; y < fontDims[1]; y++) {
-        uint32_t row = fontBitmap[fontDims[1] * (c - fontStart) + y];
+        std::remove_reference_t<decltype(*fontBitmap)> row = fontBitmap[fontDims[1] * (c - fontStart) + y];
         for (int x = fontDims[0] - 1; x >= 0; x--) {
             uint32_t c = row & 1 ? 0xffffffff : 0xff000000;
             for (int x2 = 0; x2 < scale; x2++) {

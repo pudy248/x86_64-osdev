@@ -7,10 +7,10 @@
 #include <sys/paging.hpp>
 
 void ahci_init(pci_device ahci_pci) {
-    globals->ahci = waterline_new<ahci_device>(0x10);
-    hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000; //waterline_new<hba_cmd_header>(0x10);
-    fis_reg_h2d* fis = (fis_reg_h2d*)0x52800; //waterline_new<fis_reg_h2d>(0x10);
-    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000; //waterline_new<hba_cmd_tbl>(0x10);
+    globals->ahci = waterline_new<ahci_device>();
+    hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000; //waterline_new<hba_cmd_header>();
+    fis_reg_h2d* fis = (fis_reg_h2d*)0x52800; //waterline_new<fis_reg_h2d>();
+    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000; //waterline_new<hba_cmd_tbl>();
     memset((char*)ctbas, 0, 0x2000);
 
     volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
@@ -49,7 +49,7 @@ void ahci_init(pci_device ahci_pci) {
     //printf("Waiting for CR bit to set. CMD: %08x\n", ports[port_idx].cmd);
     for (int i = 0; (*(volatile uint32_t*)&ports[port_idx].cmd & 0xc000) != 0xc000; i++) {
         if (i > 0x2000000) {
-            printf("Init stalled. CMD: %08x\n", ports[port_idx].cmd);
+            printf("AHCI init stalled. CMD: %08x\n", ports[port_idx].cmd);
             inf_wait();
         }
     }

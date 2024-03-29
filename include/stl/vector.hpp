@@ -1,19 +1,28 @@
 #pragma once
+#include <concepts>
 #include <cstddef>
 #include <utility>
 #include <initializer_list>
 #include <kstddefs.hpp>
 #include <kstdlib.hpp>
 #include <stl/container.hpp>
+#include <stl/allocator.hpp>
 
-template <typename T> class span_v {
+template <typename T> class span : public basic_container<T, span<T>> {
 protected:
 	T* m_arr;
 	int m_size;
 public:
-	constexpr span_v() : m_arr(nullptr), m_size(0) { }
-	constexpr span_v(const T* begin, const T* end) : m_arr((T*)begin), m_size(end - begin) { }
-	template <container<T> C> constexpr span_v(const C& other) : span_v<T>(other.begin(), other.end()) { }
+	using basic_container<T, span<T>>::basic_container;
+	constexpr span() : m_arr(nullptr), m_size(0) { }
+	template<std::convertible_to<T> R>
+	constexpr span(const R* begin, const R* end) : m_arr((T*)begin), m_size(end - begin) { }
+	template<std::convertible_to<T> R>
+	constexpr span(const R* begin, int size, int offset = 0) : span(begin + offset, begin + size + offset) { }
+	template <container<T> C2>
+	constexpr span(const C2& begin, int size, int offset = 0) : span(begin.begin() + offset, begin.begin() + size + offset) { }
+	template <container<T> C> constexpr span(const C& other) : span(other.begin(), other.end()) { }
+	template <std::size_t N> constexpr span(const T(&other)[N]) : span(other, other + N) { }
 
 	constexpr T& at(int idx) {
 		kassert(idx >= 0 && idx < size(), "OOB access in span_v.at()\n");
@@ -31,66 +40,65 @@ public:
 	}
 };
 
-template <typename T> class span : public basic_container<T, span_v<T>> {
-public:
-	using basic_container<T, span_v<T>>::basic_container;
-	template <container<T> C> constexpr span(const C& other) : basic_container<T, span_v<T>>(other.begin(), other.end()) { }
-	template <std::size_t N> constexpr span(const T(&other)[N]) : basic_container<T, span_v<T>>(other, other + N) { }
-};
-
-template<typename T> class vector_v {
+template<typename T, allocator<T> A = default_allocator<T>> class vector : public basic_container<T, vector<T>> {
 protected:
 	static constexpr float resize_ratio = 2;
-	T* m_arr;
+	A alloc;
+	allocator_traits<A>::ptr_t m_arr;
 	int m_size;
 	int m_capacity;
 public:
-	constexpr vector_v() : m_arr(nullptr), m_size(0), m_capacity(0) { }
-
-	vector_v(int size) : m_size(0), m_capacity(size) {
-		this->m_arr = new T[m_capacity];
+	using basic_container<T, vector<T>>::basic_container;
+	constexpr vector() : m_arr(nullptr), m_size(0), m_capacity(0) { }
+	vector(int size, A _alloc = A()) : alloc(_alloc), m_size(0), m_capacity(size) {
+		this->m_arr = alloc.alloc(m_capacity, alignof(T));
 	}
-	template <std::convertible_to<T> R>
-	vector_v(const R* begin, const R* end) : m_size(end - begin), m_capacity(end - begin) {
-		this->m_arr = new T[m_capacity];
+	template<std::convertible_to<T> R>
+	vector(const R* begin, const R* end, A _alloc = A()) : alloc(_alloc), m_size(end - begin), m_capacity(end - begin) {
+		this->m_arr = alloc.alloc(m_capacity, alignof(T));
 		for (int i = 0; i < this->m_size; i++)
-			new (&this->m_arr[i]) T (begin[i]);
+			this->m_arr[i] = std::move(begin[i]);
 	}
+	
+	template<std::convertible_to<T> R>
+	constexpr vector(const R* begin, int size, int offset = 0) : vector(begin + offset, begin + size + offset) { }
+	template <container<T> C2>
+	constexpr vector(const C2& begin, int size, int offset = 0) : vector(begin.begin() + offset, begin.begin() + size + offset) { }
 	
 	template <container<T> C2>
-	vector_v(const C2& other) : vector_v(other.begin(), other.end()) { }
+	vector(const C2& other, A _alloc = A()) : vector(other.begin(), other.end(), _alloc) { }
 
-	vector_v(const vector_v<T>& other) : vector_v<T>(other.begin(), other.end()) { }
-	constexpr vector_v(vector_v<T>&& other) : m_arr(other.m_arr), m_size(other.m_size), m_capacity(other.m_capacity) {
+	template<allocator<T> A2>
+	vector(const vector<T, A2>& other, A _alloc = A()) : vector(other.begin(), other.end(), _alloc) { }
+	
+	vector(const vector& other) : vector(other.begin(), other.end(), A()) { }
+	constexpr vector(vector<T, A>&& other) : alloc(std::move(other.alloc)), m_arr(other.m_arr), m_size(other.m_size), m_capacity(other.m_capacity) {
 		other.unsafe_clear();
 	}
 	
-	vector_v(std::initializer_list<int> list) : vector_v(list.begin(), list.end()) { }
+	vector(std::initializer_list<int> list) : vector(list.begin(), list.end()) { }
+	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : vector(other, other + N) { }
 
-	vector_v& operator=(const vector_v<T> &other) {
+	template<allocator<T> A2>
+	vector& operator=(const vector<T, A2>& other) {
         if (&other == this) return *this;
-		clear();
-		m_capacity = other.size();
-		this->m_size = m_capacity;
-		this->m_arr = new T[m_capacity];
-		for (int i = 0; i < this->m_size; i++)
-			this->m_arr[i] = other.m_arr[i];
+		this->~vector();
+		new (this) vector(other);
         return *this;
     }
-    vector_v& operator=(vector_v<T> &&other) {
-		clear();
-		this->m_arr = other.m_arr;
-		m_capacity = other.m_capacity;
-		this->m_size = other.m_size;
-		other.unsafe_clear();
+    vector& operator=(vector<T, A> &&other) {
+		this->~vector();
+		new (this) vector(std::forward<vector<T, A>>(other));
         return *this;
     }
 	void clear() {
-		delete[] this->m_arr;
-		unsafe_clear();
+		alloc.dealloc(this->m_arr, this->m_capacity);
+		this->unsafe_clear();
 	}
-	~vector_v() {
+	~vector() {
 		clear();
+		alloc.destroy();
+		alloc.~A();
 	}
 
 	constexpr void unsafe_clear() {
@@ -98,7 +106,7 @@ public:
 		this->m_size = 0;
 		m_capacity = 0;
 	}
-	constexpr void unsafe_set(T* arr, int l, int c) {
+	constexpr void unsafe_set(allocator_traits<A>::ptr_t arr, int l, int c) {
 		this->m_arr = arr;
 		this->m_size = l;
 		this->m_capacity = c;
@@ -123,13 +131,8 @@ public:
 
 	void reserve(int size) {
 		if (m_capacity >= size) return;
-		T* newArr = new T[size];
-		if (this->m_arr) {
-			for (int i = 0; i < this->m_size; i++)
-				newArr[i] = std::move(this->m_arr[i]);
-			delete[] this->m_arr;
-		}
-		this->m_arr = newArr;
+		if (m_capacity) m_arr = alloc.realloc(m_arr, m_capacity, size, alignof(T));
+		else m_arr = alloc.alloc(size, alignof(T));
         m_capacity = size;
     }
 	void resize(int size) {
@@ -213,37 +216,30 @@ public:
 	}
 };
 
-template <typename T> class vector : public basic_container<T, vector_v<T>> {
-public:
-	using basic_container<T, vector_v<T>>::basic_container;
-	constexpr vector(const vector<T>& other) : basic_container<T, vector_v<T>>(other) { }
-	constexpr vector(vector<T>&& other) : basic_container<T, vector_v<T>>(other) { }
-	constexpr vector<T>& operator=(const vector<T>& other) {
-		*(vector_v<T>*)this = *(vector_v<T>*)&other;
-		return *this;
-	}
-	constexpr vector<T>& operator=(vector<T>&& other) {
-		*(vector_v<T>*)this = std::move(*(vector_v<T>*)&other);
-		return *this;
-	}
-	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : basic_container<T, vector_v<T>>(other, other + N) { }
-};
-
-template <typename T, std::size_t N> class array_v {
+template <typename T, std::size_t N> class array : public basic_container<T, array<T, N>> {
 protected:
 	T m_arr[N];
 public:
-	constexpr array_v() : m_arr() { }
-	template <std::convertible_to<T> R>
-	constexpr array_v(const R* begin, const R* end) {
+	using basic_container<T, array<T, N>>::basic_container;
+	constexpr array() : m_arr() { }
+	template<std::convertible_to<T> R>
+	constexpr array(const R* begin, const R* end) {
 		std::size_t i = 0;
 		for (; i < min((std::size_t)(end - begin), N); i++) {
 			new (&m_arr[i]) T (begin[i]);
 		}
 		for (; i < N; i++) {
-			m_arr[i] = R();
+			m_arr[i] = T();
 		}
 	}
+	
+	template<std::convertible_to<T> R>
+	constexpr array(const R* begin, int size, int offset = 0) : array(begin + offset, begin + size + offset) { }
+	template <container<T> C2>
+	constexpr array(const C2& begin, int size, int offset = 0) : array(begin.begin() + offset, begin.begin() + size + offset) { }
+	
+	template <container<T> C> constexpr array(const C& other) : array(other.begin(), other.end()) { }
+	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : array(other, other + N) { }
 
 	constexpr T& at(int idx) {
 		kassert(idx >= 0 && idx < size(), "OOB access in array_v.at()\n");
@@ -262,13 +258,6 @@ public:
 	constexpr int size() const {
 		return N;
 	}
-};
-
-template <typename T, std::size_t N> class array : public basic_container<T, array_v<T, N>> {
-public:
-	using basic_container<T, array_v<T, N>>::basic_container;
-	template <container<T> C> constexpr array(const C& other) : basic_container<T, array_v<T, N>>(other.begin(), other.end()) { }
-	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : basic_container<T, array_v<T, N2>>(other, other + N) { }
 };
 
 template <typename C, typename T>
@@ -346,7 +335,7 @@ public:
 	}
 };
 
-template <typename T> class container_wrapper_v {
+template <typename T> class container_wrapper : public basic_container<T, container_wrapper<T>> {
 public:
 	void* _container;
 	T&(*_at)(void*, int);
@@ -354,9 +343,9 @@ public:
 	int(*_size)(void*);
 
 	template <container<T> C>
-	constexpr container_wrapper_v(C& other) : _container(&other), _at((T&(*)(void*,int))&C::static_at), _begin((T*(*)(void*))&C::static_begin), _size((int(*)(void*))&C::static_size) { }
-	constexpr container_wrapper_v(T* begin, T* end) { 
-		print("container_wrapper_v initialization with pointers not supported!\n");
+	constexpr container_wrapper(C& other) : _container(&other), _at((T&(*)(void*,int))&C::static_at), _begin((T*(*)(void*))&C::static_begin), _size((int(*)(void*))&C::static_size) { }
+	constexpr container_wrapper(T* begin, T* end) { 
+		print("container_wrapper initialization with pointers not supported!\n");
 		inf_wait();
 	}
 	T& at(int idx) {
@@ -368,10 +357,4 @@ public:
 	int size() {
 		return _size(_container);
 	}
-};
-
-template <typename T> class container_wrapper : public basic_container<T, container_wrapper_v<T>> {
-public:
-	using basic_container<T, container_wrapper_v<T>>::basic_container;
-	template <container<T> C> constexpr container_wrapper(C& other) : basic_container<T, container_wrapper_v<T>>(other) { }
 };

@@ -15,19 +15,20 @@ ASM:=nasm
 ASMFLAGS:=-f elf64
 
 CFLAGS_DBG:= -g -fno-omit-frame-pointer $(CFLAGS_CC_DBG)
+# -fno-exceptions
 CFLAGS:=\
--m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections \
+-m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--fno-exceptions -fno-finite-loops -felide-constructors \
--Os -Iinclude -Iinclude/std -Wall -Wextra \
+-fno-finite-loops -felide-constructors \
+-Oz -Iinclude -Iinclude/std -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC) $(CFLAGS_DBG)
 CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
 
 IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-17/lib/clang/17/include
 
-LDFLAGS_INC:=
-LDFLAGS_FIN:=-gc-sections
+LDFLAGS_INC:=--lto=thin
+LDFLAGS_FIN:=-gc-sections --lto=thin
 
 ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
 C_SRC:=$(wildcard src/**/*.cpp) $(wildcard src/*.cpp)
@@ -54,7 +55,7 @@ clean:
 disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp
 	$(CC) fattener.cpp -o fattener
 	./fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
-	@truncate -s 64M disk.img
+#	@truncate -s 64M disk.img
 disk_2.img: disk.img tmp/diskflasher.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
 
@@ -83,15 +84,16 @@ tmp/obj.o : $(C_SRC)
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
-	@objdump -d $^ > tmp/base.S 2> /dev/null
+	llvm-objdump --x86-asm-syntax=intel -d $@ > tmp/base.S
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	@objdump -d $^ > tmp/kernel.S 2> /dev/null
-	@readelf -W --demangle -s tmp/kernel.img.elf > tmp/symbols.txt 2> /dev/null
-	@objcopy -O binary $< $@
+	llvm-objdump --x86-asm-syntax=intel -d $^ > tmp/kernel.S
+	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
+	llvm-objcopy -O binary $< $@
+#	readelf -W --demangle -s tmp/kernel.img.elf > tmp/symbols.txt
 
 BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
 BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
@@ -104,12 +106,14 @@ $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
-	objcopy -S -x -K kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
-	objcopy -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
-	ld $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf -R tmp/kernel_entry.elf
-	@objdump -d tmp/bootloader.img.elf > tmp/bootloader.S 2> /dev/null
-	@readelf -W --demangle -s tmp/bootloader.img.elf > tmp/symbols2.txt 2> /dev/null
-	@objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
+#	llvm-objcopy -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
+	llvm-objcopy --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
+	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
+	
+	llvm-objdump -d tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
+#	readelf -W --demangle -s tmp/bootloader.img.elf > tmp/symbols2.txt
+	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
 include-check: 
 	for file in $(C_SRC) $(wildcard include/**/*.h) $(wildcard include/*.h) $(wildcard include/**/*.hpp) $(wildcard include/*.hpp); do \
