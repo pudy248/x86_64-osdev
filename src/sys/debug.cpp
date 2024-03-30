@@ -74,7 +74,7 @@ void load_debug_symbs(const char* filename) {
     is_enabled = true;
 }
 
-debug_symbol& nearest_symbol(void* address, bool* out_contains) {
+debug_symbol* nearest_symbol(void* address, bool* out_contains) {
     int bestIdx = 0;
     uint64_t bestDistance = INT64_MAX;
     for (int i = 0; i < symbol_table.size(); i++) {
@@ -85,16 +85,21 @@ debug_symbol& nearest_symbol(void* address, bool* out_contains) {
         }
     }
     if (out_contains) *out_contains = bestDistance < symbol_table[bestIdx].size;
-    return symbol_table[bestIdx];
+    return &symbol_table[bestIdx];
 }
 
 void stacktrace() {
     if(!is_enabled) return;
     uint64_t* rbp = (uint64_t*)__builtin_frame_address(0);
     print("\nIDX:  RETURN    STACKPTR  NAME\n");
-    qprintf<512>("  0:  %08x  %08x  %s\n", get_rip(), rbp, nearest_symbol(get_rip()).name);
+    debug_symbol* symb = nearest_symbol(get_rip());
+    if (!symb) {
+        print("Oops, symbol table is empty. :(\n");
+        return;
+    }
+    qprintf<512>("  0:  %08x  %08x  %s\n", get_rip(), rbp, symb->name);
     for (int i = 1; rbp[1]; i++) {
-        qprintf<512>("% 3i:  %08x  %08x  %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1]).name);
+        qprintf<512>("% 3i:  %08x  %08x  %s\n", i, rbp[1], rbp, nearest_symbol((void*)rbp[1])->name);
         rbp = (uint64_t*)*rbp;
     }
     print("\n");

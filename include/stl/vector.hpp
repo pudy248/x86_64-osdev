@@ -17,19 +17,15 @@ public:
 	constexpr span() : m_arr(nullptr), m_size(0) { }
 	template<std::convertible_to<T> R>
 	constexpr span(const R* begin, const R* end) : m_arr((T*)begin), m_size(end - begin) { }
-	template<std::convertible_to<T> R>
-	constexpr span(const R* begin, int size, int offset = 0) : span(begin + offset, begin + size + offset) { }
-	template <container<T> C2>
-	constexpr span(const C2& begin, int size, int offset = 0) : span(begin.begin() + offset, begin.begin() + size + offset) { }
-	template <container<T> C> constexpr span(const C& other) : span(other.begin(), other.end()) { }
-	template <std::size_t N> constexpr span(const T(&other)[N]) : span(other, other + N) { }
-
+	template <container<T> C>
+	constexpr span(const C& other) : span(other.begin(), other.end()) { }
+	
 	constexpr T& at(int idx) {
-		kassert(idx >= 0 && idx < size(), "OOB access in span_v.at()\n");
+		kassert(idx >= 0 && idx < size(), "OOB access in span.at()\n");
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		kassert(idx >= 0 && idx < size(), "OOB access in span_v.at()\n");
+		kassert(idx >= 0 && idx < size(), "OOB access in span.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() const {
@@ -51,33 +47,24 @@ public:
 	using basic_container<T, vector<T>>::basic_container;
 	constexpr vector() : m_arr(nullptr), m_size(0), m_capacity(0) { }
 	vector(int size, A _alloc = A()) : alloc(_alloc), m_size(0), m_capacity(size) {
-		this->m_arr = alloc.alloc(m_capacity, alignof(T));
+		this->m_arr = alloc.alloc(m_capacity);
 	}
 	template<std::convertible_to<T> R>
 	vector(const R* begin, const R* end, A _alloc = A()) : alloc(_alloc), m_size(end - begin), m_capacity(end - begin) {
-		this->m_arr = alloc.alloc(m_capacity, alignof(T));
+		this->m_arr = alloc.alloc(m_capacity);
 		for (int i = 0; i < this->m_size; i++)
 			this->m_arr[i] = std::move(begin[i]);
 	}
-	
-	template<std::convertible_to<T> R>
-	constexpr vector(const R* begin, int size, int offset = 0) : vector(begin + offset, begin + size + offset) { }
-	template <container<T> C2>
-	constexpr vector(const C2& begin, int size, int offset = 0) : vector(begin.begin() + offset, begin.begin() + size + offset) { }
-	
+
 	template <container<T> C2>
 	vector(const C2& other, A _alloc = A()) : vector(other.begin(), other.end(), _alloc) { }
-
 	template<allocator<T> A2>
 	vector(const vector<T, A2>& other, A _alloc = A()) : vector(other.begin(), other.end(), _alloc) { }
-	
 	vector(const vector& other) : vector(other.begin(), other.end(), A()) { }
-	constexpr vector(vector<T, A>&& other) : alloc(std::move(other.alloc)), m_arr(other.m_arr), m_size(other.m_size), m_capacity(other.m_capacity) {
+	constexpr vector(vector&& other) : alloc(std::move(other.alloc)), m_arr(other.m_arr), m_size(other.m_size), m_capacity(other.m_capacity) {
 		other.unsafe_clear();
 	}
-	
 	vector(std::initializer_list<int> list) : vector(list.begin(), list.end()) { }
-	template <std::size_t N, std::convertible_to<T> R> constexpr vector(const R(&other)[N]) : vector(other, other + N) { }
 
 	template<allocator<T> A2>
 	vector& operator=(const vector<T, A2>& other) {
@@ -86,7 +73,7 @@ public:
 		new (this) vector(other);
         return *this;
     }
-    vector& operator=(vector<T, A> &&other) {
+    vector& operator=(vector&& other) {
 		this->~vector();
 		new (this) vector(std::forward<vector<T, A>>(other));
         return *this;
@@ -122,7 +109,7 @@ public:
 		return this->m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		kassert(idx >= 0 && idx < size(), "OOB access in vector_v.at()\n");
+		kassert(idx >= 0 && idx < size(), "OOB access in vector.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() const {
@@ -131,8 +118,8 @@ public:
 
 	void reserve(int size) {
 		if (m_capacity >= size) return;
-		if (m_capacity) m_arr = alloc.realloc(m_arr, m_capacity, size, alignof(T));
-		else m_arr = alloc.alloc(size, alignof(T));
+		if (m_capacity) m_arr = alloc.realloc(m_arr, m_capacity, size);
+		else m_arr = alloc.alloc(size);
         m_capacity = size;
     }
 	void resize(int size) {
@@ -232,21 +219,15 @@ public:
 			m_arr[i] = T();
 		}
 	}
-	
-	template<std::convertible_to<T> R>
-	constexpr array(const R* begin, int size, int offset = 0) : array(begin + offset, begin + size + offset) { }
-	template <container<T> C2>
-	constexpr array(const C2& begin, int size, int offset = 0) : array(begin.begin() + offset, begin.begin() + size + offset) { }
-	
-	template <container<T> C> constexpr array(const C& other) : array(other.begin(), other.end()) { }
-	template <std::size_t N2, std::convertible_to<T> R> constexpr array(const R(&other)[N2]) : array(other, other + N) { }
+	template <container<T> C>
+	constexpr array(const C& other) : array(other.begin(), other.end()) { }
 
 	constexpr T& at(int idx) {
-		kassert(idx >= 0 && idx < size(), "OOB access in array_v.at()\n");
+		kassert(idx >= 0 && idx < size(), "OOB access in array.at()\n");
 		return m_arr[idx];
 	}
 	constexpr const T& at(int idx) const {
-		kassert(idx >= 0 && idx < size(), "OOB access in array_v.at()\n");
+		kassert(idx >= 0 && idx < size(), "OOB access in array.at()\n");
 		return m_arr[idx];
 	}
 	constexpr T* begin() {

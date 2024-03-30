@@ -26,11 +26,24 @@ requires(C c) {
 	container_iterable_from<C, T*>;
 };
 
-template <typename T, typename C>
+template <typename T, typename Impl>
 class basic_container {
-	constexpr inline C* this_c() const { return (C*)this; }
+	constexpr inline Impl* this_c() const { return (Impl*)this; }
 public:
 	constexpr basic_container() = default;
+
+	template<std::convertible_to<T> R>
+	constexpr basic_container(const R* begin, int size, int offset = 0) {
+		new (this) Impl (begin + offset, begin + size + offset);
+	}
+	template<container<T> C2>
+	constexpr basic_container(const C2& begin, int size, int offset = 0) {
+		new (this) Impl (begin.begin() + offset, begin.begin() + size + offset);
+	}
+	template <std::size_t N> 
+	constexpr basic_container(const T(&other)[N]) { 
+		new (this) Impl (other, other + N);
+	}
 
 	constexpr T& operator[](int idx) {
 		return this_c()->at(idx);
@@ -146,12 +159,12 @@ public:
 	}
 
 	static constexpr T& static_at(basic_container* _this, int idx) {
-		return ((C*)_this)->at(idx);
+		return ((Impl*)_this)->at(idx);
 	}
 	static constexpr T* static_begin(basic_container* _this) {
-		return ((C*)_this)->begin();
+		return ((Impl*)_this)->begin();
 	}
 	static constexpr int static_size(basic_container* _this) {
-		return ((C*)_this)->size();
+		return ((Impl*)_this)->size();
 	}
 };

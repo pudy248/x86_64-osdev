@@ -38,13 +38,13 @@ public:
 template <typename T> class default_allocator {
 public:
     using ptr_t = allocator_traits<default_allocator<T>>::ptr_t;
-    ptr_t alloc(uint64_t count, uint16_t alignment) {
+    ptr_t alloc(uint64_t count, uint16_t alignment = alignof(T)) {
         return new (alignment) T[count];
     }
     void dealloc(ptr_t ptr, uint64_t count) {
         delete[] ptr;
     }
-    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment) {
+    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment = alignof(T)) {
         ptr_t new_alloc = alloc(new_count, alignment);
         for (uint64_t i = 0; i < count; i++) {
             new (&new_alloc[i]) T(std::move(ptr[i]));
@@ -71,7 +71,7 @@ public:
     ptr_t waterline;
     constexpr waterline_allocator(ptr_t ptr, uint32_t size) : begin(ptr), end((ptr_t)((uint64_t)ptr + size)), waterline(ptr) { }
 
-    ptr_t alloc(uint64_t count, uint16_t alignment) {
+    ptr_t alloc(uint64_t count, uint16_t alignment = alignof(T)) {
         if (!alignment) alignment = 1;
         waterline = (ptr_t)(((uint64_t)waterline + alignment - 1) & ~(uint64_t)(alignment - 1));
         ptr_t ret = waterline;
@@ -85,7 +85,7 @@ public:
         ptr_t ptr_end = (ptr_t)((uint64_t)ptr + sizeof(T) * count);
         if (ptr_end == waterline) waterline = (void*)ptr;
     }
-    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment) {
+    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment = alignof(T)) {
         ptr_t ptr_end = (ptr_t)((uint64_t)ptr + sizeof(T) * count);
         if (ptr_end == waterline) {
             for (uint64_t i = count; i < new_count; i++) new (&ptr[i]) T();
@@ -119,10 +119,14 @@ private:
     struct heap_meta_head {
         uint32_t size;
         uint32_t alignment_offset;
+        #ifdef HEAP_ALLOC_PROTECTOR
         uint64_t protector;
+        #endif
     };
     struct heap_meta_tail {
+        #ifdef HEAP_ALLOC_PROTECTOR
         uint64_t protector;
+        #endif
     };
 
     static constexpr uint64_t protector_head_magic = 0xF0F1F2F3F4F5F6F7LL;
@@ -150,7 +154,7 @@ public:
     }
     heap_allocator(ptr_t begin, uint64_t size) : heap_allocator(begin, (ptr_t)((uint64_t)begin + size)) { }
 
-    ptr_t alloc(uint64_t count, uint16_t alignment) {
+    ptr_t alloc(uint64_t count, uint16_t alignment = alignof(T)) {
         alignment = min(alignment, sizeof(heap_blk));
         uint32_t adj_size = heap_alloc_size(count * sizeof(T));
     #ifdef HEAP_VERBOSE_LISTS
@@ -262,7 +266,7 @@ public:
         used -= head_ptr->alignment_offset + sizeof(heap_meta_head) + head_ptr->size + sizeof(heap_meta_tail);
     }
     
-    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment) {
+    ptr_t realloc(ptr_t ptr, uint64_t count, uint64_t new_count, uint16_t alignment = alignof(T)) {
         ptr_t n = alloc(new_count, alignment);
         for (uint64_t i = 0; i < count; i++) {
             n[i] = std::move(ptr[i]);

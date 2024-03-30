@@ -24,6 +24,7 @@
 extern "C" void atexit(void (*)(void)) {}
 
 static void http_main() {
+    stacktrace();
     net_init();
     vector<tcp_connection*> conns;
     while (true) {
@@ -159,6 +160,9 @@ static void console_main() {
     globals->fat_data.working_directory = FILE();
     globals->fat_data.fat_tables.clear();
     delete tmp;
+
+    stacktrace();
+    inf_wait();
     http_main();
 }
 
@@ -168,7 +172,7 @@ extern "C" void kernel_main(void) {
     irq_set(1, &keyboard_irq);
     time_init();
     global_ctors();
-    //load_debug_symbs("/symbols.txt");
+    load_debug_symbs("/symbols.txt");
     globals->fat_data.root_directory.inode->purge();
 
     //http_main();
