@@ -5,13 +5,16 @@
 #include <sys/global.hpp>
 #include <sys/debug.hpp>
 #include <stl/allocator.hpp>
+#include <lib/allocators/waterline.hpp>
+#include <lib/allocators/heap.hpp>
+#include <lib/allocators/pagemap.hpp>
 
 #define abs(a) (a < 0 ? -a : a)
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
 
 extern "C" {
-    void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size) {
+    void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
         for (uint64_t i = 0; i < size; i++) {
             ((char*)dest)[i] = ((char*)src)[i];
         }
@@ -29,24 +32,27 @@ extern "C" {
 }
 
 void mem_init() {
-    globals->global_waterline = (waterline_allocator<uint8_t>*)0x400000;
-    new (globals->global_waterline) waterline_allocator<uint8_t>(
-        (uint8_t*)(0x400000 + sizeof(waterline_allocator<uint8_t>)),
-        0xC00000 - sizeof(waterline_allocator<uint8_t>));
-    globals->global_heap = waterline_new<heap_allocator<uint8_t>>();
-    new (globals->global_heap) heap_allocator<uint8_t>((uint8_t*)0x1000000, 0x1000000);
+    new (&globals->global_waterline) waterline_allocator(
+        (uint8_t*)(0x400000 + sizeof(waterline_allocator)),
+        0x400000 - sizeof(waterline_allocator));
+    new (&globals->global_heap) heap_allocator((void*)0x1000000, 0x1000000);
+    new (&globals->global_pagemap) slab_pagemap<64, 64>((void*)0x800000);
 }
 
-__attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment) {
-    return (void*)globals->global_waterline->alloc(size, alignment);
+[[gnu::returns_nonnull,gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment) {
+    return (void*)globals->global_waterline.alloc(size, alignment);
 }
 
-__attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment) {
-    return (void*)globals->global_heap->alloc(size, alignment);
+[[gnu::returns_nonnull,gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment) {
+    void* ptr = globals->global_pagemap.alloc(size);
+    if (!ptr) ptr = globals->global_heap.alloc(size, alignment);
+    return ptr;
 }
 
 void free(void* ptr) {
-    globals->global_heap->dealloc((uint8_t*)ptr, 0);
+    if (globals->global_pagemap.contains(ptr)) globals->global_pagemap.dealloc(ptr);
+    else if (globals->global_heap.contains(ptr)) globals->global_heap.dealloc(ptr);
+    else { print("Freed non-freeable allocation!\n"); wait_until_kbhit(); stacktrace(); }
 }
 
 void* operator new(uint64_t size) {

@@ -153,7 +153,9 @@ static void graphics_main() {
 
 static void console_main() {
     graphics_text_init();
-    globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
+    *globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
+
+    for (int i = 0; i < 3; i++) clockspeed_MHz();
 
     fat_inode* tmp = globals->fat_data.root_directory.inode;
     globals->fat_data.root_directory = FILE();
@@ -161,9 +163,9 @@ static void console_main() {
     globals->fat_data.fat_tables.clear();
     delete tmp;
 
-    stacktrace();
-    inf_wait();
-    http_main();
+    //stacktrace();
+    //inf_wait();
+    //http_main();
 }
 
 extern "C" void kernel_main(void) {
@@ -172,7 +174,7 @@ extern "C" void kernel_main(void) {
     irq_set(1, &keyboard_irq);
     time_init();
     global_ctors();
-    load_debug_symbs("/symbols.txt");
+    //load_debug_symbs("/symbols.txt");
     globals->fat_data.root_directory.inode->purge();
 
     //http_main();
@@ -180,6 +182,24 @@ extern "C" void kernel_main(void) {
     console_main();
 
     print("Kernel reached end of execution.\n");
+    int cnt = 0, cnt2 = 0;
+    double lastTimepoint = timepoint::pit_time_imprecise().unix_seconds();
+    while (1) {
+        timepoint t = timepoint::pit_time_imprecise();
+        //double curTimepoint = t.unix_seconds();
+        //if ((int)t.unix_seconds() > cnt) {
+        //    cnt++;
+        //    qprintf<64>("%i iters (%f ns), %f us\n", cnt2, 1000000000. / cnt2, (curTimepoint - lastTimepoint) * 1000000.);
+        //    cnt2 = 0;
+        //}
+        //lastTimepoint = curTimepoint;
+        //cnt2++;
+        array<char, 32> arr;
+        int x = globals->g_console->text_rect[2] - 1;
+        int l = formats(arr, "%02i:%02i:%02i.%03i", t.hour, t.minute, t.second, (int)(t.micros / 1000));
+        for (int i = l - 1; i >= 0; --i)
+            globals->g_console->set_char(x--, 3, arr[i]);
+    }
     global_dtors();
     inf_wait();
 }

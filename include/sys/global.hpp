@@ -1,14 +1,17 @@
 #pragma once
-#include "stl/allocator.hpp"
 #include <cstdint>
-#include <kstdio.hpp>
 #include <lib/fat.hpp>
+#include <stl/allocator.hpp>
+#include <lib/allocators/pagemap.hpp>
+#include <lib/allocators/waterline.hpp>
+#include <lib/allocators/heap.hpp>
 
 struct global_data_t {
-    console g_console;
+    class console* g_console;
 
-    class waterline_allocator<uint8_t>* global_waterline;
-    class heap_allocator<uint8_t>* global_heap;
+    class waterline_allocator global_waterline;
+    class heap_allocator global_heap;
+    class slab_pagemap<64, 64> global_pagemap;
     
     void(*irq_fns[16])(void);
     volatile uint64_t elapsedPITs;

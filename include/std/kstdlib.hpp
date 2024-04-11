@@ -1,17 +1,17 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.hpp>
 #include <type_traits>
+#include <kstddefs.hpp>
 
 extern "C" {
-    void memcpy(void* a_restrict dest, const void* a_restrict src, uint64_t size);
+    void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size);
     void memmove(void* dest, void* src, uint64_t size);
     void memset(void* dest, uint8_t src, uint64_t size);
 }
 
 void mem_init();
-__attribute__((returns_nonnull)) __attribute__((malloc)) void* walloc(uint64_t size, uint16_t alignment);
-__attribute__((returns_nonnull)) __attribute__((malloc)) void* malloc(uint64_t size, uint16_t alignment = 0x10);
+[[gnu::returns_nonnull,gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment);
+[[gnu::returns_nonnull,gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment = 0x10);
 void free(void* ptr);
 
 extern uint64_t waterline;
@@ -79,7 +79,7 @@ static inline void write_cr4(uint64_t val) {
     asmv("mov %0, %%cr4" : "=r"(val));
 }
 
-static a_noinline void* get_rip() {
+[[clang::noinline]] static void* get_rip() {
     return __builtin_return_address(0);
 }
 static inline void invlpg(void* m) {
@@ -101,17 +101,17 @@ static inline __attribute__((noreturn)) void cpu_halt(void) {
 }
 #pragma clang diagnostic pop
 
-__attribute__((returns_nonnull)) void* operator new(uint64_t size);
-__attribute__((returns_nonnull)) void* operator new(uint64_t size, void* ptr) noexcept;
-__attribute__((returns_nonnull)) void* operator new(uint64_t size, uint32_t alignment) noexcept;
-__attribute__((returns_nonnull)) void* operator new[](uint64_t size);
-__attribute__((returns_nonnull)) void* operator new[](uint64_t size, void* ptr) noexcept;
-__attribute__((returns_nonnull)) void* operator new[](uint64_t size, uint32_t alignment) noexcept;
+[[gnu::returns_nonnull]] void* operator new(uint64_t size);
+[[gnu::returns_nonnull]] void* operator new(uint64_t size, void* ptr) noexcept;
+[[gnu::returns_nonnull]] void* operator new(uint64_t size, uint32_t alignment) noexcept;
+[[gnu::returns_nonnull]] void* operator new[](uint64_t size);
+[[gnu::returns_nonnull]] void* operator new[](uint64_t size, void* ptr) noexcept;
+[[gnu::returns_nonnull]] void* operator new[](uint64_t size, uint32_t alignment) noexcept;
 void operator delete(void* ptr) noexcept;
 void operator delete[](void* ptr) noexcept;
 template <typename T> static inline void destruct(T* ptr, int count) {
     if (std::is_destructible_v<T>)
-        for (int i = 0; i < count; i++) ptr[i]->~T();
+        for (int i = 0; i < count; i++) ptr[i].~T();
 }
 
 template<typename T> T* waterline_new(uint64_t count = 1, uint16_t alignment = alignof(T)) {

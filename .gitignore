@@ -1,0 +1,7 @@
+compile_commands.json
+tmp/*
+disk.img
+disk_2.img
+fattener
+.cache/*
+.vscode/*

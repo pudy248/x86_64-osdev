@@ -2,8 +2,13 @@
 #include <cstdint>
 
 struct register_file {
-    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp;
-    uint64_t r8_15[8];
+    union {
+        struct {
+            uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp;
+            uint64_t r8,  r9,  r10, r11, r12, r13, r14, r15;
+        };
+        uint64_t general_purpose_registers[16];
+    };
     uint64_t rip, rflags, cs, ss;
     uint64_t ymm[64];
 };

@@ -1,3 +1,4 @@
+#include "sys/debug.hpp"
 #include <cstdint>
 #include <cstdarg>
 #include <utility>

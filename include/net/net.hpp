@@ -14,7 +14,7 @@ constexpr ethertype_t ETHERTYPE_IPv6 = 0x86DD;
 extern mac_t global_mac;
 extern ipv4_t global_ip;
 
-struct a_packed etherframe_t {
+struct [[gnu::packed]] etherframe_t {
     uint8_t dst[6];
     uint8_t src[6];
     ethertype_t type;

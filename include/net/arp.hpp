@@ -16,7 +16,7 @@
 #define ARP_HTYPE_ETH           0x0001
 #define ARP_PTYPE_IPv4          0x0800
 
-template <typename T> struct a_packed arp_header {
+template <typename T> struct [[gnu::packed]] arp_header {
     uint16_t htype;
     uint16_t ptype;
     uint8_t hlen;

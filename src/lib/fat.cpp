@@ -8,10 +8,11 @@
 #include <lib/fat.hpp>
 #include <sys/ktime.hpp>
 #include <sys/global.hpp>
+#include "sys/debug.hpp"
 #include <stl/vector.hpp>
 #include <drivers/ahci.hpp>
 
-struct a_packed partition_entry {
+struct [[gnu::packed]] partition_entry {
     uint8_t     attributes;
     uint8_t     chs_start[3];
     uint8_t     sysid;
@@ -20,13 +21,13 @@ struct a_packed partition_entry {
     uint32_t    lba_size;
 };
 
-struct a_packed partition_table {
+struct [[gnu::packed]] partition_table {
     uint32_t    disk_id;
     uint16_t    reserved;
     partition_entry entries[4];
 };
 
-struct a_packed fat32_bpb {
+struct [[gnu::packed]] fat32_bpb {
     //FAT BPB
     char        jump[3];
     char        oem_name[8];
@@ -70,11 +71,12 @@ struct fat_time {
     uint16_t    hour:5;
 };
 
-struct a_packed fat_file_entry {
+struct [[gnu::packed]] fat_file_entry {
     char        filename[8];
     char        extension[3];
     uint8_t     attributes;
-    uint16_t     user_attributes;
+    uint8_t     user_attributes;
+    uint8_t     creation_tenths;
     fat_time    creation_time;
     fat_date    creation_date;
     fat_date    accessed_date;
@@ -85,7 +87,7 @@ struct a_packed fat_file_entry {
     uint32_t    file_size;
 };
 
-struct a_packed fat_file_lfn {
+struct [[gnu::packed]] fat_file_lfn {
     uint8_t position; //Last entry masked with 0x40
     uint16_t chars_1[5];
     uint8_t flags; //Always 0x0f
@@ -96,7 +98,7 @@ struct a_packed fat_file_lfn {
     uint16_t chars_3[2];
 };
 
-struct a_packed fat_dir_ent {
+struct fat_dir_ent {
     union {
         fat_file_entry file;
         fat_file_lfn lfn;
@@ -138,23 +140,22 @@ void fat_init() {
     fat32_bpb* bpb = new fat32_bpb();
     read_disk(bpb, partTable->entries[i].lba_start, 1);
     kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
+
     globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
     globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
     globals->fat_data.bytes_per_cluster = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
     globals->fat_data.cluster_lba_offset = partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
     
-    bpb->fat_tables = 1;
-    globals->fat_data.fat_tables.unsafe_clear();
+    //bpb->fat_tables = 1;
+
+    new (&globals->fat_data.fat_tables) vector<uint32_t*>(1);
     for (int i = 0; i < bpb->fat_tables; i++) {
         globals->fat_data.fat_tables.append((uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
         read_disk(globals->fat_data.fat_tables[i], partTable->entries[i].lba_start + (bpb->reserved_sectors + i * bpb->sectors_per_fat32), bpb->sectors_per_fat32);
     }
 
-    memset(&globals->fat_data.root_directory, 0, sizeof(FILE));
-    memset(&globals->fat_data.working_directory, 0, sizeof(FILE));
-
-    globals->fat_data.root_directory = FILE(new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIR, NULL, bpb->root_cluster_num));
-    globals->fat_data.working_directory = globals->fat_data.root_directory;
+    new (&globals->fat_data.root_directory) FILE(new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIR, NULL, bpb->root_cluster_num));
+    new (&globals->fat_data.working_directory) FILE(globals->fat_data.root_directory);
     delete bpb;
 }
 
@@ -164,25 +165,6 @@ fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, u
     filename.unsafe_clear();
     data.unsafe_clear();
 }
-/*
-fat_inode::fat_inode(fat_inode&& other) {
-    *this = std::move(other);
-}
-fat_inode& fat_inode::operator=(fat_inode&& other) {
-    print("FAT inode move assignment called!\n");
-    filename = other.filename;
-    filesize = other.filesize;
-    attributes = other.attributes;
-    opened = other.opened;
-    references = other.references;
-    loaded = other.loaded;
-    edited = other.edited;
-    parent = other.parent;
-    disk_layout = other.disk_layout;
-    if (attributes & FAT_ATTRIBS::DIR) this->children = other.children;
-    else this->data = other.data;
-    return *this;
-}*/
 fat_inode::~fat_inode() {
     close();
 }
@@ -286,7 +268,7 @@ void fat_inode::close() {
     purge();
 }
 
-FILE::FILE() : FILE(NULL) { };
+FILE::FILE() : inode(NULL) { };
 FILE::FILE(fat_inode* inode) : inode(inode) {
     if (inode) {
         inode->read();

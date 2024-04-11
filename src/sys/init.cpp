@@ -29,6 +29,6 @@ void global_dtors() {
 void init_libcpp() {
     mem_init();
     vga_text_init();
-    globals->g_console = console(&vga_text_get_char, &vga_text_set_char, &vga_text_update, vga_text_dimensions);
+    globals->g_console = new (waterline_new<console>()) console(&vga_text_get_char, &vga_text_set_char, &vga_text_update, vga_text_dimensions);
     global_ctors();
 }

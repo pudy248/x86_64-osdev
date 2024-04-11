@@ -22,7 +22,7 @@ SECTIONS
         *(.bss*);
     }
 
-    .fat 0x7C00 + 0x200 * 64: AT(0x200 * 64) {
+    .fat 0x7C00 + 0x200 * 128: AT(0x200 * 128) {
         KEEP(*(.fat));
     }
 

@@ -35,7 +35,7 @@ struct tcp_flags {
     uint16_t cwr:1;
 };
 
-struct a_packed tcp_header {
+struct [[gnu::packed]] tcp_header {
     uint16_t src_port;
     uint16_t dst_port;
     uint32_t seq_num;

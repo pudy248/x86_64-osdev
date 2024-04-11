@@ -9,7 +9,7 @@
 #define IP_PROTOCOL_UDP     0x11
 #define IP_PROTOCOL_SMP     0x79
 
-struct a_packed ip_header {
+struct [[gnu::packed]] ip_header {
     uint8_t ver_ihl; // 4, 5
     uint8_t dscp;  // 0
     uint16_t total_length; //20 + data

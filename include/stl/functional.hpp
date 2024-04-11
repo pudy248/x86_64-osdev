@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <kstdlib.hpp>
 #include <kstdio.hpp>
+#include <stl/array.hpp>
 #include <stl/vector.hpp>
 
 template<typename... T> consteval static std::size_t parameter_pack_count() {

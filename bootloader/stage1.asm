@@ -54,7 +54,7 @@ LongMode:
     mov gs, ax
     mov ss, ax
     
-    mov rsp, 0x1ffff8
+    mov rsp, 0x1ffff0
     mov rbp, rsp
     mov qword [rbp], 0
 
@@ -79,7 +79,9 @@ LongMode:
     call enable_sse
     call enable_avx
     
-    jmp stage2_main
+    call stage2_main
+    add rsp, 8
+    jmp rax
 
 enable_sse:
     mov rax, cr0

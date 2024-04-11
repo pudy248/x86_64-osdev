@@ -66,22 +66,22 @@ void console::hexdump_rev(void* src, uint32_t size, uint32_t swap_width) {
 
 
 void print(const char* str) {
-    globals->g_console.putstr(str);
+    globals->g_console->putstr(str);
 }
 void print(rostring str) {
-    for (int i = 0; str.size(); i++) globals->g_console.putchar(str[i]);
+    for (int i = 0; str.size(); i++) globals->g_console->putchar(str[i]);
 }
 
 template <typename... Args> void printf(const char* fmt, Args... args) {
     string s = format(rostring(fmt), args...);
-    globals->g_console.putstr(s.c_str_this());
+    globals->g_console->putstr(s.c_str_this());
 }
 template <typename... Args> void printf(rostring fmt, Args... args) {
     string s = format(fmt, args...);
-    globals->g_console.putstr(s.c_str_this());
+    globals->g_console->putstr(s.c_str_this());
 }
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args) {
     array<char, N> buf;
     buf.at(formats(buf, fmt, args...)) = 0;
-    globals->g_console.putstr(buf.begin());
+    globals->g_console->putstr(buf.begin());
 }

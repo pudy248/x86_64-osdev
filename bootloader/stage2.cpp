@@ -12,29 +12,17 @@
 #include <drivers/keyboard.hpp>
 #include <lib/fat.hpp>
 
-static int clockspeed_MHz() {
-    double t1 = timepoint().unix_seconds();
-    uint64_t stsc = rdtsc();
-    tsc_delay(0x1000000LLU);
-    double t2 = timepoint().unix_seconds();
-    long etsc = rdtsc();
-
-    double eSec = (t2 - t1);
-    double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-    printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc, (uint32_t)(eSec * 1000000));
-    return freqMHz;
-}
-
-extern "C" void stage2_main() {
+#ifdef KERNEL
+void* stage2_main_discard() {
+#else
+extern "C" void* stage2_main() {
+#endif
     init_libcpp();
     idt_init();
     pic_init();
     irq_set(0, &inc_pit);
     irq_set(1, &keyboard_irq);
     time_init();
-
-    //for (int i = 0; i < 2; i++)
-    //    clockspeed_MHz();
 
     //////////////////////////////////////////////////////////
     // Initialize AHCI controller if AHCI driver is enabled //
@@ -49,18 +37,20 @@ extern "C" void stage2_main() {
     // Load kernel modules from disk //
     ///////////////////////////////////
     fat_init();
-    void(*kernel_main)();
+    wait_until_kbhit();
+    load_debug_symbs("/symbols2.txt");
+    stacktrace();
+    uint64_t kernel_main;
     {
         FILE kernel = file_open("/kernel.img");
 
         kassert(kernel.inode, "Kernel image not found!\n");
         uint64_t kernel_link_loc = ((uint64_t*)kernel.inode->data.begin())[0];
-        kernel_main = (void(*)())((uint64_t*)kernel.inode->data.begin())[1];
+        kernel_main = ((uint64_t*)kernel.inode->data.begin())[1];
         memcpy((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->data.size());
     }
 
     global_dtors();
-    kernel_main();
-    
-    //inf_wait();
+    //kernel_main();
+    return (void*)kernel_main;
 }

@@ -1,31 +1,25 @@
-CLANG_ENABLE:=1
-ifdef CLANG_ENABLE
-	CC:=/usr/bin/clang-17
-	LD:=/usr/bin/ld.lld-17
-	CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
-	CFLAGS_CC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
-else
-	CC:=gcc
-	LD:=ld
-	CFLAGS_CC:=
-	CFLAGS_CC_DBG:=
-endif
+CC:=/usr/bin/clang-18
+LD:=/usr/bin/ld.lld-18
+CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
+CFLAGS_CC_DBG:=-fdebug-macro 
+# -mno-omit-leaf-frame-pointer
 
 ASM:=nasm
 ASMFLAGS:=-f elf64
 
-CFLAGS_DBG:= -g -fno-omit-frame-pointer $(CFLAGS_CC_DBG)
-# -fno-exceptions
+CFLAGS_DBG:= -g  $(CFLAGS_CC_DBG)
+# -fno-omit-frame-pointer
+
 CFLAGS:=\
 -m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--fno-finite-loops -felide-constructors \
+-fno-finite-loops -felide-constructors -fno-exceptions \
 -Oz -Iinclude -Iinclude/std -Wall -Wextra \
 -Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC) $(CFLAGS_DBG)
 CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
 
-IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-17/lib/clang/17/include
+IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-18/lib/clang/18/include
 
 LDFLAGS_INC:=--lto=thin
 LDFLAGS_FIN:=-gc-sections --lto=thin
@@ -79,21 +73,20 @@ tmp/diskflasher.img: diskflasher.asm
 $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 tmp/obj.o : $(C_SRC)
-	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))" > tmp/all.cpp
-	$(CC) $(CFLAGS) -o $@ -c tmp/all.cpp
+	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"\n" > tmp/all.cpp
+	$(CC) $(CFLAGS) -D KERNEL -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
-	llvm-objdump --x86-asm-syntax=intel -d $@ > tmp/base.S
+#	llvm-objdump --x86-asm-syntax=intel --demangle -d $@ > tmp/base.S
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	llvm-objdump --x86-asm-syntax=intel -d $^ > tmp/kernel.S
+	llvm-objdump --x86-asm-syntax=intel --demangle -d $^ > tmp/kernel.S
 	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
 	llvm-objcopy -O binary $< $@
-#	readelf -W --demangle -s tmp/kernel.img.elf > tmp/symbols.txt
 
 BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
 BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
@@ -110,9 +103,8 @@ tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloa
 	llvm-objcopy --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
 	
-	llvm-objdump -d tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump --x86-asm-syntax=intel --demangle -d tmp/bootloader.img.elf > tmp/bootloader.S
 	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
-#	readelf -W --demangle -s tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
 include-check: 

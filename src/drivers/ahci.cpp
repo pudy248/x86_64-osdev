@@ -8,9 +8,9 @@
 
 void ahci_init(pci_device ahci_pci) {
     globals->ahci = waterline_new<ahci_device>();
-    hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000; //waterline_new<hba_cmd_header>();
-    fis_reg_h2d* fis = (fis_reg_h2d*)0x52800; //waterline_new<fis_reg_h2d>();
-    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000; //waterline_new<hba_cmd_tbl>();
+    hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000;
+    fis_reg_h2d* fis = (fis_reg_h2d*)0x52800;
+    hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000;
     memset((char*)ctbas, 0, 0x2000);
 
     volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);

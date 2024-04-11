@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <kcstring.hpp>
 #include <stl/vector.hpp>
+#include <stl/array.hpp>
+#include <stl/stream.hpp>
 
 template <container<char> C>
 class basic_string : public C {
@@ -131,7 +133,7 @@ public:
             tmp = n - (int)n;
             for (int i = 0; i < trailing; i++) {
                 tmp *= 10;
-                tmpstr.at(i) = '0' + (int)tmp % 10 + (i == trailing - 1);
+                tmpstr.at(i) = '0' + (int)tmp % 10; // + (i == trailing - 1);
             }
             bzwrite(tmpstr.begin(), trailing);
         }

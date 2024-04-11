@@ -6,5 +6,5 @@ constexpr int strlen(const char* str) {
     while (str[i]) i++;
     return i;
 }
-void strcpy(char* a_restrict _dest, const char* a_restrict source);
-char streql(const char* a_restrict lhs, const char* a_restrict rhs);
+void strcpy(char* __restrict _dest, const char* __restrict source);
+char streql(const char* __restrict lhs, const char* __restrict rhs);

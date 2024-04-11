@@ -8,7 +8,7 @@
 #include <sys/idt.hpp>
 #include <sys/pic.hpp>
 
-struct a_packed idt_entry {
+struct [[gnu::packed]] idt_entry {
     uint16_t offset_low;
     uint16_t selector;
     uint8_t reserved_0;
@@ -18,7 +18,7 @@ struct a_packed idt_entry {
     uint32_t reserved_1;
 };
 
-struct a_packed idt_ptr {
+struct [[gnu::packed]] idt_ptr {
     uint16_t limit;
     uint32_t base;
 };
@@ -76,8 +76,8 @@ void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_fil
     print("Register dump:\n");
     qprintf<80>("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
     qprintf<80>("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
-    qprintf<80>("%016x %016x %016x %016x\n", registers->r8_15[0], registers->r8_15[1], registers->r8_15[2], registers->r8_15[3]);
-    qprintf<80>("%016x %016x %016x %016x\n", registers->r8_15[4], registers->r8_15[5], registers->r8_15[6], registers->r8_15[7]);
+    qprintf<80>("%016x %016x %016x %016x\n", registers->r8, registers->r9, registers->r10, registers->r11);
+    qprintf<80>("%016x %016x %016x %016x\n", registers->r12, registers->r13, registers->r14, registers->r15);
     qprintf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
     
     stacktrace();
@@ -89,15 +89,15 @@ void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_fil
 }
 
 extern "C" {
-    __attribute__((force_align_arg_pointer)) void isr_err(uint64_t int_num, register_file* registers, uint64_t err_code) {
+    [[gnu::force_align_arg_pointer, gnu::used]] void isr_err(uint64_t int_num, register_file* registers, uint64_t err_code) {
         handle_exception(1, int_num, err_code, registers);
     }
 
-    __attribute__((force_align_arg_pointer)) void isr_no_err(uint64_t int_num, register_file* registers) {
+    [[gnu::force_align_arg_pointer, gnu::used]] void isr_no_err(uint64_t int_num, register_file* registers) {
         handle_exception(0, int_num, 0, registers);
     }
 
-    __attribute__((force_align_arg_pointer)) void irq_isr(uint64_t code, register_file* registers) {
+    [[gnu::force_align_arg_pointer, gnu::used]] void irq_isr(uint64_t code, register_file* registers) {
         if (globals->irq_fns[code - 32])
             globals->irq_fns[code - 32]();
         else

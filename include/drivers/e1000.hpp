@@ -104,7 +104,7 @@ constexpr int E1000_NUM_TX_DESC = 8;
 constexpr uint32_t E1000_BUFSIZE_FLAGS = E1000_RCTL::BSZ8192;
 constexpr int E1000_BUFSIZE = 0x2000;
 
-struct a_packed e1000_rx_desc {
+struct [[gnu::packed]] e1000_rx_desc {
         volatile uint64_t addr;
         volatile uint16_t length;
         volatile uint16_t checksum;
@@ -113,7 +113,7 @@ struct a_packed e1000_rx_desc {
         volatile uint16_t special;
 };
  
-struct a_packed e1000_tx_desc {
+struct [[gnu::packed]] e1000_tx_desc {
         volatile uint64_t addr;
         volatile uint16_t length;
         volatile uint8_t cso;
