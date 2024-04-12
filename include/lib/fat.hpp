@@ -7,12 +7,12 @@ namespace FAT_ATTRIBS
 {
 enum FAT_ATTRIBS {
 	READONLY = 0x01,
-	HIDDEN	 = 0x02,
-	SYSTEM	 = 0x04,
-	VOL_ID	 = 0x08,
-	DIR		 = 0x10,
-	ARCHIVE	 = 0x20,
-	LFN		 = 0x0f,
+	HIDDEN = 0x02,
+	SYSTEM = 0x04,
+	VOL_ID = 0x08,
+	DIR = 0x10,
+	ARCHIVE = 0x20,
+	LFN = 0x0f,
 };
 }
 

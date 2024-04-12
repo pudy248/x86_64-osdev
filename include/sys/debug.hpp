@@ -30,7 +30,7 @@ public:
 		return *this;
 	}
 	very_verbose_class& operator=(very_verbose_class&& other) {
-		id		 = other.id;
+		id = other.id;
 		other.id = 0;
 		qprintf<80>("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
 		return *this;

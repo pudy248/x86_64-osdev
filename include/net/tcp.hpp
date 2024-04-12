@@ -49,7 +49,7 @@ struct [[gnu::packed]] tcp_header {
 
 struct tcp_packet_partial {
 	uint32_t start_seq = 0;
-	uint32_t end_seq   = 0;
+	uint32_t end_seq = 0;
 	vector<char> contents;
 };
 

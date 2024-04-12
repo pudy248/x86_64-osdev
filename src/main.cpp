@@ -70,18 +70,18 @@ static void graphics_main() {
 	//svga_disable();
 
 	RenderPipeline p;
-	p.vertexBuffer	 = (aVertex_p)0x20000000;
+	p.vertexBuffer = (aVertex_p)0x20000000;
 	p.projVertBuffer = (aProjVertex_p)0x22000000;
 	p.triangleBuffer = (auint32_p)0x2400000;
-	p.fragBuffer	 = (aFragment_p)0x2600000;
-	p.fragTexture	 = (auint32_p)0x2A00000;
-	p.renderTexture	 = svga_dev->fb;
-	p.display_w		 = svga_dev->width;
-	p.display_h		 = svga_dev->height;
+	p.fragBuffer = (aFragment_p)0x2600000;
+	p.fragTexture = (auint32_p)0x2A00000;
+	p.renderTexture = svga_dev->fb;
+	p.display_w = svga_dev->width;
+	p.display_h = svga_dev->height;
 
 	uint32_t vi = 0;
 	uint32_t ti = 0;
-	FILE f		= file_open("/cow.obj");
+	FILE f = file_open("/cow.obj");
 	istringstream obj(f.inode->data);
 	while (obj.readable()) {
 		if (rostring(obj.data).starts_with(rostring("v "))) {
@@ -103,7 +103,7 @@ static void graphics_main() {
 			obj.read_while<rostring, rostring>([](rostring s) { return s.starts_with(' '); });
 			int v3 = obj.read_i();
 			obj.read_until<rostring, rostring>([](rostring s) { return s.starts_with('\n'); }, true);
-			p.triangleBuffer[3 * ti]	 = v1;
+			p.triangleBuffer[3 * ti] = v1;
 			p.triangleBuffer[3 * ti + 1] = v2;
 			p.triangleBuffer[3 * ti + 2] = v3;
 			ti++;
@@ -111,12 +111,12 @@ static void graphics_main() {
 			obj.read_until<rostring, rostring>([](rostring s) { return s.starts_with('\n'); }, true);
 		}
 	}
-	p.nVertices	 = vi;
+	p.nVertices = vi;
 	p.nTriangles = ti;
 	printf("loaded model with %i verts, %i tris\r\n", vi, ti);
 
 	projectionMatrix = project(4, 3, 2);
-	int iters		 = 0;
+	int iters = 0;
 	while (true) {
 		iters++;
 
@@ -161,8 +161,8 @@ static void console_main() {
 	for (int i = 0; i < 3; i++)
 		clockspeed_MHz();
 
-	fat_inode* tmp						= globals->fat_data.root_directory.inode;
-	globals->fat_data.root_directory	= FILE();
+	fat_inode* tmp = globals->fat_data.root_directory.inode;
+	globals->fat_data.root_directory = FILE();
 	globals->fat_data.working_directory = FILE();
 	globals->fat_data.fat_tables.clear();
 	delete tmp;

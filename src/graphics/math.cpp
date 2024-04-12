@@ -88,10 +88,10 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 	double theta;
 	theta = angle_shift(beta, -pi);
 	if (theta < -0.5 * pi) {
-		theta		= theta + pi;
+		theta = theta + pi;
 		sign_factor = -1.0;
 	} else if (0.5 * pi < theta) {
-		theta		= theta - pi;
+		theta = theta - pi;
 		sign_factor = -1.0;
 	} else {
 		sign_factor = +1.0;
@@ -100,7 +100,7 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 	*s = 0.0;
 
 	poweroftwo = 1.0;
-	angle	   = angles[0];
+	angle = angles[0];
 	for (j = 1; j <= n; j++) {
 		if (theta < 0.0) {
 			sigma = -1.0;
@@ -113,8 +113,8 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 		c2 = *c - factor * *s;
 		s2 = factor * *c + *s;
 
-		*c	  = c2;
-		*s	  = s2;
+		*c = c2;
+		*s = s2;
 		theta = theta - sigma * angle;
 
 		poweroftwo = poweroftwo / 2.0;

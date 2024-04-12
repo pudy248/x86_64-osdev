@@ -42,25 +42,25 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 
 	if (v1.spos.y < v2.spos.y) {
 		ProjectedVertex tmp = v1;
-		v1					= v2;
-		v2					= tmp;
+		v1 = v2;
+		v2 = tmp;
 	}
 
 	Vec4 ss1 = screenspace(pipeline, v1.spos);
 	Vec4 ss2 = screenspace(pipeline, v2.spos);
 
-	float yp   = 0;
+	float yp = 0;
 	float dy12 = ss2.y - ss1.y;
 
 	for (; yp < dy12; yp++) {
-		float yf	= min(1, yp / dy12);
-		float yfp	= min(1, (yp + 1) / dy12);
-		Vec4 pos1	= lerp4(ss1, ss2, yf);
-		Vec4 pos2	= lerp4(ss1, ss2, yfp);
+		float yf = min(1, yp / dy12);
+		float yfp = min(1, (yp + 1) / dy12);
+		Vec4 pos1 = lerp4(ss1, ss2, yf);
+		Vec4 pos2 = lerp4(ss1, ss2, yfp);
 		Vec4 color1 = lerp4(v1.color, v2.color, yf);
 		Vec4 color2 = lerp4(v1.color, v2.color, yfp);
-		int x1		= (int)pos1.x;
-		int x2		= (int)pos2.x;
+		int x1 = (int)pos1.x;
+		int x2 = (int)pos2.x;
 		for (int x = x1; x != x2; x += sign(x2 - x1)) {
 			float xf = (float)(x - x1) / (float)(x2 - x1);
 			Vec4 col = lerp4(color1, color2, xf);
@@ -72,15 +72,15 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1,
 					 float depth2) {
 	if (x2 < x1) {
-		int tmp1   = x1;
-		x1		   = x2;
-		x2		   = tmp1;
-		Vec4 tmp2  = color1;
-		color1	   = color2;
-		color2	   = tmp2;
+		int tmp1 = x1;
+		x1 = x2;
+		x2 = tmp1;
+		Vec4 tmp2 = color1;
+		color1 = color2;
+		color2 = tmp2;
 		float tmp3 = depth1;
-		depth1	   = depth2;
-		depth2	   = tmp3;
+		depth1 = depth2;
+		depth2 = tmp3;
 	}
 
 	for (int x = x1; x <= x2; x++) {
@@ -107,25 +107,25 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
 
 	if (v1.spos.y < v2.spos.y) {
 		ProjectedVertex tmp = v1;
-		v1					= v2;
-		v2					= tmp;
+		v1 = v2;
+		v2 = tmp;
 	}
 	if (v1.spos.y < v3.spos.y) {
 		ProjectedVertex tmp = v1;
-		v1					= v3;
-		v3					= tmp;
+		v1 = v3;
+		v3 = tmp;
 	}
 	if (v2.spos.y < v3.spos.y) {
 		ProjectedVertex tmp = v2;
-		v2					= v3;
-		v3					= tmp;
+		v2 = v3;
+		v3 = tmp;
 	}
 
 	Vec4 ss1 = screenspace(pipeline, v1.spos);
 	Vec4 ss2 = screenspace(pipeline, v2.spos);
 	Vec4 ss3 = screenspace(pipeline, v3.spos);
 
-	float yp   = 0;
+	float yp = 0;
 	float dy12 = ss2.y - ss1.y;
 	float dy13 = ss3.y - ss1.y;
 	float dy23 = ss3.y - ss2.y;
@@ -134,8 +134,8 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
 		float yf12 = min(1, yp / dy12);
 		float yf13 = min(1, yp / dy13);
 
-		Vec4 pos1	= lerp4(ss1, ss2, yf12);
-		Vec4 pos2	= lerp4(ss1, ss3, yf13);
+		Vec4 pos1 = lerp4(ss1, ss2, yf12);
+		Vec4 pos2 = lerp4(ss1, ss3, yf13);
 		Vec4 color1 = lerp4(v1.color, v2.color, yf12);
 		Vec4 color2 = lerp4(v1.color, v3.color, yf13);
 		scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
@@ -145,8 +145,8 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
 		float yf23 = min(1, (yp - dy12) / dy23);
 		float yf13 = min(1, yp / dy13);
 
-		Vec4 pos1	= lerp4(ss2, ss3, yf23);
-		Vec4 pos2	= lerp4(ss1, ss3, yf13);
+		Vec4 pos1 = lerp4(ss2, ss3, yf23);
+		Vec4 pos2 = lerp4(ss1, ss3, yf13);
 		Vec4 color1 = lerp4(v2.color, v3.color, yf23);
 		Vec4 color2 = lerp4(v1.color, v3.color, yf13);
 		scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);

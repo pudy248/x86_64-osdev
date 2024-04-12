@@ -59,10 +59,10 @@ void load_debug_symbs(const char* filename) {
 		symb.size = str.read_x();
 		str.read_c();
 		rostring tmp = str.read_until_v<rostring>('\n');
-		char* name	 = (char*)walloc(tmp.size() + 1, 0x10);
+		char* name = (char*)walloc(tmp.size() + 1, 0x10);
 		memcpy(name, tmp.begin(), tmp.size());
 		name[tmp.size()] = 0;
-		symb.name		 = name;
+		symb.name = name;
 		str.read_c();
 
 		symbol_table.append(symb);
@@ -74,13 +74,13 @@ void load_debug_symbs(const char* filename) {
 }
 
 debug_symbol* nearest_symbol(void* address, bool* out_contains) {
-	int bestIdx			  = 0;
+	int bestIdx = 0;
 	uint64_t bestDistance = INT64_MAX;
 	for (int i = 0; i < symbol_table.size(); i++) {
 		uint64_t distance = (uint64_t)address - (uint64_t)symbol_table[i].addr - 5;
 		if (distance < bestDistance ||
 			(distance == bestDistance && symbol_table[i].size > symbol_table[bestIdx].size)) {
-			bestIdx		 = i;
+			bestIdx = i;
 			bestDistance = distance;
 		}
 	}

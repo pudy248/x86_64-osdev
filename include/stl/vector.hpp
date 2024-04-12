@@ -122,13 +122,13 @@ public:
 	}
 
 	constexpr void unsafe_clear() {
-		this->m_arr	 = nullptr;
+		this->m_arr = nullptr;
 		this->m_size = 0;
-		m_capacity	 = 0;
+		m_capacity = 0;
 	}
 	constexpr void unsafe_set(allocator_traits<A>::ptr_t arr, int l, int c) {
-		this->m_arr		 = arr;
-		this->m_size	 = l;
+		this->m_arr = arr;
+		this->m_size = l;
 		this->m_capacity = c;
 	}
 
@@ -187,7 +187,7 @@ public:
 		if (idx >= this->size())
 			this->at(idx) = elem;
 		else {
-			int i		= this->size();
+			int i = this->size();
 			this->at(i) = m_at(i - 1);
 			for (i--; i > idx; i--)
 				m_at(i) = std::move(m_at(i - 1));

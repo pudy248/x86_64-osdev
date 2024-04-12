@@ -91,8 +91,8 @@ Mat4x4 scale(float f) {
 Mat4x4 rebase(Vec3 up, Vec3 forward, Vec3 pos) {
 	Vec3 nd = norm3(forward);
 	Vec3 nu = norm3(up);
-	Vec3 r	= cross(nd, nu);
-	Vec3 u	= cross(r, nd);
+	Vec3 r = cross(nd, nu);
+	Vec3 u = cross(r, nd);
 	return (Mat4x4){ {
 		r.x,
 		r.y,

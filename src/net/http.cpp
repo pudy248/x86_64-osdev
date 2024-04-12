@@ -8,7 +8,7 @@
 
 bool http_process(tcp_connection* conn, tcp_packet p) {
 	vector<rostring> lines = rostring(p.contents).split("\n");
-	vector<rostring> args  = lines[0].split(' ');
+	vector<rostring> args = lines[0].split(' ');
 
 	if (args[0] != "GET"_RO) {
 		http_error(conn, "400 Bad Request");

@@ -13,7 +13,7 @@ public:
 		: basic_string(other.begin(), other.end()) {
 	}
 	constexpr basic_string& operator=(const basic_string& other) = default;
-	constexpr basic_string& operator=(basic_string&& other)		 = default;
+	constexpr basic_string& operator=(basic_string&& other) = default;
 
 	constexpr basic_string(const char* cstr)
 		: basic_string(cstr, strlen(cstr), 0) {
@@ -81,7 +81,7 @@ public:
 	void write_u(uint64_t n, int leading = 0, int radix = 10, char leadChar = ' ',
 				 const char* letters = "0123456789ABCDEF") {
 		uint64_t tmp = n;
-		int ctr		 = 0;
+		int ctr = 0;
 		do {
 			tmp /= radix;
 			ctr++;
@@ -119,7 +119,7 @@ public:
 			write_c('-');
 		}
 		double tmp = n;
-		int ctr	   = 0;
+		int ctr = 0;
 		do {
 			tmp /= 10;
 			ctr++;
@@ -177,7 +177,7 @@ public:
 	}
 	int64_t read_i() {
 		int64_t val = 0;
-		char neg	= 0;
+		char neg = 0;
 		if (this->front() == '-') {
 			neg = 1;
 			read_c();
@@ -192,9 +192,9 @@ public:
 	}
 	uint64_t read_x() {
 		uint64_t val = 0;
-		bool isN	 = this->front() >= '0' && this->front() <= '9';
-		bool isU	 = this->front() >= 'A' && this->front() <= 'F';
-		bool isL	 = this->front() >= 'f' && this->front() <= 'a';
+		bool isN = this->front() >= '0' && this->front() <= '9';
+		bool isU = this->front() >= 'A' && this->front() <= 'F';
+		bool isL = this->front() >= 'f' && this->front() <= 'a';
 		while (isN || isU || isL) {
 			val *= 16;
 			if (isN)
@@ -211,9 +211,9 @@ public:
 	}
 	double read_f() {
 		constexpr int trailingMax = 10;
-		double val				  = 0;
-		int afterDecimal		  = 0;
-		char neg				  = 0;
+		double val = 0;
+		int afterDecimal = 0;
+		char neg = 0;
 		if (this->front() == '-') {
 			neg = 1;
 			read_c();

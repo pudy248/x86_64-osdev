@@ -6,10 +6,10 @@
 #include <sys/global.hpp>
 
 uint32_t pci_read(pci_addr dev, uint8_t reg) {
-	uint32_t lbus  = (uint32_t)dev.bus;
+	uint32_t lbus = (uint32_t)dev.bus;
 	uint32_t lslot = (uint32_t)dev.slot;
 	uint32_t lfunc = (uint32_t)dev.func;
-	uint32_t lreg  = (uint32_t)reg;
+	uint32_t lreg = (uint32_t)reg;
 
 	uint32_t address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (lreg << 2) | 0x80000000U);
 
@@ -17,10 +17,10 @@ uint32_t pci_read(pci_addr dev, uint8_t reg) {
 	return inl(0xCFC);
 }
 void pci_write(pci_addr dev, uint8_t reg, uint32_t data) {
-	uint32_t lbus  = (uint32_t)dev.bus;
+	uint32_t lbus = (uint32_t)dev.bus;
 	uint32_t lslot = (uint32_t)dev.slot;
 	uint32_t lfunc = (uint32_t)dev.func;
-	uint32_t lreg  = (uint32_t)reg;
+	uint32_t lreg = (uint32_t)reg;
 
 	uint32_t address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (lreg << 2) | 0x80000000U);
 
@@ -34,19 +34,19 @@ void pci_enable_mem(pci_addr dev) {
 
 pci_device pci_create(pci_addr addr) {
 	pci_device dev;
-	dev.address						 = addr;
-	*(uint32_t*)&dev.vendor_id		 = pci_read(addr, 0);
-	*(uint32_t*)&dev.rev_id			 = pci_read(addr, 2);
+	dev.address = addr;
+	*(uint32_t*)&dev.vendor_id = pci_read(addr, 0);
+	*(uint32_t*)&dev.rev_id = pci_read(addr, 2);
 	*(uint32_t*)&dev.cache_line_size = pci_read(addr, 3);
 	for (int i = 0; i < 6; i++)
 		dev.bars[i] = pci_read(addr, 4 + i);
 	*(uint32_t*)&dev.subsystem_vendor = pci_read(addr, 11);
-	*(uint16_t*)&dev.interrupt_line	  = (uint16_t)pci_read(addr, 15);
+	*(uint16_t*)&dev.interrupt_line = (uint16_t)pci_read(addr, 15);
 	return dev;
 }
 
 void pci_init() {
-	globals->pci   = (pci_devices*)walloc(sizeof(pci_devices), 0x10);
+	globals->pci = (pci_devices*)walloc(sizeof(pci_devices), 0x10);
 	int device_idx = 0;
 
 	for (uint16_t bus = 0; bus < 256; bus++) {
@@ -60,7 +60,7 @@ void pci_init() {
 				continue;
 			for (uint8_t func = 1; func < 7; func++) {
 				pci_addr addr2 = { (uint8_t)bus, slot, func };
-				uint32_t reg1  = pci_read(addr2, 0);
+				uint32_t reg1 = pci_read(addr2, 0);
 				if (reg1 == 0xffffffff)
 					continue;
 				globals->pci->devices[device_idx++] = pci_create(addr2);

@@ -15,14 +15,14 @@ void _default_vertex_shader(RenderPipeline* pipeline, void** params) {
 	for (uint32_t index = 0; index < pipeline->nVertices; index++) {
 		int frameCtr = *(int*)(params[0]);
 		Vec4 basePos = pipeline->vertexBuffer[index].pos;
-		basePos		 = vmul4x4(*(Mat4x4*)(params[1]), basePos); //rotation matrix
+		basePos = vmul4x4(*(Mat4x4*)(params[1]), basePos); //rotation matrix
 		if (0) {
 			basePos.x += 0.5f * sinf(basePos.x + (float)frameCtr * 0.1274f);
 			basePos.y += 1.0f * sinf(basePos.y + (float)frameCtr * 0.1f);
 			basePos.z += 0.5f * sinf(basePos.z + (float)frameCtr * 0.0867f);
 		}
 		basePos.z -= 12;
-		Vec4 projected					= vnormw(vmul4x4(projectionMatrix, basePos));
+		Vec4 projected = vnormw(vmul4x4(projectionMatrix, basePos));
 		pipeline->projVertBuffer[index] = (ProjectedVertex){ basePos, projected, pipeline->vertexBuffer[index].color };
 	}
 }
@@ -37,8 +37,8 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 			Vec3 normal =
 				norm3(cross(sub3(vtrunc43(v2.wpos), vtrunc43(v1.wpos)), sub3(vtrunc43(v3.wpos), vtrunc43(v1.wpos))));
 			Mat4x4 rebaseMat = rebase((Vec3){ 0, 1, 0 }, lookdir, (Vec3){ 0, 0, 0 });
-			Vec3 normB		 = vtrunc43(vmul4x4(rebaseMat, vpad34(normal, 1)));
-			float lighting	 = dot(normal, lookdir);
+			Vec3 normB = vtrunc43(vmul4x4(rebaseMat, vpad34(normal, 1)));
+			float lighting = dot(normal, lookdir);
 			//if (lighting < 0.f) continue;
 			if (lighting > 1.f) {
 				printf("%f %f %f dot %f %f %f = %f\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z,
@@ -68,7 +68,7 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 void _default_fragment_shader(RenderPipeline* pipeline, void** params) {
 	for (uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++) {
 		pipeline->renderTexture[index] = pipeline->fragTexture[index];
-		pipeline->fragTexture[index]   = 0;
+		pipeline->fragTexture[index] = 0;
 	}
 }
 

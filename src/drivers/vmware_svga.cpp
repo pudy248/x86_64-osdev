@@ -26,10 +26,10 @@ static uint32_t* svga_reserve(uint32_t size) {
 	return (uint32_t*)((uint64_t)globals->svga->fifo + next);
 }
 static void svga_commit() {
-	uint32_t min	  = globals->svga->fifo[SVGA_FIFO::MIN];
-	uint32_t max	  = globals->svga->fifo[SVGA_FIFO::MAX];
-	uint32_t next	  = globals->svga->fifo[SVGA_FIFO::NEXT_CMD];
-	uint32_t bytes	  = globals->svga->fifo[SVGA_FIFO::RESERVED];
+	uint32_t min = globals->svga->fifo[SVGA_FIFO::MIN];
+	uint32_t max = globals->svga->fifo[SVGA_FIFO::MAX];
+	uint32_t next = globals->svga->fifo[SVGA_FIFO::NEXT_CMD];
+	uint32_t bytes = globals->svga->fifo[SVGA_FIFO::RESERVED];
 	uint32_t nextnext = next + bytes;
 	if (nextnext > max)
 		nextnext = nextnext - max + min;
@@ -38,10 +38,10 @@ static void svga_commit() {
 }
 
 void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
-	globals->svga			= waterline_new<svga_device>(0x10);
+	globals->svga = waterline_new<svga_device>(0x10);
 	globals->svga->pio_base = (uint16_t)(svga_pci.bars[0] & 0xfffffffe);
-	globals->svga->fb		= (uint32_t*)(uint64_t)(svga_pci.bars[1] & 0xfffffff0);
-	globals->svga->fifo		= (volatile uint32_t*)(uint64_t)(svga_pci.bars[2] & 0xfffffff0);
+	globals->svga->fb = (uint32_t*)(uint64_t)(svga_pci.bars[1] & 0xfffffff0);
+	globals->svga->fifo = (volatile uint32_t*)(uint64_t)(svga_pci.bars[2] & 0xfffffff0);
 
 	set_page_flags((void*)globals->svga->fb, PAGE_WT);
 	set_page_flags((void*)globals->svga->fifo, PAGE_WT);
@@ -52,14 +52,14 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 		svga_write(SVGA_REG::ID, 1);
 	kassert(svga_read(SVGA_REG::ID), "VMware SVGA device too old!\n");
 
-	globals->svga->fb_size	 = svga_read(SVGA_REG::FB_SIZE);
+	globals->svga->fb_size = svga_read(SVGA_REG::FB_SIZE);
 	globals->svga->fifo_size = svga_read(SVGA_REG::MEM_SIZE);
 	globals->svga->vram_size = svga_read(SVGA_REG::VRAM_SIZE);
 
-	globals->svga->fifo[SVGA_FIFO::MIN]		 = SVGA_FIFO::NUM_REGS * 4;
-	globals->svga->fifo[SVGA_FIFO::MAX]		 = globals->svga->fifo_size;
+	globals->svga->fifo[SVGA_FIFO::MIN] = SVGA_FIFO::NUM_REGS * 4;
+	globals->svga->fifo[SVGA_FIFO::MAX] = globals->svga->fifo_size;
 	globals->svga->fifo[SVGA_FIFO::NEXT_CMD] = globals->svga->fifo[SVGA_FIFO::MIN];
-	globals->svga->fifo[SVGA_FIFO::STOP]	 = globals->svga->fifo[SVGA_FIFO::MIN];
+	globals->svga->fifo[SVGA_FIFO::STOP] = globals->svga->fifo[SVGA_FIFO::MIN];
 	globals->svga->fifo[SVGA_FIFO::RESERVED] = 0;
 
 	svga_write(SVGA_REG::ENABLE, 1);
@@ -80,7 +80,7 @@ void svga_disable() {
 }
 
 void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp) {
-	globals->svga->width  = width;
+	globals->svga->width = width;
 	globals->svga->height = height;
 	svga_write(SVGA_REG::WIDTH, width);
 	svga_write(SVGA_REG::HEIGHT, height);
@@ -92,11 +92,11 @@ void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 	if (!enabled)
 		return;
 	uint32_t* ptr = svga_reserve(20);
-	ptr[0]		  = SVGA_CMD::UPDATE;
-	ptr[1]		  = x;
-	ptr[2]		  = y;
-	ptr[3]		  = w;
-	ptr[4]		  = h;
+	ptr[0] = SVGA_CMD::UPDATE;
+	ptr[1] = x;
+	ptr[2] = y;
+	ptr[3] = w;
+	ptr[4] = h;
 	svga_commit();
 }
 void svga_update() {

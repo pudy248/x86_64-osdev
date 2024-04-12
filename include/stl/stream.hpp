@@ -32,7 +32,7 @@ requires container_writeable<C, T>
 class basic_istream {
 public:
 	C data;
-	int offset				  = 0;
+	int offset = 0;
 	constexpr basic_istream() = default;
 	template <container<T> C2>
 	constexpr basic_istream(const C2& s)

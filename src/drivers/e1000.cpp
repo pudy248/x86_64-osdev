@@ -41,14 +41,14 @@ static void e1000_link() {
 
 void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uint16_t len),
 				void (*link_callback)(void)) {
-	e1000_dev			= waterline_new<e1000_handle>(0x10);
+	e1000_dev = waterline_new<e1000_handle>(0x10);
 	e1000_dev->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
 	e1000_dev->tx_descs = (e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
 
-	receive_fn			 = receive_callback;
-	link_fn				 = link_callback;
+	receive_fn = receive_callback;
+	link_fn = link_callback;
 	e1000_dev->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
-	e1000_dev->pio_base	 = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
+	e1000_dev->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
 
 	set_page_flags((void*)e1000_dev->mmio_base, PAGE_WT);
 	pci_enable_mem(e1000_pci.address);
@@ -79,24 +79,24 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 		//print("Device has EEPROM\n");
 		e1000_write(E1000_REG::EECD, 0xB);
 		uint16_t v;
-		v				  = e1000_read_eeprom(0);
+		v = e1000_read_eeprom(0);
 		e1000_dev->mac[0] = v & 0xff;
 		e1000_dev->mac[1] = v >> 8;
-		v				  = e1000_read_eeprom(1);
+		v = e1000_read_eeprom(1);
 		e1000_dev->mac[2] = v & 0xff;
 		e1000_dev->mac[3] = v >> 8;
-		v				  = e1000_read_eeprom(2);
+		v = e1000_read_eeprom(2);
 		e1000_dev->mac[4] = v & 0xff;
 		e1000_dev->mac[5] = v >> 8;
 	} else {
 		//print("Device no has EEPROM\n");
-		uint32_t* mac	  = (uint32_t*)(e1000_dev->mmio_base + 0x5400);
-		uint32_t v		  = mac[0];
+		uint32_t* mac = (uint32_t*)(e1000_dev->mmio_base + 0x5400);
+		uint32_t v = mac[0];
 		e1000_dev->mac[0] = v & 0xff;
 		e1000_dev->mac[1] = v >> 8;
 		e1000_dev->mac[2] = v >> 16;
 		e1000_dev->mac[3] = v >> 24;
-		v				  = mac[1];
+		v = mac[1];
 		e1000_dev->mac[4] = v & 0xff;
 		e1000_dev->mac[5] = v >> 8;
 	}
@@ -109,7 +109,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 
 	//Initialize RX
 	for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
-		e1000_dev->rx_descs[i].addr	  = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
+		e1000_dev->rx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
 		e1000_dev->rx_descs[i].status = 0;
 	}
 	e1000_write(E1000_REG::RXDESCLO, (uint64_t)e1000_dev->rx_descs);
@@ -125,8 +125,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-		e1000_dev->tx_descs[i].addr	  = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
-		e1000_dev->tx_descs[i].cmd	  = 0;
+		e1000_dev->tx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
+		e1000_dev->tx_descs[i].cmd = 0;
 		e1000_dev->tx_descs[i].status = E1000_TSTA::DD;
 	}
 	e1000_write(E1000_REG::TXDESCLO, (uint64_t)e1000_dev->tx_descs);
@@ -190,8 +190,8 @@ void e1000_receive() {
 		//printf("Done reading %i in %fms\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
 		//t1 = t2;
 		e1000_dev->rx_descs[e1000_dev->rx_cur].status = 0;
-		old_cur										  = e1000_dev->rx_cur;
-		e1000_dev->rx_cur							  = (e1000_dev->rx_cur + 1) % E1000_NUM_RX_DESC;
+		old_cur = e1000_dev->rx_cur;
+		e1000_dev->rx_cur = (e1000_dev->rx_cur + 1) % E1000_NUM_RX_DESC;
 	}
 	e1000_write(E1000_REG::RXDESCTL, old_cur);
 }
@@ -201,10 +201,10 @@ int e1000_send_async(void* data, uint16_t len) {
 		asmv("nop");
 	memcpy((void*)e1000_dev->tx_descs[e1000_dev->tx_cur].addr, data, len);
 	e1000_dev->tx_descs[e1000_dev->tx_cur].length = len;
-	e1000_dev->tx_descs[e1000_dev->tx_cur].cmd	  = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
+	e1000_dev->tx_descs[e1000_dev->tx_cur].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
 	e1000_dev->tx_descs[e1000_dev->tx_cur].status = 0;
-	uint8_t handle								  = e1000_dev->tx_cur;
-	e1000_dev->tx_cur							  = (e1000_dev->tx_cur + 1) % E1000_NUM_TX_DESC;
+	uint8_t handle = e1000_dev->tx_cur;
+	e1000_dev->tx_cur = (e1000_dev->tx_cur + 1) % E1000_NUM_TX_DESC;
 	e1000_write(E1000_REG::TXDESCTL, e1000_dev->tx_cur);
 	//e1000_await(handle);
 	return handle;

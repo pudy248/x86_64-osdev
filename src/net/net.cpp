@@ -37,8 +37,8 @@ void ethernet_link() {
 void ethernet_recieve(void* buf, uint16_t size) {
 	etherframe_t* frame = (etherframe_t*)buf;
 
-	uint16_t newSize  = size - sizeof(etherframe_t);
-	char* contents	  = (char*)((uint64_t)buf + sizeof(etherframe_t));
+	uint16_t newSize = size - sizeof(etherframe_t);
+	char* contents = (char*)((uint64_t)buf + sizeof(etherframe_t));
 	char* newContents = (char*)malloc(newSize);
 	memcpy(newContents, contents, newSize);
 
@@ -68,7 +68,7 @@ void net_process() {
 }
 
 int ethernet_send(ethernet_packet packet) {
-	void* buf			= malloc(packet.contents.size() + sizeof(etherframe_t));
+	void* buf = malloc(packet.contents.size() + sizeof(etherframe_t));
 	etherframe_t* frame = (etherframe_t*)buf;
 	memcpy(&frame->dst, &packet.dst, 6);
 	memcpy(&frame->src, &packet.src, 6);

@@ -50,7 +50,7 @@ int formats(container_wrapper<char> output, const rostring fmt, ...) {
 		if (c == '%') {
 			istringstream fmtArg(fmts.read_until_any<span<char>>(fmtchars, true));
 			int leadingChars = 0;
-			int decimals	 = 3;
+			int decimals = 3;
 			char leadingChar = ' ';
 
 			while (fmtArg.readable()) {
@@ -66,7 +66,7 @@ int formats(container_wrapper<char> output, const rostring fmt, ...) {
 					fmtArg.read_c();
 					decimals = fmtArg.read_i();
 				} else {
-					leadingChar	 = fmtArg.read_c();
+					leadingChar = fmtArg.read_c();
 					leadingChars = fmtArg.read_i();
 				}
 			}

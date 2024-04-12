@@ -107,7 +107,7 @@ extern "C" {
 
 void idt_init() {
 	idt->pointer.limit = sizeof(idt->entries) - 1;
-	idt->pointer.base  = (uint64_t)&idt->entries[0];
+	idt->pointer.base = (uint64_t)&idt->entries[0];
 	memset((char*)&idt->entries[0], 0, sizeof(idt->entries));
 	int i = 0;
 	for (; i < 32; i++) {

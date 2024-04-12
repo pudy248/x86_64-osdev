@@ -50,9 +50,9 @@ void arp_process(ethernet_packet packet) {
 	memcpy(&selfMac, &h->selfMac, 6);
 	memcpy(&targetMac, &h->targetMac, 6);
 	char sMac = !!selfMac;
-	char sIp  = !!selfIP;
+	char sIp = !!selfIP;
 	char tMac = !!targetMac;
-	char tIp  = !!targetIP;
+	char tIp = !!targetIP;
 
 	if (sMac && sIp)
 		arp_update(selfMac, selfIP);
@@ -100,20 +100,20 @@ int arp_send(uint16_t op, arp_entry self, arp_entry target) {
 		eth_dst = target.mac;
 
 	arp_header<ipv4_t>* h = new arp_header<ipv4_t>();
-	h->htype			  = htons(ARP_HTYPE_ETH);
-	h->ptype			  = htons(ARP_PTYPE_IPv4);
-	h->hlen				  = 6;
-	h->plen				  = 4;
-	h->op				  = htons(op);
+	h->htype = htons(ARP_HTYPE_ETH);
+	h->ptype = htons(ARP_PTYPE_IPv4);
+	h->hlen = 6;
+	h->plen = 4;
+	h->op = htons(op);
 	memcpy(&h->selfIP, &self.ip, 4);
 	memcpy(&h->targetIP, &target.ip, 4);
 	memcpy(&h->selfMac, &self.mac, 6);
 	memcpy(&h->targetMac, &eth_dst, 6);
 
 	ethernet_packet packet;
-	packet.dst		= eth_dst;
-	packet.src		= self.mac;
-	packet.type		= ETHERTYPE_ARP;
+	packet.dst = eth_dst;
+	packet.src = self.mac;
+	packet.type = ETHERTYPE_ARP;
 	packet.contents = span<char>((char*)h, sizeof(arp_header<ipv4_t>));
 
 	int handle = ethernet_send(packet);

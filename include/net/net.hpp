@@ -7,7 +7,7 @@ typedef uint64_t mac_t;
 typedef uint32_t ipv4_t;
 typedef uint16_t ethertype_t;
 
-constexpr ethertype_t ETHERTYPE_ARP	 = 0x0806;
+constexpr ethertype_t ETHERTYPE_ARP = 0x0806;
 constexpr ethertype_t ETHERTYPE_IPv4 = 0x0800;
 constexpr ethertype_t ETHERTYPE_IPv6 = 0x86DD;
 

@@ -3,7 +3,7 @@
 
 // Same data as the Linux kernel uses, extracted from the PC VGA font.
 static uint8_t fontDims[] = { 6, 12 };
-static uint8_t fontStart  = ' ';
+static uint8_t fontStart = ' ';
 
 static uint8_t fontBitmap[] = {
 	// 32 0x20 '!'

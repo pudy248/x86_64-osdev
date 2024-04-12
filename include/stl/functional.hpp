@@ -52,7 +52,7 @@ public:
 		}
 	}
 	void set_args(Args&&... args) {
-		_has_args	  = true;
+		_has_args = true;
 		size_t offset = 0;
 		((new ((Args*)&arg_data[(offset += sizeof(Args)) - sizeof(Args)]) Args(std::move(args))), ...);
 	}

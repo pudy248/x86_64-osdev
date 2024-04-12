@@ -1,7 +1,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "sys/debug.hpp"
 #include <drivers/ahci.hpp>
 #include <kstddefs.hpp>
 #include <kstdio.hpp>
@@ -133,7 +132,7 @@ static vector<fat_disk_span> read_file_layout(uint32_t cluster) {
 
 void fat_init() {
 	partition_table* partTable = (partition_table*)(0x7c00 + MBR_PARTITION_START);
-	int i					   = 0;
+	int i = 0;
 	for (; i < 4; i++)
 		if (partTable->entries[i].sysid == SIG_MBR_FAT32)
 			break;
@@ -143,8 +142,8 @@ void fat_init() {
 	kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
 
 	globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
-	globals->fat_data.bytes_per_sector	  = bpb->bytes_per_sector;
-	globals->fat_data.bytes_per_cluster	  = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
+	globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
+	globals->fat_data.bytes_per_cluster = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
 	globals->fat_data.cluster_lba_offset =
 		partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
 
@@ -185,13 +184,13 @@ fat_inode::~fat_inode() {
 
 static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLFNs) {
 	fat_file_entry* file = &entries[nLFNs].file;
-	fat_inode* inode	 = new fat_inode(file->file_size, file->attributes, parent,
-										 (uint32_t)file->cluster_high << 16 | file->cluster_low);
+	fat_inode* inode = new fat_inode(file->file_size, file->attributes, parent,
+									 (uint32_t)file->cluster_high << 16 | file->cluster_low);
 	inode->filename.reserve(nLFNs * 13);
 	for (int lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
 		fat_file_lfn* lfn = &entries[lfnIdx].lfn;
-		int offset		  = ((lfn->position & 0x3f) - 1) * 13;
-		bool br			  = false;
+		int offset = ((lfn->position & 0x3f) - 1) * 13;
+		bool br = false;
 		for (int i = 0; !br && i < 5; i++)
 			if (lfn->chars_1[i])
 				inode->filename.at(offset + i) = lfn->chars_1[i];
@@ -215,12 +214,12 @@ static void* read_from_disk_layout(fat_inode* inode) {
 	int cluster_idx = 0;
 	for (int i = 0; i < inode->disk_layout.size(); i++)
 		cluster_idx += inode->disk_layout.at(i).span_length;
-	void* dat	= malloc(cluster_idx * globals->fat_data.bytes_per_cluster);
+	void* dat = malloc(cluster_idx * globals->fat_data.bytes_per_cluster);
 	cluster_idx = 0;
 	int cluster = inode->disk_layout.at(0).sector_start;
 	for (int i = 0; i < inode->disk_layout.size(); i++) {
 		int sectors = inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
-		int lba		= cluster_lba(cluster);
+		int lba = cluster_lba(cluster);
 		read_disk((void*)((uint64_t)dat + cluster_idx * globals->fat_data.bytes_per_cluster), lba, sectors);
 		cluster_idx += inode->disk_layout.at(i).span_length;
 	}
@@ -231,7 +230,7 @@ void fat_inode::open() {
 	if (opened)
 		return;
 	disk_layout = read_file_layout(start_cluster);
-	opened		= 1;
+	opened = 1;
 }
 void fat_inode::read() {
 	if (loaded)
@@ -242,7 +241,7 @@ void fat_inode::read() {
 
 	if (attributes & FAT_ATTRIBS::DIR) {
 		fat_dir_ent* entries = (fat_dir_ent*)dat;
-		int idx				 = 0;
+		int idx = 0;
 		while (entries[idx].file.attributes) {
 			if ((entries[idx].file.attributes & FAT_ATTRIBS::VOL_ID) &&
 				entries[idx].file.attributes != FAT_ATTRIBS::LFN) {
@@ -322,7 +321,7 @@ FILE& FILE::operator=(const FILE& other) {
 }
 FILE& FILE::operator=(FILE&& other) {
 	this->~FILE();
-	inode		= other.inode;
+	inode = other.inode;
 	other.inode = NULL;
 	return *this;
 }
@@ -348,7 +347,7 @@ FILE file_open(FILE& directory, rostring filename) {
 }
 FILE file_open(rostring absolute_path) {
 	vector<rostring> parts = absolute_path.split("\\/");
-	FILE file			   = globals->fat_data.root_directory;
+	FILE file = globals->fat_data.root_directory;
 	for (int i = 0; i < parts.size(); i++) {
 		if (!file.inode)
 			return FILE();

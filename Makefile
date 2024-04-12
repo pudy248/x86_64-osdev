@@ -24,10 +24,16 @@ IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-18/lib/clang/18/in
 LDFLAGS_INC:=--lto=thin
 LDFLAGS_FIN:=-gc-sections --lto=thin
 
-ASM_SRC:=$(wildcard src/**/*.asm) $(wildcard src/*.asm)
-C_SRC:=$(wildcard src/**/*.cpp) $(wildcard src/*.cpp)
+ASM_SRC:=$(shell find ./src -name "*.asm" | sed -e "s/^\.\///g")
+C_HDR:=$(shell find ./include -name "*.hpp" | sed -e "s/^\.\///g")
+C_SRC:=$(shell find ./src -name "*.cpp" | sed -e "s/^\.\///g")
 ASM_OBJ:=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRC))
 DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
+
+BOOTLOADER_ASM:=$(shell find ./bootloader -name "*.asm" | sed -e "s/^\.\///g")
+BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
+BOOTLOADER_SRC:=$(shell find ./bootloader -name "*.cpp" | sed -e "s/^\.\///g")
+BOOTLOADER_C_OBJ:=$(patsubst bootloader/%.cpp,tmp/%.o,$(BOOTLOADER_SRC))
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
@@ -88,11 +94,6 @@ tmp/kernel.img: tmp/kernel.img.elf
 	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
 	llvm-objcopy -O binary $< $@
 
-BOOTLOADER_ASM:=$(wildcard bootloader/**/*.asm) $(wildcard bootloader/*.asm)
-BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
-BOOTLOADER_SRC:=$(wildcard bootloader/**/*.cpp) $(wildcard bootloader/*.cpp)
-BOOTLOADER_C_OBJ:=$(patsubst bootloader/%.cpp,tmp/%.o,$(BOOTLOADER_SRC))
-
 $(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
@@ -107,7 +108,10 @@ tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloa
 	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
+format:
+	clang-format -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
+
 include-check: 
-	for file in $(C_SRC) $(wildcard include/**/*.h) $(wildcard include/*.h) $(wildcard include/**/*.hpp) $(wildcard include/*.hpp); do \
+	for file in $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC) do \
 		iwyu $(IWYUFLAGS) $$file; \
 	done

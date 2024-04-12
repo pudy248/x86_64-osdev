@@ -18,7 +18,7 @@ Vec3 rgb2hsl(Vec3 rgb) {
 	if (abs(_max - _min) < 0.0001f) {
 		result.x = result.y = 0; // achromatic
 	} else {
-		float d	 = _max - _min;
+		float d = _max - _min;
 		result.y = (result.z > 0.5f) ? d / (2 - _max - _min) : d / (_max + _min);
 
 		if (abs(_max - rgb.x) < 0.0001f) {
@@ -56,8 +56,8 @@ Vec3 hsl2rgb(Vec3 hsl) {
 	if (abs(hsl.y) < 0.0001f) {
 		result.x = result.y = result.z = 255; // achromatic
 	} else {
-		float q	 = hsl.z < 0.5f ? hsl.z * (1 + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
-		float p	 = 2 * hsl.z - q;
+		float q = hsl.z < 0.5f ? hsl.z * (1 + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
+		float p = 2 * hsl.z - q;
 		result.x = hue2rgb(p, q, hsl.x + 1.f / 3) * 255;
 		result.y = hue2rgb(p, q, hsl.x) * 255;
 		result.z = hue2rgb(p, q, hsl.x - 1.f / 3) * 255;

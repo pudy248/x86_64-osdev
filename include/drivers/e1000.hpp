@@ -7,33 +7,33 @@ struct pci_device;
 namespace E1000_REG
 {
 enum E1000_REG : uint16_t {
-	CTRL	 = 0x0000,
-	STATUS	 = 0x0008,
-	EECD	 = 0x0010,
-	EERD	 = 0x0014,
+	CTRL = 0x0000,
+	STATUS = 0x0008,
+	EECD = 0x0010,
+	EERD = 0x0014,
 	CTRL_EXT = 0x0018,
-	ICR		 = 0x00C0,
-	ITR		 = 0x00C4,
-	ICS		 = 0x00C8,
-	IMS		 = 0x00D0,
-	IMC		 = 0x00D8,
+	ICR = 0x00C0,
+	ITR = 0x00C4,
+	ICS = 0x00C8,
+	IMS = 0x00D0,
+	IMC = 0x00D8,
 
-	RCTRL	 = 0x0100,
-	RDFHS	 = 0x2420,
-	RDFTS	 = 0x2428,
-	RDFPC	 = 0x2430,
+	RCTRL = 0x0100,
+	RDFHS = 0x2420,
+	RDFTS = 0x2428,
+	RDFPC = 0x2430,
 	RXDESCLO = 0x2800,
 	RXDESCHI = 0x2804,
 	RXDESCSZ = 0x2808,
 	RXDESCHD = 0x2810,
 	RXDESCTL = 0x2818,
-	RDTR	 = 0x2820,
-	RXDCTL	 = 0x2828,
-	RADV	 = 0x282C,
-	RSRPD	 = 0x2C00,
+	RDTR = 0x2820,
+	RXDCTL = 0x2828,
+	RADV = 0x282C,
+	RSRPD = 0x2C00,
 
-	TCTRL	 = 0x0400,
-	TIPG	 = 0x0410,
+	TCTRL = 0x0400,
+	TIPG = 0x0410,
 	TXDESCLO = 0x3800,
 	TXDESCHI = 0x3804,
 	TXDESCSZ = 0x3808,
@@ -41,66 +41,66 @@ enum E1000_REG : uint16_t {
 	TXDESCTL = 0x3818,
 
 	RNBC = 0x40A0,
-	ROC	 = 0x40AC,
+	ROC = 0x40AC,
 };
 }
 
 namespace E1000_RCTL
 {
 enum E1000_RCTL : uint32_t {
-	EN		 = 1 << 1,
-	SBP		 = 1 << 2,
-	UPE		 = 1 << 3,
-	MPE		 = 1 << 4,
-	LPE		 = 1 << 5,
+	EN = 1 << 1,
+	SBP = 1 << 2,
+	UPE = 1 << 3,
+	MPE = 1 << 4,
+	LPE = 1 << 5,
 	LBM_NONE = 0 << 6,
-	LBM_PHY	 = 3 << 6,
-	RDMTS_H	 = 0 << 8,
-	RDMTS_Q	 = 1 << 8,
-	RDMTS_E	 = 2 << 8,
-	MO36	 = 0 << 12,
-	MO35	 = 1 << 12,
-	MO34	 = 2 << 12,
-	MO32	 = 3 << 12,
-	BSZ256	 = 3 << 16,
-	BSZ512	 = 2 << 16,
-	BSZ1024	 = 1 << 16,
-	BSZ2048	 = 0 << 16,
-	BSZ4096	 = ((3 << 16) | (1 << 25)),
-	BSZ8192	 = ((2 << 16) | (1 << 25)),
+	LBM_PHY = 3 << 6,
+	RDMTS_H = 0 << 8,
+	RDMTS_Q = 1 << 8,
+	RDMTS_E = 2 << 8,
+	MO36 = 0 << 12,
+	MO35 = 1 << 12,
+	MO34 = 2 << 12,
+	MO32 = 3 << 12,
+	BSZ256 = 3 << 16,
+	BSZ512 = 2 << 16,
+	BSZ1024 = 1 << 16,
+	BSZ2048 = 0 << 16,
+	BSZ4096 = ((3 << 16) | (1 << 25)),
+	BSZ8192 = ((2 << 16) | (1 << 25)),
 	BSZ16384 = ((1 << 16) | (1 << 25)),
-	BAM		 = 1 << 15,
-	VFE		 = 1 << 18,
-	CFIEN	 = 1 << 19,
-	CFI		 = 1 << 20,
-	DPF		 = 1 << 22,
-	PMCF	 = 1 << 23,
-	SECRC	 = 1 << 26,
+	BAM = 1 << 15,
+	VFE = 1 << 18,
+	CFIEN = 1 << 19,
+	CFI = 1 << 20,
+	DPF = 1 << 22,
+	PMCF = 1 << 23,
+	SECRC = 1 << 26,
 };
 }
 
 namespace E1000_TCMD
 {
 enum E1000_TCMD : uint8_t {
-	EOP	 = 1 << 0,
+	EOP = 1 << 0,
 	IFCS = 1 << 1,
-	IC	 = 1 << 2,
-	RS	 = 1 << 3,
-	RPS	 = 1 << 4,
-	VLE	 = 1 << 6,
-	IDE	 = 1 << 7,
+	IC = 1 << 2,
+	RS = 1 << 3,
+	RPS = 1 << 4,
+	VLE = 1 << 6,
+	IDE = 1 << 7,
 };
 }
 
 namespace E1000_TCTL
 {
 enum E1000_TCTL : uint32_t {
-	EN		 = 1 << 1,
-	CTSHIFT	 = 4,
+	EN = 1 << 1,
+	CTSHIFT = 4,
 	CTCSHIFT = 12,
-	PSP		 = 1 << 3,
-	SWXOFF	 = 1 << 22,
-	RTLC	 = 1 << 24,
+	PSP = 1 << 3,
+	SWXOFF = 1 << 22,
+	RTLC = 1 << 24,
 };
 }
 
@@ -114,10 +114,10 @@ enum E1000_TSTA : uint8_t {
 };
 }
 
-constexpr int E1000_NUM_RX_DESC		   = 32;
-constexpr int E1000_NUM_TX_DESC		   = 8;
+constexpr int E1000_NUM_RX_DESC = 32;
+constexpr int E1000_NUM_TX_DESC = 8;
 constexpr uint32_t E1000_BUFSIZE_FLAGS = E1000_RCTL::BSZ8192;
-constexpr int E1000_BUFSIZE			   = 0x2000;
+constexpr int E1000_BUFSIZE = 0x2000;
 
 struct [[gnu::packed]] e1000_rx_desc {
 	volatile uint64_t addr;
