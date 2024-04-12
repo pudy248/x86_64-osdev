@@ -6,10 +6,10 @@
 static PDTE* directories = (PDTE*)0x72000;
 
 void set_page_flags(void* addr, uint8_t flags) {
-    uintptr_t idx = (uintptr_t)addr >> 21;
-    directories[idx] |= flags;
+	uintptr_t idx = (uintptr_t)addr >> 21;
+	directories[idx] |= flags;
 }
 void unset_page_flags(void* addr, uint8_t flags) {
-    uintptr_t idx = (uintptr_t)addr >> 21;
-    directories[idx] &= ~(uint64_t)flags;
+	uintptr_t idx = (uintptr_t)addr >> 21;
+	directories[idx] &= ~(uint64_t)flags;
 }

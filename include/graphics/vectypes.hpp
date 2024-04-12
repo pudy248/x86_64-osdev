@@ -1,29 +1,29 @@
 #pragma once
 
 struct Vec2 {
-    float x;
-    float y;
+	float x;
+	float y;
 };
 struct Vec3 {
-    float x;
-    float y;
-    float z;
+	float x;
+	float y;
+	float z;
 };
 struct Vec4 {
-    float x;
-    float y;
-    float z;
-    float w;
+	float x;
+	float y;
+	float z;
+	float w;
 };
 
 struct Mat3x3 {
-    float m[9];
+	float m[9];
 };
 struct Mat4x3 {
-    float m[12];
+	float m[12];
 };
 struct Mat4x4 {
-    float m[16];
+	float m[16];
 };
 
 Vec3 vtrunc43(Vec4 a);

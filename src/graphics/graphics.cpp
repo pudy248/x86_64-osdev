@@ -1,152 +1,156 @@
 #include <cstdint>
-#include <kstddefs.hpp>
-#include <graphics/math.hpp>
-#include <graphics/vectypes.hpp>
 #include <graphics/graphics.hpp>
+#include <graphics/math.hpp>
 #include <graphics/pipeline.hpp>
+#include <graphics/vectypes.hpp>
+#include <kstddefs.hpp>
 
 static char clip(Vec4 p) {
-    return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;
+	return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;
 }
 
 static Vec4 screenspace(RenderPipeline* pipeline, Vec4 p) {
-    p.x = (p.x * 0.5f + 0.5f) * (float)pipeline->display_w;
-    p.y = (p.y * -0.5f + 0.5f) * (float)pipeline->display_h;
-    return p;
+	p.x = (p.x * 0.5f + 0.5f) * (float)pipeline->display_w;
+	p.y = (p.y * -0.5f + 0.5f) * (float)pipeline->display_h;
+	return p;
 }
 
 static void create_frag(RenderPipeline* pipeline, int x, int y, Vec4 color, float depth) {
-    uint32_t idx = pipeline->display_w * (uint32_t)y + (uint32_t)x;
-    //if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
-    //pipeline->fragBuffer[idx] = (Fragment){depth};
-    pipeline->fragTexture[idx] = 0xffff00ff;//rgba2u32(color);
-    //printf("%i:%i\n", idx, pipeline->fragTexture[idx]);
+	uint32_t idx = pipeline->display_w * (uint32_t)y + (uint32_t)x;
+	//if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
+	//pipeline->fragBuffer[idx] = (Fragment){depth};
+	pipeline->fragTexture[idx] = 0xffff00ff; //rgba2u32(color);
+	//printf("%i:%i\n", idx, pipeline->fragTexture[idx]);
 }
 
 void raster_point(RenderPipeline* pipeline, uint32_t p) {
-    ProjectedVertex v = pipeline->projVertBuffer[p];
-    if (clip(v.spos)) return;
-    Vec4 ss = screenspace(pipeline, v.spos);
-    create_frag(pipeline, (int)ss.x, (int)ss.y, v.color, ss.w);
+	ProjectedVertex v = pipeline->projVertBuffer[p];
+	if (clip(v.spos))
+		return;
+	Vec4 ss = screenspace(pipeline, v.spos);
+	create_frag(pipeline, (int)ss.x, (int)ss.y, v.color, ss.w);
 }
 
 void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
-    raster_point(pipeline, p1);
-    raster_point(pipeline, p2);
+	raster_point(pipeline, p1);
+	raster_point(pipeline, p2);
 
-    ProjectedVertex v1 = pipeline->projVertBuffer[p1];
-    ProjectedVertex v2 = pipeline->projVertBuffer[p2];
-    if (clip(v1.spos) || clip(v2.spos)) return;
+	ProjectedVertex v1 = pipeline->projVertBuffer[p1];
+	ProjectedVertex v2 = pipeline->projVertBuffer[p2];
+	if (clip(v1.spos) || clip(v2.spos))
+		return;
 
-    if (v1.spos.y < v2.spos.y) {
-        ProjectedVertex tmp = v1;
-        v1 = v2;
-        v2 = tmp;
-    }
-    
-    Vec4 ss1 = screenspace(pipeline, v1.spos);
-    Vec4 ss2 = screenspace(pipeline, v2.spos);
-    
-    float yp = 0;
-    float dy12 = ss2.y - ss1.y;
-    
-    for (; yp < dy12; yp++) {
-        float yf = min(1, yp / dy12);
-        float yfp = min(1, (yp+1) / dy12);
-        Vec4 pos1 = lerp4(ss1, ss2, yf);
-        Vec4 pos2 = lerp4(ss1, ss2, yfp);
-        Vec4 color1 = lerp4(v1.color, v2.color, yf);
-        Vec4 color2 = lerp4(v1.color, v2.color, yfp);
-        int x1 = (int)pos1.x;
-        int x2 = (int)pos2.x;
-        for (int x = x1; x != x2; x += sign(x2 - x1)) {
-            float xf = (float)(x - x1) / (float)(x2 - x1);
-            Vec4 col = lerp4(color1, color2, xf);
-            create_frag(pipeline, x, (int)pos1.y, col, lerpf(pos1.w, pos2.w, xf));
-        }
-    }
+	if (v1.spos.y < v2.spos.y) {
+		ProjectedVertex tmp = v1;
+		v1					= v2;
+		v2					= tmp;
+	}
+
+	Vec4 ss1 = screenspace(pipeline, v1.spos);
+	Vec4 ss2 = screenspace(pipeline, v2.spos);
+
+	float yp   = 0;
+	float dy12 = ss2.y - ss1.y;
+
+	for (; yp < dy12; yp++) {
+		float yf	= min(1, yp / dy12);
+		float yfp	= min(1, (yp + 1) / dy12);
+		Vec4 pos1	= lerp4(ss1, ss2, yf);
+		Vec4 pos2	= lerp4(ss1, ss2, yfp);
+		Vec4 color1 = lerp4(v1.color, v2.color, yf);
+		Vec4 color2 = lerp4(v1.color, v2.color, yfp);
+		int x1		= (int)pos1.x;
+		int x2		= (int)pos2.x;
+		for (int x = x1; x != x2; x += sign(x2 - x1)) {
+			float xf = (float)(x - x1) / (float)(x2 - x1);
+			Vec4 col = lerp4(color1, color2, xf);
+			create_frag(pipeline, x, (int)pos1.y, col, lerpf(pos1.w, pos2.w, xf));
+		}
+	}
 }
 
-static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1, float depth2) {
-    if (x2 < x1) {
-        int tmp1 = x1;
-        x1 = x2;
-        x2 = tmp1;
-        Vec4 tmp2 = color1;
-        color1 = color2;
-        color2 = tmp2;
-        float tmp3 = depth1;
-        depth1 = depth2;
-        depth2 = tmp3;
-    }
+static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1,
+					 float depth2) {
+	if (x2 < x1) {
+		int tmp1   = x1;
+		x1		   = x2;
+		x2		   = tmp1;
+		Vec4 tmp2  = color1;
+		color1	   = color2;
+		color2	   = tmp2;
+		float tmp3 = depth1;
+		depth1	   = depth2;
+		depth2	   = tmp3;
+	}
 
-    for (int x = x1; x <= x2; x++) {
-        float xf = (float)(x - x1) / (float)(x2 - x1);
-        Vec4 col = lerp4(color1, color2, xf);
-        create_frag(pipeline, x, y, col, lerpf(depth1, depth2, xf));
-    }
+	for (int x = x1; x <= x2; x++) {
+		float xf = (float)(x - x1) / (float)(x2 - x1);
+		Vec4 col = lerp4(color1, color2, xf);
+		create_frag(pipeline, x, y, col, lerpf(depth1, depth2, xf));
+	}
 }
 
 void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
-    uint32_t p1 = pipeline->triangleBuffer[3 * tri];
-    uint32_t p3 = pipeline->triangleBuffer[3 * tri + 1];
-    uint32_t p2 = pipeline->triangleBuffer[3 * tri + 2];
-    //raster_point(pipeline, p1);
-    //raster_point(pipeline, p2);
-    //raster_point(pipeline, p3);
-    //return;
+	uint32_t p1 = pipeline->triangleBuffer[3 * tri];
+	uint32_t p3 = pipeline->triangleBuffer[3 * tri + 1];
+	uint32_t p2 = pipeline->triangleBuffer[3 * tri + 2];
+	//raster_point(pipeline, p1);
+	//raster_point(pipeline, p2);
+	//raster_point(pipeline, p3);
+	//return;
 
-    ProjectedVertex v1 = pipeline->projVertBuffer[p1];
-    ProjectedVertex v2 = pipeline->projVertBuffer[p2];
-    ProjectedVertex v3 = pipeline->projVertBuffer[p3];
-    if (clip(v1.spos) || clip(v2.spos) || clip(v3.spos)) return;
+	ProjectedVertex v1 = pipeline->projVertBuffer[p1];
+	ProjectedVertex v2 = pipeline->projVertBuffer[p2];
+	ProjectedVertex v3 = pipeline->projVertBuffer[p3];
+	if (clip(v1.spos) || clip(v2.spos) || clip(v3.spos))
+		return;
 
-    if (v1.spos.y < v2.spos.y) {
-        ProjectedVertex tmp = v1;
-        v1 = v2;
-        v2 = tmp;
-    }
-    if (v1.spos.y < v3.spos.y) {
-        ProjectedVertex tmp = v1;
-        v1 = v3;
-        v3 = tmp;
-    }
-    if (v2.spos.y < v3.spos.y) {
-        ProjectedVertex tmp = v2;
-        v2 = v3;
-        v3 = tmp;
-    }
-    
-    Vec4 ss1 = screenspace(pipeline, v1.spos);
-    Vec4 ss2 = screenspace(pipeline, v2.spos);
-    Vec4 ss3 = screenspace(pipeline, v3.spos);
-    
-    float yp = 0;
-    float dy12 = ss2.y - ss1.y;
-    float dy13 = ss3.y - ss1.y;
-    float dy23 = ss3.y - ss2.y;
+	if (v1.spos.y < v2.spos.y) {
+		ProjectedVertex tmp = v1;
+		v1					= v2;
+		v2					= tmp;
+	}
+	if (v1.spos.y < v3.spos.y) {
+		ProjectedVertex tmp = v1;
+		v1					= v3;
+		v3					= tmp;
+	}
+	if (v2.spos.y < v3.spos.y) {
+		ProjectedVertex tmp = v2;
+		v2					= v3;
+		v3					= tmp;
+	}
 
-    for (; yp < dy12; yp++) {
-        float yf12 = min(1, yp / dy12);
-        float yf13 = min(1, yp / dy13);
+	Vec4 ss1 = screenspace(pipeline, v1.spos);
+	Vec4 ss2 = screenspace(pipeline, v2.spos);
+	Vec4 ss3 = screenspace(pipeline, v3.spos);
 
-        Vec4 pos1 = lerp4(ss1, ss2, yf12);
-        Vec4 pos2 = lerp4(ss1, ss3, yf13);
-        Vec4 color1 = lerp4(v1.color, v2.color, yf12);
-        Vec4 color2 = lerp4(v1.color, v3.color, yf13);
-        scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
-    }
+	float yp   = 0;
+	float dy12 = ss2.y - ss1.y;
+	float dy13 = ss3.y - ss1.y;
+	float dy23 = ss3.y - ss2.y;
 
-    for (yp = dy12; yp < dy12 + dy23; yp++) {
-        float yf23 = min(1, (yp - dy12) / dy23);
-        float yf13 = min(1, yp / dy13);
+	for (; yp < dy12; yp++) {
+		float yf12 = min(1, yp / dy12);
+		float yf13 = min(1, yp / dy13);
 
-        Vec4 pos1 = lerp4(ss2, ss3, yf23);
-        Vec4 pos2 = lerp4(ss1, ss3, yf13);
-        Vec4 color1 = lerp4(v2.color, v3.color, yf23);
-        Vec4 color2 = lerp4(v1.color, v3.color, yf13);
-        scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
-    }
+		Vec4 pos1	= lerp4(ss1, ss2, yf12);
+		Vec4 pos2	= lerp4(ss1, ss3, yf13);
+		Vec4 color1 = lerp4(v1.color, v2.color, yf12);
+		Vec4 color2 = lerp4(v1.color, v3.color, yf13);
+		scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
+	}
+
+	for (yp = dy12; yp < dy12 + dy23; yp++) {
+		float yf23 = min(1, (yp - dy12) / dy23);
+		float yf13 = min(1, yp / dy13);
+
+		Vec4 pos1	= lerp4(ss2, ss3, yf23);
+		Vec4 pos2	= lerp4(ss1, ss3, yf13);
+		Vec4 color1 = lerp4(v2.color, v3.color, yf23);
+		Vec4 color2 = lerp4(v1.color, v3.color, yf13);
+		scanline(pipeline, (int)pos1.x, (int)pos2.x, (int)pos1.y, color1, color2, pos1.w, pos2.w);
+	}
 }
 
 /*

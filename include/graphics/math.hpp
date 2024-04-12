@@ -8,7 +8,7 @@ uint8_t rand(void);
 float sqrtf(float x);
 float rsqrtf(float number);
 
-void cossin_cordic(double beta, int n, double *c, double *s);
+void cossin_cordic(double beta, int n, double* c, double* s);
 
 //double fabs(double n);
 double fmod(double n, double m);
