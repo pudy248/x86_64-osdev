@@ -80,7 +80,7 @@ LongMode:
     call enable_avx
     
     call stage2_main
-    add rsp, 8
+    sub rsp, 8
     jmp rax
 
 enable_sse:

@@ -53,7 +53,7 @@ void pic_init() {
 	outb(PIC2_DATA, a2);
 }
 
-void pic_eoi(uint8_t irq) {
+extern "C" void pic_eoi(uint8_t irq) {
 	if (irq >= 8)
 		outb(PIC2_CMD, PIC_EOI);
 

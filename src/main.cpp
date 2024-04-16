@@ -6,6 +6,7 @@
 #include <graphics/pipeline.hpp>
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
+#include <kstddefs.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
@@ -13,6 +14,8 @@
 #include <net/http.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
+#include <stl/array.hpp>
+#include <stl/container.hpp>
 #include <stl/vector.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
@@ -153,41 +156,48 @@ static void graphics_main() {
 	}
 }
 
-static void console_main() {
-	graphics_text_init();
-	*globals->g_console =
-		console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
-
-	for (int i = 0; i < 3; i++)
-		clockspeed_MHz();
-
+static void dealloc_fat() {
 	fat_inode* tmp = globals->fat_data.root_directory.inode;
 	globals->fat_data.root_directory = FILE();
 	globals->fat_data.working_directory = FILE();
 	globals->fat_data.fat_tables.clear();
 	delete tmp;
+}
 
-	//stacktrace();
+static double frequency = 0;
+static void console_main() {
+	graphics_text_init();
+	*globals->g_console =
+		console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
+
+	for (int i = 0; i < 3; i++) {
+		double freqi = clockspeed_MHz();
+		frequency = max(frequency, freqi);
+	}
+
 	//inf_wait();
 	//http_main();
 }
 
 extern "C" void kernel_main(void) {
 	idt_init();
-	irq_set(0, &inc_pit);
-	irq_set(1, &keyboard_irq);
+	isr_set(32, &inc_pit);
+	isr_set(33, &keyboard_irq);
 	time_init();
 	global_ctors();
 	//load_debug_symbs("/symbols.txt");
+	//load_debug_symbs("/symbols2.txt");
 	globals->fat_data.root_directory.inode->purge();
 
+	dealloc_fat();
 	//http_main();
 	//graphics_main();
-	console_main();
+	//console_main();
 
+	tag_dump();
 	print("Kernel reached end of execution.\n");
-	int cnt = 0, cnt2 = 0;
-	double lastTimepoint = timepoint::pit_time_imprecise().unix_seconds();
+	//int cnt = 0, cnt2 = 0;
+	//double lastTimepoint = timepoint::pit_time_imprecise().unix_seconds();
 	while (1) {
 		timepoint t = timepoint::pit_time_imprecise();
 		//double curTimepoint = t.unix_seconds();

@@ -154,7 +154,6 @@ extern e1000_handle* e1000_dev;
 void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uint16_t len),
 				void (*link_callback)(void));
 void e1000_enable();
-void e1000_int_handler(void);
 void e1000_receive(void);
 int e1000_send_async(void* data, uint16_t len);
 void net_await(int handle);

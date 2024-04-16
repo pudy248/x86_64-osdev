@@ -36,25 +36,21 @@ concept container_writeable = requires(C c) {
 	};
 };
 
+template <typename T> class span;
+
 template <typename T, typename Impl>
 //requires container<Impl, T>
 class basic_container {
 public:
 	constexpr basic_container() = default;
 
-	template <std::convertible_to<T> R>
-	//typename = std::enable_if<container_writeable<Impl, T>>::type>
-	constexpr basic_container(const R* begin, int size, int offset = 0) {
+	template <std::convertible_to<T> R> constexpr basic_container(const R* begin, int size, int offset = 0) {
 		new (this) Impl(begin + offset, begin + size + offset);
 	}
-	template <container<T> C2>
-	//typename = std::enable_if<container_writeable<Impl, T>>::type>
-	constexpr basic_container(const C2& begin, int size, int offset = 0) {
+	template <container<T> C2> constexpr basic_container(const C2& begin, int size, int offset = 0) {
 		new (this) Impl(begin.begin() + offset, begin.begin() + size + offset);
 	}
-	template <std::size_t N>
-	//typename = std::enable_if<container_writeable<Impl, T>>::type>
-	constexpr basic_container(const T (&other)[N]) {
+	template <std::size_t N> constexpr basic_container(const T (&other)[N]) {
 		new (this) Impl(other, other + N);
 	}
 
@@ -68,8 +64,17 @@ public:
 		return self.at(self.size() - 1);
 	}
 
-	template <container_writeable<T> C2, class Derived> constexpr C2 subspan(this Derived& self, int start) {
+	template <container_writeable<T> C2 = span<T>, class Derived> constexpr C2 subspan(this Derived& self, int start) {
 		return C2(self.begin() + start, self.end());
+	}
+	template <container_writeable<T> C2 = span<T>, class Derived>
+	constexpr C2 subspan(this Derived& self, int start, int end) {
+		return C2(self.begin() + start, self.begin() + start + end);
+	}
+	template <container<T> C2, class Derived> void blit(this Derived& self, const C2& elems, int idx) {
+		for (int i = 0; i < elems.size(); i++) {
+			self.at(idx + i) = elems.at(i);
+		}
 	}
 
 	template <class Derived> constexpr int find(this const Derived& self, const T& elem) {
@@ -163,6 +168,9 @@ public:
 	static constexpr T* static_begin(basic_container* _this) {
 		return ((Impl*)_this)->begin();
 	}
+	static constexpr void static_reserve(basic_container* _this, int size) {
+		((Impl*)_this)->reserve(size);
+	}
 	static constexpr int static_size(basic_container* _this) {
 		return ((Impl*)_this)->size();
 	}
@@ -175,6 +183,7 @@ public:
 	T& (*_at)(void*, int);
 	const T* (*_cbegin)(void*);
 	T* (*_begin)(void*);
+	void (*_reserve)(void*, int);
 	int (*_size)(void*);
 
 	template <container<T> C>
@@ -184,6 +193,7 @@ public:
 		, _at((T & (*)(void*, int)) & C::static_at)
 		, _cbegin((const T* (*)(void*)) & C::static_cbegin)
 		, _begin((T * (*)(void*)) & C::static_begin)
+		, _reserve((void (*)(void*, int)) & C::static_reserve)
 		, _size((int (*)(void*)) & C::static_size) {
 	}
 
@@ -202,6 +212,9 @@ public:
 	}
 	T* begin() {
 		return _begin(_container);
+	}
+	void reserve(int size) {
+		return _reserve(_container, size);
 	}
 	int size() const {
 		return _size(_container);

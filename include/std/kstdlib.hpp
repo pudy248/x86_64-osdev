@@ -78,9 +78,6 @@ static inline void write_cr4(uint64_t val) {
 	asmv("mov %0, %%cr4" : "=r"(val));
 }
 
-[[clang::noinline]] static void* get_rip() {
-	return __builtin_return_address(0);
-}
 static inline void invlpg(void* m) {
 	asmv("invlpg (%0)" : : "b"(m) : "memory");
 }
@@ -89,17 +86,21 @@ static inline uint64_t rdtsc(void) {
 	asmv("rdtsc" : "=a"(low), "=d"(high));
 	return ((uint64_t)high << 32) | low;
 }
-static inline __attribute__((noreturn)) void inf_wait(void) {
-	while (1)
-		asmv("");
+static inline void cpu_relax() {
+	asm("rep nop" : : : "memory");
 }
-static inline __attribute__((noreturn)) void cpu_halt(void) {
-	asmv("cli; hlt");
-	//The compiler is of the opinion that this may halt.
+// The compiler is of the opinion that this may return.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winvalid-noreturn"
+[[noreturn]] static inline void cpu_halt(void) {
+	asmv("cli; hlt; nop");
 }
 #pragma clang diagnostic pop
+[[noreturn]] static inline void inf_wait(void) {
+	cpu_halt();
+}
+
+#define interrupt(n) asm("int " #n)
 
 [[gnu::returns_nonnull]] void* operator new(uint64_t size);
 [[gnu::returns_nonnull]] void* operator new(uint64_t size, void* ptr) noexcept;
@@ -119,7 +120,7 @@ template <typename T> T* waterline_new(uint64_t count = 1, uint16_t alignment = 
 	return (T*)walloc(count * sizeof(T), alignment);
 }
 
-void stacktrace();
+void inline_stacktrace();
 void print(const char*);
 #define STRINGIZE(x) STRINGIZE2(x)
 #define STRINGIZE2(x) #x
@@ -127,7 +128,7 @@ void print(const char*);
 	{                                                                   \
 		if (!(condition)) {                                             \
 			print("ASSERT " __FILE__ ":" STRINGIZE(__LINE__) ": " msg); \
-			stacktrace();                                               \
+			inline_stacktrace();                                        \
 			inf_wait();                                                 \
 		}                                                               \
 	}

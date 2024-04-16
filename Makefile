@@ -1,14 +1,14 @@
 CC:=/usr/bin/clang-18
 LD:=/usr/bin/ld.lld-18
 CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
-CFLAGS_CC_DBG:=-fdebug-macro 
-# -mno-omit-leaf-frame-pointer
+CFLAGS_CC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
+# 
 
 ASM:=nasm
 ASMFLAGS:=-f elf64
 
-CFLAGS_DBG:= -g  $(CFLAGS_CC_DBG)
-# -fno-omit-frame-pointer
+CFLAGS_DBG:= -g -fno-omit-frame-pointer $(CFLAGS_CC_DBG)
+# 
 
 CFLAGS:=\
 -m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
@@ -19,7 +19,7 @@ CFLAGS:=\
 $(CFLAGS_CC) $(CFLAGS_DBG)
 CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
 
-IWYUFLAGS:=-std=c++20 -Iinclude -Iinclude/std -I/usr/lib/llvm-18/lib/clang/18/include
+IWYUFLAGS:=-std=c++23 -Iinclude -Iinclude/std -I/usr/lib/llvm-18/lib/clang/18/include
 
 LDFLAGS_INC:=--lto=thin
 LDFLAGS_FIN:=-gc-sections --lto=thin
@@ -37,7 +37,7 @@ BOOTLOADER_C_OBJ:=$(patsubst bootloader/%.cpp,tmp/%.o,$(BOOTLOADER_SRC))
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
-QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=dump.pcap
+QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=tmp/dump.pcap
 QEMU_VIDEO:=-vga vmware
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell
@@ -46,7 +46,7 @@ QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_M
 #LOCAL_IP:=192.168.0.15
 LOCAL_IP:=172.29.244.210
 
-.PHONY: default clean start start-trace start-gdb include-check
+.PHONY: default clean start start-trace start-db include-check
 default: disk_2.img
 clean:
 	@rm -f disk.img disk_2.img dump.pcap fattener
@@ -65,10 +65,9 @@ start-flash: disk_2.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) $(QEMU_STORAGE_AUX)
 start-trace: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
-start-gdb: disk.img
+start-db: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null 2> /dev/null &
-	gdb -tui -ex "add-symbol-file tmp/kernel.img.elf" -ex "add-symbol-file tmp/bootloader.img.elf" -ex "target remote $(LOCAL_IP):1234"
-#	gdbfrontend -G "-s tmp/bootloader.img.elf -s tmp/kernel.img.elf -ex \"target remote $(LOCAL_IP):1234\""
+	lldb-18 -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5556
@@ -111,7 +110,7 @@ tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloa
 format:
 	clang-format -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 
-include-check: 
-	for file in $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC) do \
+iwyu: 
+	for file in $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC); do \
 		iwyu $(IWYUFLAGS) $$file; \
 	done

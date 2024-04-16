@@ -1,8 +1,9 @@
-#include "sys/debug.hpp"
 #include <cstdarg>
 #include <cstdint>
 #include <kstring.hpp>
 #include <net/net.hpp>
+#include <stl/container.hpp>
+#include <stl/stream.hpp>
 #include <stl/vector.hpp>
 #include <utility>
 
@@ -42,6 +43,7 @@ int formats(container_wrapper<char> output, const rostring fmt, ...) {
 
 	istringstream fmts(fmt);
 	basic_ostringstream<container_wrapper<char>> ostr(output);
+	ostr.data.reserve(fmt.size());
 
 	const rostring fmtchars("ixXpbfsSIM");
 

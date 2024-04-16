@@ -40,6 +40,11 @@ public:
 		: function(fn)
 		, _has_args(false) {
 	}
+	function_instance(R (*fn)(Args...), Args... args)
+		: function(fn)
+		, _has_args(true) {
+		set_args(std::forward<Args>(args)...);
+	}
 	function_instance(R (*fn)(Args...), Args&&... args)
 		: function(fn)
 		, _has_args(true) {

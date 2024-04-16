@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/global.hpp>
 #include <sys/paging.hpp>

@@ -2,29 +2,35 @@
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
+#include <lib/allocators/heap.hpp>
+#include <lib/allocators/pagemap.hpp>
+#include <lib/allocators/waterline.hpp>
+#include <stl/array.hpp>
 #include <stl/container.hpp>
-#include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
 
-void inc_pit() {
+
+struct register_file;
+
+[[gnu::force_align_arg_pointer]] void inc_pit(uint64_t, register_file*) {
 	globals->elapsedPITs = globals->elapsedPITs + 1;
 	//Print diagnostics
 	{
 		int x, l;
 		array<char, 20> arr;
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "  W %i", globals->global_waterline.mem_used());
+		l = formats(arr, "    W %i", globals->global_waterline.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 0, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "  S %i", globals->global_pagemap.mem_used());
+		l = formats(arr, "    S %i", globals->global_pagemap.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 1, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "  H %i", globals->global_heap.mem_used());
+		l = formats(arr, "    H %i", globals->global_heap.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 2, arr[i]);
 

@@ -43,9 +43,9 @@ public:
 template <typename T, allocator A = default_allocator> class vector : public basic_container<T, vector<T, A>> {
 protected:
 	static constexpr int resize_ratio = 2;
-	A alloc;
-	allocator_traits<A>::ptr_t m_arr;
+	T* m_arr; //allocator_traits<A>::ptr_t
 	int m_size;
+	A alloc;
 	int m_capacity;
 
 public:
@@ -59,18 +59,18 @@ public:
 		, m_capacity(0) {
 	}
 	vector(int size, A _alloc = A())
-		: alloc(_alloc)
-		, m_size(0)
+		: m_size(0)
+		, alloc(_alloc)
 		, m_capacity(size) {
-		this->m_arr = alloc.alloc(sizeof(T) * m_capacity);
+		this->m_arr = (T*)alloc.alloc(sizeof(T) * m_capacity);
 		new (this->m_arr) T[m_capacity];
 	}
 	template <std::convertible_to<T> R>
 	vector(const R* begin, const R* end, A _alloc = A())
-		: alloc(_alloc)
-		, m_size(end - begin)
+		: m_size(end - begin)
+		, alloc(_alloc)
 		, m_capacity(end - begin) {
-		this->m_arr = alloc.alloc(sizeof(T) * m_capacity);
+		this->m_arr = (T*)alloc.alloc(sizeof(T) * m_capacity);
 		for (int i = 0; i < this->m_size; i++)
 			new (&m_at(i)) T(begin[i]);
 	}
@@ -87,9 +87,9 @@ public:
 		: vector(other.begin(), other.end(), A()) {
 	}
 	constexpr vector(vector&& other)
-		: alloc(std::move(other.alloc))
-		, m_arr(other.m_arr)
+		: m_arr(other.m_arr)
 		, m_size(other.m_size)
+		, alloc(std::move(other.alloc))
 		, m_capacity(other.m_capacity) {
 		other.unsafe_clear();
 	}
@@ -157,9 +157,9 @@ public:
 		if (m_capacity >= size)
 			return;
 		if (m_capacity)
-			m_arr = alloc.realloc(m_arr, sizeof(T) * m_capacity, sizeof(T) * size);
+			m_arr = (T*)alloc.realloc(m_arr, sizeof(T) * m_capacity, sizeof(T) * size);
 		else
-			m_arr = alloc.alloc(size);
+			m_arr = (T*)alloc.alloc(sizeof(T) * size);
 		for (int i = m_capacity; i < size; i++)
 			new (&m_at(i)) T();
 		m_capacity = size;
@@ -202,12 +202,6 @@ public:
 			for (int i = this->size() - 1; i > idx; i--)
 				m_at(i) = std::move(m_at(i - 1));
 			m_at(idx) = std::forward<T>(elem);
-		}
-	}
-
-	template <container<T> C2> void blit(const C2& elems, int idx) {
-		for (int i = 0; i < elems.size(); i++) {
-			this->at(idx + i) = elems.at(i);
 		}
 	}
 

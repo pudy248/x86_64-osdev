@@ -1,12 +1,10 @@
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
+#include <resources/ms_gothic_small.hpp>
 #include <text/graphical_console.hpp>
 #include <type_traits>
-
-#include <resources/ms_gothic_small.hpp>
 
 int graphics_text_dimensions[2] = { 120, 30 }; //{240, 60};
 

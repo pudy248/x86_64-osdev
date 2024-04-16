@@ -5,13 +5,8 @@
 #include <lib/allocators/heap.hpp>
 #include <lib/allocators/pagemap.hpp>
 #include <lib/allocators/waterline.hpp>
-#include <stl/allocator.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
-
-#define abs(a) (a < 0 ? -a : a)
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 extern "C" {
 void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
@@ -42,14 +37,14 @@ void mem_init() {
 	return (void*)globals->global_waterline.alloc(size, alignment);
 }
 
-[[gnu::returns_nonnull, gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment) {
+[[gnu::returns_nonnull, gnu::malloc]] void* __malloc(uint64_t size, uint16_t alignment) {
 	void* ptr = globals->global_pagemap.alloc(size);
 	if (!ptr)
 		ptr = globals->global_heap.alloc(size, alignment);
 	return ptr;
 }
 
-void free(void* ptr) {
+void __free(void* ptr) {
 	if (globals->global_pagemap.contains(ptr))
 		globals->global_pagemap.dealloc(ptr);
 	else if (globals->global_heap.contains(ptr))
@@ -57,8 +52,23 @@ void free(void* ptr) {
 	else {
 		print("Freed non-freeable allocation!\n");
 		wait_until_kbhit();
-		stacktrace();
+		inline_stacktrace();
 	}
+}
+
+constexpr static bool tag_allocations = true;
+[[gnu::returns_nonnull, gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment) {
+	kassert(size <= 0xffffffff, "Invalid size in malloc()");
+	if (tag_allocations)
+		return tagged_alloc(size, alignment);
+	else
+		return __malloc(size, alignment);
+}
+void free(void* ptr) {
+	if (tag_allocations)
+		tagged_free(ptr);
+	else
+		__free(ptr);
 }
 
 void* operator new(uint64_t size) {

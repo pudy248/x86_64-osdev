@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <drivers/e1000.hpp>
 #include <drivers/pci.hpp>
 #include <kstddefs.hpp>
@@ -9,6 +10,7 @@
 e1000_handle* e1000_dev;
 static void (*receive_fn)(void* packet, uint16_t len);
 static void (*link_fn)(void);
+static void e1000_int_handler(uint64_t, register_file*);
 
 static void e1000_write(uint16_t addr, uint32_t val) {
 	((volatile uint32_t*)e1000_dev->mmio_base)[addr >> 2] = val;
@@ -146,7 +148,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	//e1000_pci.interrupt_line = 5;
 
 	//printf("Using interrupt line %i\n", e1000_pci.interrupt_line);
-	irq_set(e1000_pci.interrupt_line, &e1000_int_handler);
+	isr_set(e1000_pci.interrupt_line + 32, &e1000_int_handler);
 	//e1000_write(E1000_REG::ITR, 0);
 	print("e1000e network card initialized.\n\n");
 }
@@ -155,7 +157,7 @@ void e1000_enable() {
 	e1000_write(E1000_REG::IMS, 0xFF & ~4);
 }
 
-void e1000_int_handler() {
+static void e1000_int_handler(uint64_t, register_file*) {
 	e1000_write(E1000_REG::IMS, 0x1);
 	uint32_t status = e1000_read(E1000_REG::ICR);
 	//printf("%02x\n", status);

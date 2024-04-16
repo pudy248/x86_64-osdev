@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <sys/idt.hpp>
 
 typedef struct {
 	uint8_t shift;
@@ -14,6 +15,6 @@ typedef struct {
 } KeyboardBuffer;
 extern KeyboardBuffer keyboardInput;
 
-void keyboard_irq(void);
+void keyboard_irq(uint64_t, register_file*);
 uint8_t update_modifiers(uint8_t key);
 char key_to_ascii(uint8_t key);

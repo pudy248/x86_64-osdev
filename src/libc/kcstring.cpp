@@ -1,5 +1,4 @@
 #include <kcstring.hpp>
-#include <kstddefs.hpp>
 
 void strcpy(char* __restrict dest, const char* __restrict source) {
 	while (*source != 0) {

@@ -7,6 +7,7 @@
 #include <stl/allocator.hpp>
 #include <stl/array.hpp>
 #include <stl/vector.hpp>
+#include <sys/debug.hpp>
 
 // page count, max slab size
 template <std::size_t PC, std::size_t MSS> class slab_pagemap;
@@ -16,34 +17,30 @@ public:
 };
 template <std::size_t PC, std::size_t MSS> class slab_pagemap : public default_allocator {
 protected:
-	constexpr static uint8_t next_power_of_two(uint8_t val) {
+	constexpr static uint64_t next_power_of_two(uint64_t val) {
 		if (!val)
 			return 0;
-		for (uint8_t i = 1; i && i <= MSS; i <<= 1)
+		for (uint64_t i = 1; i && i <= MSS; i <<= 1)
 			if (val <= i)
 				return i;
 		return 0;
 	}
-	template <std::size_t SS> slab_allocator<SS, 4096>* get_slab() {
-		kassert((std::size_t)allocated_pages < PC, "Slab pagemap ran out of pages!");
-		int first_unused = -1;
-		for (std::size_t i = 0; i < PC; i++) {
-			if (slab_widths[i] == SS) {
-				if (pages.at(i).num_free)
-					return (slab_allocator<SS, 4096>*)&pages.at(i);
-			} else if (!slab_widths[i] && first_unused == -1) {
-				first_unused = i;
-				break;
-			}
-		}
-		kassert(first_unused >= 0, "Pagemap error.");
-		allocated_pages++;
-		slab_widths[first_unused] = SS;
-		new (&pages.at(first_unused)) slab_allocator<SS, 4096>();
-		return (slab_allocator<SS, 4096>*)&pages.at(first_unused);
-	}
 	template <std::size_t SS> slab_allocator<SS, 4096>* as_width(int index) {
 		return (slab_allocator<SS, 4096>*)&pages.at(index);
+	}
+	template <std::size_t SS> slab_allocator<SS, 4096>* get_slab() {
+		for (std::size_t i = 0; i < PC; i++) {
+			if (slab_widths[i] == SS) {
+				if (as_width<SS>(i)->num_allocs < slab_allocator<SS, 4096>::SLAB_COUNT)
+					return as_width<SS>(i);
+			} else if (!slab_widths[i])
+				break;
+		}
+		allocated_pages++;
+		kassert((uint64_t)allocated_pages < PC, "Pagemap exhausted.");
+		slab_widths[allocated_pages - 1] = SS;
+		new (as_width<SS>(allocated_pages - 1)) slab_allocator<SS, 4096>();
+		return as_width<SS>(allocated_pages - 1);
 	}
 
 public:
@@ -94,6 +91,8 @@ public:
 	}
 
 	ptr_t alloc(uint64_t size) {
+		if (size > MSS)
+			return nullptr;
 		switch (next_power_of_two(size)) {
 		case 1:
 			return get_slab<1>()->alloc(0);

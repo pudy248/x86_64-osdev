@@ -27,9 +27,10 @@ private:
 #endif
 	};
 	struct heap_meta_tail {
-		//#ifdef HEAP_ALLOC_PROTECTOR
+#ifdef HEAP_ALLOC_PROTECTOR
 		uint64_t protector;
-		//#endif
+#endif
+		uint64_t flags;
 	};
 
 	static constexpr uint64_t protector_head_magic = 0xF0F1F2F3F4F5F6F7LL;
@@ -113,9 +114,10 @@ public:
 		}
 
 		heap_meta_head* head_ptr = (heap_meta_head*)aligned_addr;
-		// heap_meta_tail* tail_ptr = (heap_meta_tail*)(aligned_addr + sizeof(heap_meta_head) + blk_size);
+		heap_meta_tail* tail_ptr = (heap_meta_tail*)(aligned_addr + sizeof(heap_meta_head) + blk_size);
 		head_ptr->size = blk_size;
 		head_ptr->alignment_offset = align_offset;
+		tail_ptr->flags = 0;
 
 #ifdef HEAP_ALLOC_PROTECTOR
 		head_ptr->protector = protector_head_magic;
@@ -141,6 +143,8 @@ public:
 #endif
 		heap_meta_head* head_ptr = (heap_meta_head*)((uint64_t)ptr - sizeof(heap_meta_head));
 		heap_meta_tail* tail_ptr = (heap_meta_tail*)((uint64_t)ptr + head_ptr->size);
+		kassert(!tail_ptr->flags, "Double free in heap.");
+		tail_ptr->flags = 1;
 #ifdef HEAP_ALLOC_PROTECTOR
 		if (head_ptr->protector != protector_head_magic) {
 			qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n",

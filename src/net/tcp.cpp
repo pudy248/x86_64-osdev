@@ -6,7 +6,6 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <stl/container.hpp>
 #include <stl/vector.hpp>
 
 #define TCP_DATA_OFFSET(s) ((s + 5) << 4)

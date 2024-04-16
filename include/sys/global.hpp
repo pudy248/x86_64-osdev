@@ -5,6 +5,7 @@
 #include <lib/allocators/waterline.hpp>
 #include <lib/fat.hpp>
 #include <stl/allocator.hpp>
+#include <sys/idt.hpp>
 
 struct global_data_t {
 	class console* g_console;
@@ -12,8 +13,8 @@ struct global_data_t {
 	class waterline_allocator global_waterline;
 	class heap_allocator global_heap;
 	class slab_pagemap<64, 64> global_pagemap;
+	class vector<heap_tag, waterline_allocator> heap_allocations;
 
-	void (*irq_fns[16])(void);
 	volatile uint64_t elapsedPITs;
 
 	struct pci_devices* pci;

@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <sys/idt.hpp>
+
 
 struct timepoint {
 	uint32_t micros;
@@ -30,7 +32,7 @@ struct timepoint {
 };
 
 void time_init(void);
-void inc_pit(void);
+void inc_pit(uint64_t, register_file*);
 void pit_delay(double seconds);
 
 void rtc_delay(uint32_t seconds);

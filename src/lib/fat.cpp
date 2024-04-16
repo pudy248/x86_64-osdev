@@ -1,15 +1,11 @@
 #include <cstddef>
 #include <cstdint>
-
 #include <drivers/ahci.hpp>
-#include <kstddefs.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/fat.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
-#include <sys/ktime.hpp>
 
 struct [[gnu::packed]] partition_entry {
 	uint8_t attributes;
@@ -207,7 +203,7 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLF
 			else
 				br = true;
 	}
-	//printf("name: %S\n", &inode->filename);
+	//qprintf<64>("name: %S\n", &inode->filename);
 	return inode;
 }
 static void* read_from_disk_layout(fat_inode* inode) {

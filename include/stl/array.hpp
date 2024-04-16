@@ -43,6 +43,9 @@ public:
 	constexpr const T* begin() const {
 		return m_arr;
 	}
+	constexpr void reserve(int size) {
+		kassert((uint64_t)size <= N, "Attempted to reserve size above maximum array size.");
+	}
 	constexpr int size() const {
 		return N;
 	}

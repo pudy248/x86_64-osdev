@@ -1,12 +1,10 @@
 #include <cstddef>
 #include <cstdint>
-#include <kstddefs.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
-
+#include <sys/debug.hpp>
 #include <sys/global.hpp>
 #include <sys/idt.hpp>
-#include <sys/pic.hpp>
 
 struct [[gnu::packed]] idt_entry {
 	uint16_t offset_low;
@@ -17,17 +15,17 @@ struct [[gnu::packed]] idt_entry {
 	uint32_t offset_high;
 	uint32_t reserved_1;
 };
-
 struct [[gnu::packed]] idt_ptr {
 	uint16_t limit;
 	uint32_t base;
 };
-
 static struct idt_t {
 	struct idt_entry entries[256];
 	struct idt_ptr pointer;
 }* idt = (idt_t*)0x58000;
 void* idtptr;
+
+isr_t isr_fns[48];
 
 void idt_set(uint8_t index, uint64_t base, uint8_t flags) {
 	idt->entries[index] = { (uint16_t)base,
@@ -60,18 +58,32 @@ static const char* exceptions[] = { "Divide by zero",
 									"Alignment check",
 									"Machine check" };
 
-void irq_set(uint8_t index, void (*fn)(void)) {
-	globals->irq_fns[index] = fn;
-	if (index < 8)
-		outb(0x21, inb(0x21) & ~(1 << index));
-	else
-		outb(0xA1, inb(0xA1) & ~(1 << (index - 8)));
+void isr_set(uint8_t index, isr_t fn) {
+	isr_fns[index] = fn;
+	if (index >= 32) {
+		index -= 32;
+		if (index < 8)
+			outb(0x21, inb(0x21) & ~(1 << index));
+		else
+			outb(0xA1, inb(0xA1) & ~(1 << (index - 8)));
+	}
 }
 
-void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_file* registers) {
+extern "C" [[gnu::force_align_arg_pointer]] void handle_exception(uint64_t int_num, register_file* registers,
+																  uint64_t err_code, bool is_fatal) {
 	qprintf<80>("\nException v=%02x e=%04x %s\n", int_num, err_code, int_num >= 0x20 ? "IRQ" : exceptions[int_num]);
-	qprintf<80>("IP: %02x:%016x\n", registers->cs, registers->rip);
-	print("Register dump:\n");
+	qprintf<80>("RIP=%016x RSP=%016x RFLAGS=", registers->rip, registers->rsp);
+	uint64_t rflags = registers->rflags;
+	const char* flagchars = "C-P-A-ZSTIDO";
+	for (int i = 0; i < 12; i++) {
+		bool set = rflags & 1;
+		if (set && flagchars[i] != '-') {
+			globals->g_console->putchar(flagchars[i]);
+			print("F ");
+		}
+		rflags >>= 1;
+	}
+	print("\nRegister dump:\n");
 	qprintf<80>("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->r8, registers->r9, registers->r10, registers->r11);
@@ -80,29 +92,10 @@ void handle_exception(int err, uint64_t int_num, uint64_t err_code, register_fil
 
 	stacktrace();
 
-	if (err) {
+	if (is_fatal) {
 		print("Unrecoverable exception - halting...\n");
 		inf_wait();
 	}
-}
-
-extern "C" {
-[[gnu::force_align_arg_pointer, gnu::used]] void isr_err(uint64_t int_num, register_file* registers,
-														 uint64_t err_code) {
-	handle_exception(1, int_num, err_code, registers);
-}
-
-[[gnu::force_align_arg_pointer, gnu::used]] void isr_no_err(uint64_t int_num, register_file* registers) {
-	handle_exception(0, int_num, 0, registers);
-}
-
-[[gnu::force_align_arg_pointer, gnu::used]] void irq_isr(uint64_t code, register_file* registers) {
-	if (globals->irq_fns[code - 32])
-		globals->irq_fns[code - 32]();
-	else
-		handle_exception(0, code, 0, registers);
-	pic_eoi((uint8_t)(code - 32));
-}
 }
 
 void idt_init() {
@@ -119,8 +112,8 @@ void idt_init() {
 	for (; i < 256; i++) {
 		idt_set((uint8_t)i, isr_stub_table[0], 0x8e);
 	}
-	for (int i = 0; i < 16; i++) {
-		globals->irq_fns[i] = NULL;
+	for (int i = 0; i < 48; i++) {
+		isr_fns[i] = NULL;
 	}
 	idtptr = (void*)&idt->pointer;
 	load_idt(idtptr);

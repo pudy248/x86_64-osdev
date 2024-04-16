@@ -2,8 +2,7 @@
 #include <cstdint>
 #include <kstdio.hpp>
 #include <kstring.hpp>
-#include <stl/container.hpp>
-#include <stl/vector.hpp>
+#include <stl/array.hpp>
 #include <sys/global.hpp>
 
 console::console(char (*g)(uint32_t, uint32_t), void (*s)(uint32_t, uint32_t, char), void (*r)(), int d[2])

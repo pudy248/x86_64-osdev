@@ -2,6 +2,8 @@
 #include <drivers/keyboard.hpp>
 #include <kstdlib.hpp>
 
+struct register_file;
+
 KeyboardBuffer keyboardInput = { 0, 0, 0, 0, 0, 0, {} };
 
 struct {
@@ -17,7 +19,7 @@ struct {
 	{ 0x39, 0x1, " ", " " },
 };
 
-void keyboard_irq() {
+[[gnu::force_align_arg_pointer]] void keyboard_irq(uint64_t, register_file*) {
 	uint8_t status = inb(0x64);
 	if ((status & 1) == 0)
 		return;
