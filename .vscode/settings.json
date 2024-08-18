@@ -45,7 +45,8 @@
     },
     "C_Cpp.default.compilerPath": "C:\\MinGW\\bin\\gcc.exe",
     "clangd.arguments": [
-        "--enable-config"
-    ]
+        "--enable-config",
+        "-header-insertion=never"
+    ],
+    "clang-format.executable": "clang-format-18"
 }
-

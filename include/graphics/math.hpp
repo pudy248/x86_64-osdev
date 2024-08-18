@@ -1,9 +1,8 @@
 #pragma once
-#include <cstdint>
 
 #define sign(a) (a < 0 ? -1 : 1)
 
-uint8_t rand(void);
+int rand(void) throw();
 
 float sqrtf(float x);
 float rsqrtf(float number);

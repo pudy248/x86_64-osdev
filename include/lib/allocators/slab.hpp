@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include <cstdint>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
@@ -12,6 +13,8 @@ public:
 	using ptr_t = void*;
 };
 template <std::size_t SS, std::size_t PS> class [[gnu::packed]] slab_allocator : public default_allocator {
+	static_assert(std::has_single_bit(SS), "MSS should be a power of two");
+
 public:
 	using ptr_t = allocator_traits<slab_allocator<SS, PS>>::ptr_t;
 	constexpr static std::size_t SLAB_COUNT = ((PS - 8) * 8 / (SS * 8 + 1));
@@ -39,8 +42,8 @@ public:
 	}
 
 	ptr_t alloc(uint64_t size) {
-		kassert(!size || size == SS, "Attempted to allocate slab of incorrect size.");
-		kassert(num_allocs < SS, "Attempted to allocate slab from full allocator.");
+		kassert(DEBUG_ONLY, ERROR, !size || size == SS, "Attempted to allocate slab of incorrect size.");
+		kassert(DEBUG_ONLY, ERROR, num_allocs < SS, "Attempted to allocate slab from full allocator.");
 		for (;; ring_index = (ring_index + 1) % SLAB_COUNT) {
 			if (!bits[ring_index])
 				break;
@@ -51,7 +54,7 @@ public:
 	}
 	void dealloc(ptr_t ptr) {
 		int index = index_of(ptr);
-		kassert(bits[index], "Double free.");
+		kassert(DEBUG_ONLY, WARNING, bits[index], "Double free in slab allocator.");
 		bits.flip(index);
 		num_allocs--;
 	}

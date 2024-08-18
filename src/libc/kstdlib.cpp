@@ -1,9 +1,10 @@
 #include <cstdint>
+#include <kassert.hpp>
 #include <kstddefs.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/allocators/heap.hpp>
-#include <lib/allocators/pagemap.hpp>
+#include <lib/allocators/slab_pagemap.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
@@ -26,14 +27,15 @@ void memset(void* dest, uint8_t src, uint64_t size) {
 }
 }
 
+static bool tag_allocations = false;
+
 void mem_init() {
-	new (&globals->global_waterline)
-		waterline_allocator((uint8_t*)(0x400000 + sizeof(waterline_allocator)), 0x400000 - sizeof(waterline_allocator));
-	new (&globals->global_heap) heap_allocator((void*)0x1000000, 0x1000000);
-	new (&globals->global_pagemap) slab_pagemap<64, 64>((void*)0x800000);
+	new (&globals->global_waterline) waterline_allocator(mmap(0, 0x10000, 0, 0), 0x10000);
+	new (&globals->global_heap) heap_allocator(mmap(0, 0x100000, 0, 0), 0x100000);
+	new (&globals->global_pagemap) slab_pagemap<64, 64>(mmap(0, 0x10000, 0, 0));
 }
 
-[[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment) {
+[[gnu::returns_nonnull, gnu::malloc]] void* __walloc(uint64_t size, uint16_t alignment) {
 	return (void*)globals->global_waterline.alloc(size, alignment);
 }
 
@@ -56,44 +58,43 @@ void __free(void* ptr) {
 	}
 }
 
-constexpr static bool tag_allocations = true;
-[[gnu::returns_nonnull, gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment) {
-	kassert(size <= 0xffffffff, "Invalid size in malloc()");
+[[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment) {
+	kassert(DEBUG_ONLY, WARNING, size <= 0xffffffff, "Invalid size in walloc()");
+	void* ptr = __walloc(size, alignment);
 	if (tag_allocations)
-		return tagged_alloc(size, alignment);
-	else
-		return __malloc(size, alignment);
+		return tag_alloc(size, ptr);
+	return ptr;
 }
-void free(void* ptr) {
+[[gnu::returns_nonnull, gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment) {
+	kassert(DEBUG_ONLY, WARNING, size <= 0xffffffff, "Invalid size in malloc()");
+	void* ptr = __malloc(size, alignment);
 	if (tag_allocations)
-		tagged_free(ptr);
-	else
-		__free(ptr);
+		return tag_alloc(size, ptr);
+	return ptr;
+}
+void kfree(void* ptr) {
+	if (tag_allocations)
+		tag_free(ptr);
+	__free(ptr);
 }
 
 void* operator new(uint64_t size) {
-	return malloc(size);
+	return kmalloc(size);
 }
-void* operator new(uint64_t size, void* ptr) noexcept {
-	return ptr;
-}
-void* operator new(uint64_t size, uint32_t alignment) noexcept {
-	return (void*)malloc(size, alignment);
+void* operator new(uint64_t size, std::align_val_t alignment) {
+	return (void*)kmalloc(size, (uint16_t)alignment);
 }
 void* operator new[](uint64_t size) {
-	return (void*)malloc(size);
+	return (void*)kmalloc(size);
 }
-void* operator new[](uint64_t size, void* ptr) noexcept {
-	return ptr;
-}
-void* operator new[](uint64_t size, uint32_t alignment) noexcept {
-	return (void*)malloc(size, alignment);
+void* operator new[](uint64_t size, std::align_val_t alignment) {
+	return (void*)kmalloc(size, (uint16_t)alignment);
 }
 void operator delete(void* ptr) noexcept {
 	if (ptr)
-		free((uint8_t*)ptr);
+		kfree((uint8_t*)ptr);
 }
 void operator delete[](void* ptr) noexcept {
 	if (ptr)
-		free((uint8_t*)ptr);
+		kfree((uint8_t*)ptr);
 }

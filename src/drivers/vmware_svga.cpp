@@ -1,9 +1,11 @@
+#include <asm.hpp>
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
+#include <kassert.hpp>
 #include <kstdlib.hpp>
 #include <sys/global.hpp>
-#include <sys/paging.hpp>
+#include <sys/memory/paging.hpp>
 
 static bool enabled = false;
 
@@ -42,18 +44,19 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 	globals->svga->fb = (uint32_t*)(uint64_t)(svga_pci.bars[1] & 0xfffffff0);
 	globals->svga->fifo = (volatile uint32_t*)(uint64_t)(svga_pci.bars[2] & 0xfffffff0);
 
-	set_page_flags((void*)globals->svga->fb, PAGE_WT);
-	set_page_flags((void*)globals->svga->fifo, PAGE_WT);
 	pci_enable_mem(svga_pci.address);
 
 	svga_write(SVGA_REG::ID, 2);
 	if (svga_read(SVGA_REG::ID) != 2)
 		svga_write(SVGA_REG::ID, 1);
-	kassert(svga_read(SVGA_REG::ID), "VMware SVGA device too old!\n");
+	kassert(ALWAYS_ACTIVE, ERROR, svga_read(SVGA_REG::ID), "VMware SVGA device too old!\n");
 
 	globals->svga->fb_size = svga_read(SVGA_REG::FB_SIZE);
 	globals->svga->fifo_size = svga_read(SVGA_REG::MEM_SIZE);
 	globals->svga->vram_size = svga_read(SVGA_REG::VRAM_SIZE);
+
+	mprotect((void*)globals->svga->fb, globals->svga->fb_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE);
+	mprotect((void*)globals->svga->fifo, globals->svga->fifo_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE);
 
 	globals->svga->fifo[SVGA_FIFO::MIN] = SVGA_FIFO::NUM_REGS * 4;
 	globals->svga->fifo[SVGA_FIFO::MAX] = globals->svga->fifo_size;
@@ -67,8 +70,8 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 
 	svga_set_mode(w, h, 32);
 	for (uint32_t i = 0; i < w * h; i++) {
-		//globals->svga->fb[i] = 0xffff00ff;
-		globals->svga->fb[i] = 0xff000000;
+		globals->svga->fb[i] = 0xffff00ff;
+		//globals->svga->fb[i] = 0xff000000;
 	}
 	svga_update();
 }

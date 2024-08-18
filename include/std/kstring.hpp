@@ -4,185 +4,168 @@
 #include <stl/array.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
+#include <stl/view.hpp>
 
-template <container<char> C> class basic_string : public C {
+template <iterator_of<char> I> constexpr idx_t strilen(const I& cstr) {
+	I iter = cstr;
+	idx_t i = 0;
+	for (; *iter; i++, iter++)
+		;
+	return i;
+}
+template <iterator_of<char> I> constexpr I striend(const I& cstr) {
+	I iter = cstr;
+	while (*iter)
+		iter++;
+	return iter;
+}
+
+template <iterator_of<char> I, typename S> class basic_string : public view<I, S> {
 public:
-	using C::C;
-	template <container<char> C2>
-	basic_string(const C2& other)
-		: basic_string(other.begin(), other.end()) {
-	}
-	constexpr basic_string& operator=(const basic_string& other) = default;
-	constexpr basic_string& operator=(basic_string&& other) = default;
+	using view<I, S>::view;
 
-	constexpr basic_string(const char* cstr)
-		: basic_string(cstr, strlen(cstr), 0) {
+	constexpr basic_string(const I& begin, const S& end)
+		: view<I, S>(begin, end) {
 	}
-	constexpr basic_string(const basic_string& str)
-		: basic_string(str.begin(), str.end()) {
+	template <iterator_of<char> I2, typename S2>
+	constexpr basic_string(const view<I2, S2>& other)
+		: view<I, S>(other.begin(), other.end()) {
 	}
 
-	template <container<span<char>> CRet = vector<span<char>>, container<char> CArg> CRet split(const CArg any) const;
-	template <container<span<char>> CRet = vector<span<char>>> CRet split(char c) const;
-	template <container<span<char>> CRet = vector<span<char>>> CRet split(const char* c) const;
+	constexpr basic_string(const I& cstr)
+		: view<I, S>(cstr, striend(cstr)) {
+	}
+
+	template <template <typename> typename C, comparable_iter_I<I> I2, typename S2>
+		requires requires {
+			requires container_template<C>;
+			requires(!view<I2, S2>::Infinite);
+		}
+	C<basic_string<I, I>> split(const view<I2, S2>& any) const;
+
+	template <template <typename...> typename C>
+		requires container_template<C>
+	C<basic_string<I, I>> split(char c) const;
+	template <template <typename...> typename C>
+		requires container_template<C>
+	C<basic_string<I, I>> split(const char* c) const;
 };
 
-class rostring : public basic_string<span<char>> {
-public:
-	using basic_string<span<char>>::basic_string;
+template <typename I> basic_string(const I& i) -> basic_string<I, I>;
 
-	template <container<char> C2>
-	constexpr rostring(const C2& other)
-		: rostring(other.begin(), other.end()) {
-	}
-};
-class string : public basic_string<vector<char>> {
+using rostring = basic_string<const char*, const char*>;
+class string : public vector<char> {
 public:
-	using basic_string<vector<char>>::basic_string;
-	template <container<char> C2>
-	string(const C2& other)
-		: string(other.begin(), other.end()) {
-	}
-
+	using vector<char>::vector;
 	char* c_str_this();
 	char* c_str_new();
+	bool operator==(const rostring& other);
 };
 
-constexpr rostring operator""_RO(const char* literal, uint64_t x) {
+constexpr rostring operator""_RO(const char* literal, uint64_t) {
 	return rostring(literal);
 }
 
-template <typename C> class basic_ostringstream : public basic_ostream<C, char> {
+template <iterator_of<char> I> class basic_ostringstream : public basic_ostream<I> {
 public:
-	template <container<char> C2>
-	constexpr basic_ostringstream(C2&& s)
-		: basic_ostream<C, char>(s) {
-	}
+	using basic_ostream<I>::basic_ostream;
+	using T = typename basic_ostream<I>::T;
 
-	void bzwrite(const void* dat, int size) {
-		const char* str = (const char*)dat;
-		for (int i = 0; i < size; i++) {
-			this->swrite(str[i]);
-		}
+	constexpr void write(const char elem) {
+		*(this->iter++) = elem;
 	}
-	template <typename D> void bwrite(const D dat) {
-		bzwrite(&dat, sizeof(D));
+	void write(const char* dat) {
+		write(rostring(dat));
 	}
-
-	void write_c(char dat) {
-		this->swrite(dat);
+	void write(const rostring& dat) {
+		for (const char c : dat)
+			write(c);
 	}
-	void write_cstr(const char* dat) {
-		bzwrite(dat, strlen(dat));
-	}
-	void write_str(const rostring dat) {
-		bzwrite(dat.begin(), dat.size());
-	}
-	void write_u(uint64_t n, int leading = 0, int radix = 10, char leadChar = ' ',
-				 const char* letters = "0123456789ABCDEF") {
-		uint64_t tmp = n;
-		int ctr = 0;
-		do {
-			tmp /= radix;
-			ctr++;
-		} while (tmp > 0);
-		int tmpctr = ctr--;
-
-		for (int i = 0; i < leading - ctr - 1; i++)
-			write_c(leadChar);
-
-		basic_string<array<char, 25>> tmpstr;
-		do {
-			tmpstr.at(ctr--) = letters[n % radix];
-			n /= radix;
-		} while (n > 0);
-		bzwrite(tmpstr.begin(), tmpctr);
-	}
-	void write_i(int64_t n, int leading = 0, int radix = 10, char leadChar = ' ',
-				 const char* letters = "0123456789ABCDEF") {
-		if (n < 0) {
+	void writei(uint64_t n, int field_width = 0, int radix = 10, char lead_char = ' ',
+				const char* letters = "0123456789ABCDEF", bool is_signed = true) {
+		if (is_signed && n < 0) {
 			n = -n;
-			write_c('-');
-			leading--;
-		}
-		write_u(n, leading, radix, leadChar, letters);
-	}
-	void write_f(double n, int leading = 0, int trailing = 3, char leadChar = ' ') {
-		if ((((uint32_t*)&n)[1] & 0x7ff00000) == 0x7ff00000) {
-			write_c('N');
-			write_c('a');
-			write_c('N');
+			write('-');
+			field_width--;
+			writei(n, field_width, radix, lead_char, letters, false);
 			return;
 		}
-		if (n < 0) {
-			n = -n;
-			write_c('-');
+
+		char tmpstr[22] = {};
+		int i = field_width - 1;
+		for (; n != 0; i--) {
+			tmpstr[i--] = letters[n % radix];
+			n /= radix;
 		}
-		double tmp = n;
-		int ctr = 0;
-		do {
-			tmp /= 10;
-			ctr++;
-		} while ((int)tmp > 0);
-		int tmpctr = ctr--;
-
-		for (int i = 0; i < leading - ctr - 1; i++)
-			write_c(leadChar);
-
-		basic_string<array<char, 15>> tmpstr;
-		tmp = n;
-		do {
-			tmpstr.at(ctr--) = '0' + (int)tmp % 10;
-			tmp /= 10;
-		} while ((int)tmp > 0);
-		bzwrite(tmpstr.begin(), tmpctr);
-
-		if (trailing > 0) {
-			write_c('.');
-
-			tmp = n - (int)n;
-			for (int i = 0; i < trailing; i++) {
-				tmp *= 10;
-				tmpstr.at(i) = '0' + (int)tmp % 10; // + (i == trailing - 1);
+		for (; i >= 0; i--)
+			tmpstr[i] = lead_char;
+		write(tmpstr);
+	}
+	void writef(double n, int leading = 0, int trailing = 3, char leadChar = ' ') {
+		if ((((uint32_t*)&n)[1] & 0x7ff00000) == 0x7ff00000)
+			write("NaN");
+		else if (n == 1. / 0.)
+			write("Inf");
+		else if (n == -1. / 0.)
+			write("-Inf");
+		else {
+			if (n < 0) {
+				n = -n;
+				write('-');
 			}
-			bzwrite(tmpstr.begin(), trailing);
+			double tmp = n;
+			int ctr = 0;
+			do {
+				tmp /= 10;
+				ctr++;
+			} while ((int)tmp > 0);
+			int tmpctr = ctr--;
+
+			for (int i = 0; i < leading - ctr - 1; i++)
+				write(leadChar);
+
+			array<char, 15> tmpstr;
+			tmp = n;
+			do {
+				tmpstr.at(ctr--) = '0' + (int)tmp % 10;
+				tmp /= 10;
+			} while ((int)tmp > 0);
+			write(rostring(tmpstr.begin(), tmpstr.begin() + tmpctr));
+
+			if (trailing > 0) {
+				write('.');
+
+				tmp = n - (int)n;
+				for (int i = 0; i < trailing; i++) {
+					tmp *= 10;
+					tmpstr.at(i) = '0' + (int)tmp % 10; // + (i == trailing - 1);
+				}
+				write(rostring(tmpstr.begin(), tmpstr.begin() + trailing));
+			}
 		}
 	}
 };
 
-template <typename C> class basic_istringstream : public basic_istream<C, char> {
+template <iterator_of<char> I, typename S> class basic_istringstream : public basic_istream<I, S> {
 public:
-	template <container<char> C2>
-	constexpr basic_istringstream(const C2& s)
-		: basic_istream<C, char>(s) {
-	}
-	template <container<char> C2>
-	constexpr basic_istringstream(C2&& s)
-		: basic_istream<C, char>(s) {
-	}
+	using basic_istream<I, S>::basic_istream;
+	using T = typename basic_istream<I, S>::T;
 
-	void bzread(void* dat, int size) {
-		for (int i = 0; i < size; i++) {
-			((char*)dat)[i] = this->data.at(this->offset++);
-		}
-	}
-	template <typename D> D bread() {
-		D ret;
-		bzread(&ret, sizeof(D));
-		return ret;
+	constexpr basic_istringstream(const I& i, const S& s)
+		: basic_istream<I, S>(i, s) {
 	}
 
 	char read_c() {
-		return this->sread();
+		return this->read();
 	}
 	int64_t read_i() {
 		int64_t val = 0;
 		char neg = 0;
-		if (this->front() == '-') {
+		if (*this->begin() == '-') {
 			neg = 1;
 			read_c();
 		}
-		while (this->front() >= '0' && this->front() <= '9') {
+		while (*this->begin() >= '0' && *this->begin() <= '9') {
 			val *= 10;
 			val += read_c() - '0';
 		}
@@ -192,9 +175,9 @@ public:
 	}
 	uint64_t read_x() {
 		uint64_t val = 0;
-		bool isN = this->front() >= '0' && this->front() <= '9';
-		bool isU = this->front() >= 'A' && this->front() <= 'F';
-		bool isL = this->front() >= 'f' && this->front() <= 'a';
+		bool isN = *this->begin() >= '0' && *this->begin() <= '9';
+		bool isU = *this->begin() >= 'A' && *this->begin() <= 'F';
+		bool isL = *this->begin() >= 'f' && *this->begin() <= 'a';
 		while (isN || isU || isL) {
 			val *= 16;
 			if (isN)
@@ -203,9 +186,9 @@ public:
 				val += read_c() - 'A' + 10;
 			if (isL)
 				val += read_c() - 'a' + 10;
-			isN = this->front() >= '0' && this->front() <= '9';
-			isU = this->front() >= 'A' && this->front() <= 'F';
-			isL = this->front() >= 'a' && this->front() <= 'f';
+			isN = *this->begin() >= '0' && *this->begin() <= '9';
+			isU = *this->begin() >= 'A' && *this->begin() <= 'F';
+			isL = *this->begin() >= 'a' && *this->begin() <= 'f';
 		}
 		return val;
 	}
@@ -214,18 +197,23 @@ public:
 		double val = 0;
 		int afterDecimal = 0;
 		char neg = 0;
-		if (this->front() == '-') {
+		if (*this->begin() == '-') {
 			neg = 1;
 			read_c();
 		}
-		while (this->front() >= '0' && this->front() <= '9') {
+		if (this->as().starts_with(rostring("NaN")))
+			return 0. / 0.;
+		else if (this->as().starts_with(rostring("Inf")))
+			return (neg ? -1. : 1.) / 0.;
+
+		while (*this->begin() >= '0' && *this->begin() <= '9') {
 			val *= 10;
 			val += read_c() - '0';
 		}
-		if (this->front() == '.') {
+		if (*this->begin() == '.') {
 			read_c();
 			double multiplier = 0.1;
-			while (this->front() >= '0' && this->front() <= '9' && afterDecimal < trailingMax) {
+			while (*this->begin() >= '0' && *this->begin() <= '9' && afterDecimal < trailingMax) {
 				afterDecimal++;
 				val += (read_c() - '0') * multiplier;
 				multiplier *= 0.1;
@@ -235,49 +223,15 @@ public:
 			val = -val;
 		return val;
 	}
-
-	template <container<char> C2, container<char> C3> const C2 read_until_any(const C3 any, bool inclusive = false) {
-		int sIdx = this->offset;
-		while (this->readable() && !any.contains(this->data.at(this->offset)))
-			this->offset++;
-		if (inclusive && this->readable())
-			this->offset++;
-		return C2(this->data, this->offset - sIdx, sIdx);
-	}
-	template <container<char> C2, container<char> C3, container<C3> C4>
-	const C2 read_until_any(const C4 any, bool inclusive = false) {
-		int sIdx = this->offset;
-		while (this->readable()) {
-			bool stop = false;
-			for (int i = 0; i < any.size(); i++) {
-				if (this->data.starts_with(any[i]))
-					stop = true;
-			}
-			if (stop)
-				break;
-			this->offset++;
-		}
-		if (inclusive && this->readable())
-			this->offset++;
-		return C2(this->data, this->offset - sIdx, sIdx);
-	}
 };
-class ostringstream : public basic_ostringstream<string> {
+class ostringstream : public basic_ostringstream<vector<char>::iterator_type> {
 public:
-	using basic_ostringstream<string>::basic_ostringstream;
-	template <container<char> C2>
-	ostringstream(const C2& other)
-		: basic_ostringstream<string>(other) {
-	}
+	using basic_ostringstream<vector<char>::iterator_type>::basic_ostringstream;
 };
-class istringstream : public basic_istringstream<rostring> {
+class istringstream : public basic_istringstream<const char*, const char*> {
 public:
-	using basic_istringstream<rostring>::basic_istringstream;
-	template <container<char> C2>
-	istringstream(const C2& other)
-		: basic_istringstream<rostring>(other) {
-	}
+	using basic_istringstream<const char*, const char*>::basic_istringstream;
 };
 
-int formats(container_wrapper<char> output, const rostring fmt, ...);
+template <iterator_of<char> I> int formats(const I& output, const rostring fmt, ...);
 template <typename... Args> string format(rostring fmt, Args... args);

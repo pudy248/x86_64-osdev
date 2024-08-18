@@ -1,52 +1,56 @@
 #pragma once
-#include <concepts>
 #include <cstddef>
+#include <kassert.hpp>
 #include <kstddefs.hpp>
-#include <kstdlib.hpp>
 #include <stl/allocator.hpp>
-#include <stl/container.hpp>
+#include <stl/view.hpp>
 
-template <typename T, std::size_t N> class array : public basic_container<T, array<T, N>> {
+template <typename T, std::size_t N> class array {
 protected:
 	T m_arr[N];
 
 public:
-	using basic_container<T, array<T, N>>::basic_container;
+	using value_type = T;
 	constexpr array()
 		: m_arr() {
 	}
-	template <std::convertible_to<T> R> constexpr array(const R* begin, const R* end) {
+	template <convertible_elem_I<T> I, typename S>
+		requires(!view<I, S>::Infinite)
+	constexpr array(const view<I, S>& v) {
 		std::size_t i = 0;
-		for (; i < min((std::size_t)(end - begin), N); i++) {
-			new (&m_arr[i]) T(begin[i]);
+		for (; i < min(v.size(), N); i++) {
+			new (&m_arr[i]) T(v[i]);
 		}
 		for (; i < N; i++) {
 			m_arr[i] = T();
 		}
 	}
-	template <container<T> C>
-	constexpr array(const C& other)
-		: array(other.begin(), other.end()) {
+	template <convertible_elem_I<T> I, typename S>
+	constexpr array(const I& begin, const S& end)
+		: array(view<I, S>(begin, end)) {
 	}
 
-	constexpr T& at(int idx) {
-		kassert(idx >= 0 && idx < size(), "OOB access in array.at()\n");
-		return m_arr[idx];
+	template <typename Derived> constexpr auto& at(this Derived& self, idx_t idx) {
+		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < self.size(), "OOB access in array.at()\n");
+		return self.m_arr[idx];
 	}
-	constexpr const T& at(int idx) const {
-		kassert(idx >= 0 && idx < size(), "OOB access in array.at()\n");
-		return m_arr[idx];
+	template <typename Derived> constexpr auto& operator[](this Derived& self, idx_t idx) {
+		return self.m_arr[idx];
 	}
-	constexpr T* begin() {
+
+	template <typename Derived> constexpr auto begin(this Derived& self) {
+		return self.m_arr;
+	}
+	constexpr auto cbegin() const {
 		return m_arr;
 	}
-	constexpr const T* begin() const {
-		return m_arr;
+	template <typename Derived> constexpr auto end(this Derived& self) {
+		return self.m_arr + self.size();
 	}
-	constexpr void reserve(int size) {
-		kassert((uint64_t)size <= N, "Attempted to reserve size above maximum array size.");
+	constexpr auto cend() const {
+		return m_arr + size();
 	}
-	constexpr int size() const {
+	constexpr idx_t size() const {
 		return N;
 	}
 };

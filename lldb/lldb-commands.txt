@@ -3,21 +3,24 @@ target modules load -f tmp/kernel.img.elf .text 0x200000
 target modules add tmp/bootloader.img.elf
 target modules load -f tmp/bootloader.img.elf .bootloader 0x7c00
 
-command script import ./lldb/vectors.py
+set set stop-disassembly-display always
+set set target.x86-disassembly-flavor intel
 
-type synthetic add -x "span<" -l vectors.VectorSynthProvider
-type synthetic add -x "vector<" -l vectors.VectorSynthProvider
-type synthetic add -x "span<.*\*" -l vectors.VectorSynthProviderDeref
-type synthetic add -x "vector<.*\*," -l vectors.VectorSynthProviderDeref
+command script import ./lldb/formatters.py
+
+type synthetic add -x "vector<" -l formatters.VectorSynthProvider
+type synthetic add -x "vector<.*\*," -l formatters.VectorSynthProviderDeref
 
 type summary add --expand -x "vector<" --summary-string "${svar%#} children"
 type summary add --expand -x "span<" --summary-string "${svar%#} children"
 
-type summary add -v "span<char>" -F vectors.char_container
-type summary add -v "rostring" -F vectors.char_container
-type summary add -v "vector<char, default_allocator>" -F vector.char_container_rw
-type summary add -v "string" -F vectors.char_container_rw
+type summary add -v "span<char>" -F formatters.char_container
+type summary add -v "rostring" -F formatters.char_container
+type summary add -v "vector<char, default_allocator>" -F formatters.char_container_rw
+type summary add -v "string" -F formatters.char_container_rw
 
-type synthetic add "stacktrace" -l vectors.StacktraceProvider
+type synthetic add "stacktrace" -l formatters.StacktraceProvider
 type summary add --expand "stacktrace" --summary-string "${svar%#} addresses"
-type summary add -v "stacktrace::stack_frame" -F vectors.function_address
+type summary add -v "stacktrace::stack_frame" -F formatters.function_address
+
+type summary add -v "fat_file" -F formatters.fat_file

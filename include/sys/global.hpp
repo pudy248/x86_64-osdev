@@ -1,10 +1,11 @@
 #pragma once
 #include <cstdint>
 #include <lib/allocators/heap.hpp>
-#include <lib/allocators/pagemap.hpp>
+#include <lib/allocators/slab_pagemap.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <lib/fat.hpp>
 #include <stl/allocator.hpp>
+#include <sys/fixed_global.hpp>
 #include <sys/idt.hpp>
 
 struct global_data_t {
@@ -23,4 +24,4 @@ struct global_data_t {
 	fat_sys_data fat_data;
 };
 
-#define globals ((global_data_t*)0x110000)
+#define globals ((global_data_t*)fixed_globals->dynamic_globals)

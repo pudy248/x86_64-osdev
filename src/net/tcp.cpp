@@ -209,8 +209,8 @@ void tcp_process(ip_packet packet) {
 					conn->partial.end_seq = htonl(tcp->seq_num) + size;
 					conn->partial.contents = vector<char>(conn->partial.end_seq - conn->partial.start_seq);
 				}
-				conn->partial.contents.blit(span<char>((char*)contents, size),
-											htonl(tcp->seq_num) - conn->partial.start_seq);
+				span<char>(conn->partial.contents)
+					.blit(span<char>((char*)contents, size), htonl(tcp->seq_num) - conn->partial.start_seq);
 				if (htonl(tcp->seq_num) + size == conn->partial.end_seq)
 					conn->partial.end_seq = htonl(tcp->seq_num);
 				if (htonl(tcp->seq_num) == conn->partial.start_seq)
@@ -318,7 +318,7 @@ int tcp_connection::send(tcp_packet p) {
 		int handle = 0;
 		while (true) {
 			int size = min(p.contents.size() - offset, TCP_CLI_MSS);
-			handle = tcp_transmit((tcp_connection*)this, { span<char>(p.contents, size, offset) },
+			handle = tcp_transmit((tcp_connection*)this, { span<char>(p.contents.begin() + offset, size) },
 								  TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
 			this->cur_seq += size;
 			offset += size;

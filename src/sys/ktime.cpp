@@ -3,34 +3,33 @@
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/allocators/heap.hpp>
-#include <lib/allocators/pagemap.hpp>
+#include <lib/allocators/slab_pagemap.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <stl/array.hpp>
 #include <stl/container.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
 
-
 struct register_file;
 
-[[gnu::force_align_arg_pointer]] void inc_pit(uint64_t, register_file*) {
+void inc_pit(uint64_t, register_file* regs) {
 	globals->elapsedPITs = globals->elapsedPITs + 1;
 	//Print diagnostics
-	{
+	if (0) {
 		int x, l;
 		array<char, 20> arr;
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "    W %i", globals->global_waterline.mem_used());
+		l = formats(arr.begin(), "    W %i", globals->global_waterline.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 0, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "    S %i", globals->global_pagemap.mem_used());
+		l = formats(arr.begin(), "    S %i", globals->global_pagemap.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 1, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr, "    H %i", globals->global_heap.mem_used());
+		l = formats(arr.begin(), "    H %i", globals->global_heap.mem_used());
 		for (int i = l - 1; i >= 0; --i)
 			globals->g_console->set_char(x--, 2, arr[i]);
 
@@ -95,7 +94,7 @@ static timepoint pit_time_override(uint32_t subcnt) {
 	t.second = newSecond % 60;
 	t.minute = newMinute % 60;
 	t.hour = newHour % 24;
-	t.day += newHour / 24;
+	t.day = newHour / 24;
 
 	return t;
 }

@@ -1,87 +1,130 @@
 #pragma once
-#include <concepts>
-#include <kstddefs.hpp>
-#include <kstdlib.hpp>
-#include <stl/allocator.hpp>
-#include <stl/container.hpp>
+#include <iterator>
+#include <stl/view.hpp>
+#include <type_traits>
 
-template <typename C, typename T>
-requires container<C, T>
-class basic_ostream {
+template <std::forward_iterator I> class basic_ostream {
+protected:
+	I iter;
+
 public:
-	C data;
-	int offset = 0;
+	using T = std::iter_value_t<I>;
 
 	constexpr basic_ostream() = default;
-	template <container<T> C2>
-	constexpr basic_ostream(C2&& s)
-		: data(s) {
+	constexpr basic_ostream(const I& i)
+		: iter(i) {
+	}
+	template <typename Derived> constexpr auto begin(this Derived& self) {
+		return self.iter;
+	}
+	template <typename I2 = I, typename Derived>
+	constexpr view<I2, std::unreachable_sentinel_t> as(this Derived& self) {
+		return view<I2, std::unreachable_sentinel_t>(self.begin(), {});
 	}
 
-	constexpr void swrite(T elem) {
-		data.at(offset++) = elem;
+	constexpr void write(const T& elem) {
+		*(iter++) = elem;
 	}
-	template <container<T> C2> constexpr void swrite(const C2& elems) {
-		for (int i = 0; i < elems.size(); i++)
-			swrite(elems[i]);
+	template <convertible_iter_I<I> I2, typename S> constexpr void write(const view<I2, S>& elems) {
+		for (I2 iter = elems.begin(); iter != elems.end(); iter++)
+			write(*iter);
 	}
 };
 
-template <typename C, typename T>
-requires container_writeable<C, T>
-class basic_istream {
+template <std::forward_iterator I, std::sentinel_for<I> S> class basic_istream {
+protected:
+	I iter;
+	const S sentinel;
+
 public:
-	C data;
-	int offset = 0;
+	using T = std::remove_reference_t<decltype(*iter)>;
 	constexpr basic_istream() = default;
-	template <container<T> C2>
-	constexpr basic_istream(const C2& s)
-		: data(s) {
+	constexpr basic_istream(const I& i, const S& s)
+		: iter(i)
+		, sentinel(s) {
 	}
-	template <container<T> C2>
-	constexpr basic_istream(C2&& s)
-		: data(s) {
+	constexpr basic_istream(const view<I, S>& v)
+		: iter(v.begin())
+		, sentinel(v.end()) {
+	}
+	template <typename Derived> constexpr auto begin(this Derived& self) {
+		return self.iter;
+	}
+	template <typename Derived> constexpr auto end(this Derived& self) {
+		return self.sentinel;
+	}
+	template <typename I2 = I, typename S2 = I, typename Derived> constexpr view<I2, S2> as(this Derived& self) {
+		return view<I2, S2>(self.begin(), self.end());
 	}
 
 	constexpr bool readable() const {
-		return offset < data.size();
+		return iter != sentinel;
+	}
+	constexpr const T& read() {
+		return *(iter++);
 	}
 	constexpr operator bool() const {
 		return readable();
 	}
-	constexpr T front() {
-		return data.at(offset);
+	constexpr T& operator*() {
+		return *iter;
 	}
-	constexpr T sread() {
-		return data.at(offset++);
+	constexpr basic_istream& operator++() {
+		iter++;
+		return *this;
 	}
+	template <container_of<T> C = span<T>, condition<const I&> B>
+	constexpr C read_until(B cond, bool inclusive = false, bool invert = false) {
+		I begin = iter;
+		while (cond(iter) ^ !invert && readable())
+			iter++;
+		if (inclusive && readable())
+			iter++;
+		return C(begin, iter);
+	}
+	template <container_of<T> C = span<T>, typename R>
+		requires requires(R val, I iter) { val == *iter; }
+	constexpr C read_until_v(const R& val, bool inclusive = false, bool invert = false) {
+		return read_until([&val](const I& iter) { return *iter == val; }, inclusive, invert);
+	}
+	template <container_of<T> C = span<T>, comparable_iter_I<I> I2, typename S2>
+		requires(!view<I2, S2>::Infinite)
+	constexpr C read_until_v(const view<I2, S2>& vals, bool inclusive = false, bool invert = false) {
+		return read_until(
+			[&vals](const I& iter) {
+				for (std::iter_value_t<I2> v : vals)
+					if (v == *iter)
+						return true;
+				return false;
+			},
+			inclusive, invert);
+	}
+	template <container_of<T> C = span<T>> constexpr C read_n(idx_t size) {
+		idx_t counter = 0;
+		return read_until([&counter, &size](const I&) {
+			counter++;
+			return counter == size;
+		});
+	}
+};
 
-	template <container<T> C2, container<T> C3> constexpr C2 read_until(bool (*condition)(C3), bool inclusive = false) {
-		int sIdx = offset;
-		while (!condition(C3(data, data.size() - offset, sIdx)) && readable())
-			offset++;
-		if (inclusive && readable())
-			offset++;
-		return C2(data, offset - sIdx, sIdx);
+template <iterator_of<uint8_t> I> class obinstream : public basic_ostream<I> {
+public:
+	using basic_ostream<I>::basic_ostream;
+	void write(void* ptr, idx_t size) {
+		this->write(span<char>((char*)ptr, ((char*)ptr) + size));
 	}
-	template <container<T> C2, container<T> C3> constexpr C2 read_while(bool (*condition)(C3)) {
-		int sIdx = offset;
-		while (condition(C3(data, data.size() - offset, sIdx)) && readable())
-			offset++;
-		return C2(data, offset - sIdx, sIdx);
+	template <typename T>
+		requires(!std::same_as<T, uint8_t>)
+	void write(const T& val) {
+		this->write(&val, sizeof(T));
 	}
-	template <container<T> C2> constexpr C2 read_until_v(const T val, bool inclusive = false) {
-		int sIdx = offset;
-		while (front() != val && readable())
-			offset++;
-		if (inclusive && readable())
-			offset++;
-		return C2(data, offset - sIdx, sIdx);
-	}
-	constexpr int read_while_v(const T val) {
-		int sIdx = offset;
-		while (front() == val && readable())
-			offset++;
-		return offset - sIdx;
+};
+
+template <iterator_of<uint8_t> I, std::sentinel_for<I> S> class ibinstream : public basic_istream<I, S> {
+public:
+	using basic_istream<I, S>::basic_istream;
+	template <typename T, container_of<T> C = span<T>> constexpr C read() {
+		return this->read_n(sizeof(T));
 	}
 };

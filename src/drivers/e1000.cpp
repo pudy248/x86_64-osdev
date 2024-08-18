@@ -1,3 +1,4 @@
+#include <asm.hpp>
 #include <cstdint>
 #include <drivers/e1000.hpp>
 #include <drivers/pci.hpp>
@@ -5,7 +6,7 @@
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/idt.hpp>
-#include <sys/paging.hpp>
+#include <sys/memory/paging.hpp>
 
 e1000_handle* e1000_dev;
 static void (*receive_fn)(void* packet, uint16_t len);
@@ -52,7 +53,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	e1000_dev->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
 	e1000_dev->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
 
-	set_page_flags((void*)e1000_dev->mmio_base, PAGE_WT);
+	mprotect((void*)e1000_dev->mmio_base, 0x10000, PAGE_WT, MAP_PHYSICAL);
 	pci_enable_mem(e1000_pci.address);
 	//printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);
 
@@ -177,9 +178,9 @@ static void e1000_int_handler(uint64_t, register_file*) {
 
 void e1000_receive() {
 	int tail = e1000_read(E1000_REG::RXDESCTL);
-	int head = e1000_read(E1000_REG::RXDESCHD);
-	if (head < tail)
-		head += E1000_NUM_RX_DESC;
+	//int head = e1000_read(E1000_REG::RXDESCHD);
+	//if (head < tail)
+	//	head += E1000_NUM_RX_DESC;
 	//printf("%02i:%02i\n", tail, head);
 	uint16_t old_cur = tail;
 	//double t1 = timepoint().unix_seconds();

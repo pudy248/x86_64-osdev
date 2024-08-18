@@ -1,10 +1,12 @@
 #pragma once
+#include <kassert.hpp>
 #include <kstdlib.hpp>
 
 template <typename T> class optional {
-public:
 	bool has_value;
 	T value;
+
+public:
 	optional()
 		: has_value(false)
 		, value() {
@@ -13,8 +15,8 @@ public:
 		: has_value(true)
 		, value(val) {
 	}
-	operator T() {
-		kassert(has_value, "Attempted to convert empty optional.");
+	operator T() const volatile {
+		kassert(DEBUG_ONLY, ERROR, has_value, "Attempted to convert empty optional.");
 		return value;
 	}
 };

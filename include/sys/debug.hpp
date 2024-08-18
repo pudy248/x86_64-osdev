@@ -49,10 +49,6 @@ struct debug_symbol {
 	const char* name;
 	uint32_t size;
 };
-extern vector<debug_symbol> symbol_table;
-void load_debug_symbs(const char* filename);
-debug_symbol* nearest_symbol(void* address, bool* out_contains = NULL);
-void wait_until_kbhit();
 
 class stacktrace {
 public:
@@ -62,20 +58,28 @@ public:
 	};
 	int num_ptrs;
 	array<stack_frame, DEBUG_MAX_STACK_FRAMES> ptrs;
-	[[gnu::noinline]] stacktrace();
-	stacktrace(void* disable_trace);
+	stacktrace() = default;
 	stacktrace(const stacktrace& other, int start);
+	[[gnu::noinline]] static stacktrace trace();
 	void print() const;
 };
-void inline_stacktrace();
 
 struct heap_tag {
 	void* ptr;
 	uint64_t size;
 	stacktrace alloc_trace;
 };
+
+extern vector<debug_symbol> symbol_table;
 extern vector<heap_tag, waterline_allocator>* heap_allocations;
 
-void* tagged_alloc(uint64_t size, uint16_t alignment);
-void tagged_free(void* ptr);
+void debug_init();
+void load_debug_symbs(const char* filename);
+debug_symbol* nearest_symbol(void* address, bool* out_contains = NULL);
+void wait_until_kbhit();
+
+void inline_stacktrace();
+
+void* tag_alloc(uint64_t size, void* ptr);
+void tag_free(void* ptr);
 void tag_dump();

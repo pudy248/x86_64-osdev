@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.hpp>
+#include <new>
 #include <type_traits>
 
 extern "C" {
@@ -9,109 +9,47 @@ void memmove(void* dest, void* src, uint64_t size);
 void memset(void* dest, uint8_t src, uint64_t size);
 }
 
+template <std::size_t A = 1> void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
+	void* adest = __builtin_assume_aligned(dest, A);
+	void* asrc = __builtin_assume_aligned(src, A);
+	__builtin_assume(size % A == 0);
+	for (uint64_t i = 0; i < size; i++) {
+		((uint8_t* __restrict)adest)[i] = ((uint8_t* __restrict)asrc)[i];
+	}
+}
+
+template <std::size_t A = 1> void memset(void* __restrict dest, uint8_t src, uint64_t size) {
+	void* adest = __builtin_assume_aligned(dest, A);
+	__builtin_assume(size % A == 0);
+	for (uint64_t i = 0; i < size; i++) {
+		((uint8_t*)adest)[i] = src;
+	}
+}
+
+template <std::size_t A = 1> void bzero(void* __restrict dest, uint64_t size) {
+	void* adest = __builtin_assume_aligned(dest, A);
+	__builtin_assume(size % A == 0);
+	for (uint64_t i = 0; i < size; i++) {
+		((uint8_t*)adest)[i] = 0;
+	}
+}
+
 void mem_init();
 [[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment);
-[[gnu::returns_nonnull, gnu::malloc]] void* malloc(uint64_t size, uint16_t alignment = 0x10);
-void free(void* ptr);
+[[gnu::returns_nonnull, gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment = 0x10);
+void kfree(void* ptr);
 
 extern uint64_t waterline;
 extern uint64_t mem_used;
 extern uint64_t mem_free;
 
-static inline uint8_t inb(uint16_t port) {
-	uint8_t ret;
-	asmv("inb %1, %0" : "=a"(ret) : "Nd"(port) : "memory");
-	return ret;
-}
-static inline uint16_t inw(uint16_t port) {
-	uint16_t ret;
-	asmv("inw %1, %0" : "=a"(ret) : "Nd"(port) : "memory");
-	return ret;
-}
-static inline uint32_t inl(uint16_t port) {
-	uint32_t ret;
-	asmv("inl %1, %0" : "=a"(ret) : "Nd"(port) : "memory");
-	return ret;
-}
-
-static inline void outb(uint16_t port, uint8_t val) {
-	asmv("outb %0, %1" : : "a"(val), "Nd"(port) : "memory");
-}
-static inline void outw(uint16_t port, uint16_t val) {
-	asmv("outw %0, %1" : : "a"(val), "Nd"(port) : "memory");
-}
-static inline void outl(uint16_t port, uint32_t val) {
-	asmv("outl %0, %1" : : "a"(val), "Nd"(port) : "memory");
-}
-
-static inline uint64_t read_cr0(void) {
-	uint64_t val;
-	asmv("mov %%cr0, %0" : "=r"(val));
-	return val;
-}
-static inline uint64_t read_cr2(void) {
-	uint64_t val;
-	asmv("mov %%cr2, %0" : "=r"(val));
-	return val;
-}
-static inline uint64_t read_cr3(void) {
-	uint64_t val;
-	asmv("mov %%cr3, %0" : "=r"(val));
-	return val;
-}
-static inline uint64_t read_cr4(void) {
-	uint64_t val;
-	asmv("mov %%cr4, %0" : "=r"(val));
-	return val;
-}
-
-static inline void write_cr0(uint64_t val) {
-	asmv("mov %0, %%cr0" : "=r"(val));
-}
-static inline void write_cr2(uint64_t val) {
-	asmv("mov %0, %%cr2" : "=r"(val));
-}
-static inline void write_cr3(uint64_t val) {
-	asmv("mov %0, %%cr3" : "=r"(val));
-}
-static inline void write_cr4(uint64_t val) {
-	asmv("mov %0, %%cr4" : "=r"(val));
-}
-
-static inline void invlpg(void* m) {
-	asmv("invlpg (%0)" : : "b"(m) : "memory");
-}
-static inline uint64_t rdtsc(void) {
-	uint32_t low, high;
-	asmv("rdtsc" : "=a"(low), "=d"(high));
-	return ((uint64_t)high << 32) | low;
-}
-static inline void cpu_relax() {
-	asm("rep nop" : : : "memory");
-}
-// The compiler is of the opinion that this may return.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Winvalid-noreturn"
-[[noreturn]] static inline void cpu_halt(void) {
-	asmv("cli; hlt; nop");
-}
-#pragma clang diagnostic pop
-[[noreturn]] static inline void inf_wait(void) {
-	cpu_halt();
-}
-
-#define interrupt(n) asm("int " #n)
-
 [[gnu::returns_nonnull]] void* operator new(uint64_t size);
-[[gnu::returns_nonnull]] void* operator new(uint64_t size, void* ptr) noexcept;
-[[gnu::returns_nonnull]] void* operator new(uint64_t size, uint32_t alignment) noexcept;
+[[gnu::returns_nonnull]] void* operator new(uint64_t size, std::align_val_t alignment);
 [[gnu::returns_nonnull]] void* operator new[](uint64_t size);
-[[gnu::returns_nonnull]] void* operator new[](uint64_t size, void* ptr) noexcept;
-[[gnu::returns_nonnull]] void* operator new[](uint64_t size, uint32_t alignment) noexcept;
 void operator delete(void* ptr) noexcept;
 void operator delete[](void* ptr) noexcept;
 template <typename T> static inline void destruct(T* ptr, int count) {
-	if (std::is_destructible_v<T>)
+	if constexpr (std::is_destructible_v<T>)
 		for (int i = 0; i < count; i++)
 			ptr[i].~T();
 }
@@ -119,16 +57,3 @@ template <typename T> static inline void destruct(T* ptr, int count) {
 template <typename T> T* waterline_new(uint64_t count = 1, uint16_t alignment = alignof(T)) {
 	return (T*)walloc(count * sizeof(T), alignment);
 }
-
-void inline_stacktrace();
-void print(const char*);
-#define STRINGIZE(x) STRINGIZE2(x)
-#define STRINGIZE2(x) #x
-#define kassert(condition, msg)                                         \
-	{                                                                   \
-		if (!(condition)) {                                             \
-			print("ASSERT " __FILE__ ":" STRINGIZE(__LINE__) ": " msg); \
-			inline_stacktrace();                                        \
-			inf_wait();                                                 \
-		}                                                               \
-	}

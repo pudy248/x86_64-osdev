@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <kassert.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <stl/allocator.hpp>
@@ -99,7 +100,7 @@ public:
 					qprintf<64>("%08p [%08p bytes]\n", target_block->data, target_block->blk_size);
 					target_block = heap_next(target_block);
 				}
-				kassert(false, "");
+				kassert_trace(UNMASKABLE, TASK_EXCEPTION);
 			}
 			target_block = heap_next(target_block);
 		}
@@ -131,7 +132,7 @@ public:
 	void dealloc(ptr_t ptr) {
 		if (!ptr)
 			return;
-		kassert((uint64_t)ptr >= (uint64_t)begin && (uint64_t)ptr <= (uint64_t)end,
+		kassert(ALWAYS_ACTIVE, ERROR, (uint64_t)ptr >= (uint64_t)begin && (uint64_t)ptr <= (uint64_t)end,
 				"Tried to free pointer out of range of heap.");
 #ifdef HEAP_VERBOSE_LISTS
 		qprintf<64>("\nFREE HEAP DUMP: PTR %08p\n", ptr);
@@ -143,13 +144,13 @@ public:
 #endif
 		heap_meta_head* head_ptr = (heap_meta_head*)((uint64_t)ptr - sizeof(heap_meta_head));
 		heap_meta_tail* tail_ptr = (heap_meta_tail*)((uint64_t)ptr + head_ptr->size);
-		kassert(!tail_ptr->flags, "Double free in heap.");
+		kassert(ALWAYS_ACTIVE, ERROR, !tail_ptr->flags, "Double free in heap.");
 		tail_ptr->flags = 1;
 #ifdef HEAP_ALLOC_PROTECTOR
 		if (head_ptr->protector != protector_head_magic) {
 			qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n",
 						 ptr, head_ptr->protector, protector_head_magic);
-			kassert(false, "");
+			kassert_trace(DEBUG_ONLY, ERROR);
 		}
 		if (tail_ptr->protector != protector_tail_magic) {
 			qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail, expected [%08X].\n",
@@ -186,5 +187,5 @@ public:
 		used -= head_ptr->alignment_offset + sizeof(heap_meta_head) + head_ptr->size + sizeof(heap_meta_tail);
 	}
 
-	void destroy(){};
+	void destroy() {};
 };

@@ -1,6 +1,7 @@
+#include <asm.hpp>
 #include <cstdint>
 #include <drivers/keyboard.hpp>
-#include <kstdlib.hpp>
+#include <sys/global.hpp>
 
 struct register_file;
 
@@ -19,13 +20,14 @@ struct {
 	{ 0x39, 0x1, " ", " " },
 };
 
-[[gnu::force_align_arg_pointer]] void keyboard_irq(uint64_t, register_file*) {
+void keyboard_irq(uint64_t, register_file*) {
 	uint8_t status = inb(0x64);
 	if ((status & 1) == 0)
 		return;
 	uint8_t key = inb(0x60);
 	keyboardInput.loopqueue[keyboardInput.pushIdx] = key;
 	keyboardInput.pushIdx = (keyboardInput.pushIdx + 1) % 256;
+	globals->g_console->putchar(key_to_ascii(key));
 }
 
 uint8_t update_modifiers(uint8_t key) {

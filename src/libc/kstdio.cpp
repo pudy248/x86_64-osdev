@@ -13,15 +13,15 @@ console::console(char (*g)(uint32_t, uint32_t), void (*s)(uint32_t, uint32_t, ch
 }
 void console::newline() {
 	cy++;
-	if (cy == text_rect[3] - text_rect[1]) {
-		for (int y = text_rect[1]; y < text_rect[1] + text_rect[3] - 1; y++) {
-			for (int x = text_rect[0]; x < text_rect[0] + text_rect[2]; x++) {
+	if (cy == text_rect[3]) {
+		for (int y = text_rect[1]; y < text_rect[3] - 1; y++) {
+			for (int x = text_rect[0]; x < text_rect[2]; x++) {
 				set_char(x, y, get_char(x, y + 1));
 			}
 		}
 		cy--;
 	}
-	for (int x = text_rect[0]; x < text_rect[0] + text_rect[2]; x++) {
+	for (int x = text_rect[0]; x < text_rect[2]; x++) {
 		set_char(x, cy, 0);
 	}
 	//Unix or Windows?
@@ -37,7 +37,7 @@ void console::putchar_noupdate(char c) {
 	else {
 		set_char(cx, cy, c);
 		cx++;
-		if (cx == text_rect[0] + text_rect[2]) {
+		if (cx == text_rect[2]) {
 			cx = text_rect[0];
 			newline();
 		}
@@ -82,15 +82,15 @@ void print(rostring str) {
 }
 
 template <typename... Args> void printf(const char* fmt, Args... args) {
-	string s = format(rostring(fmt), args...);
+	string s = format(rostring(fmt).begin(), args...);
 	globals->g_console->putstr(s.c_str_this());
 }
 template <typename... Args> void printf(rostring fmt, Args... args) {
-	string s = format(fmt, args...);
+	string s = format(fmt.begin(), args...);
 	globals->g_console->putstr(s.c_str_this());
 }
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args) {
 	array<char, N> buf;
-	buf.at(formats(buf, fmt, args...)) = 0;
+	buf.at(formats(buf.begin(), fmt, args...)) = 0;
 	globals->g_console->putstr(buf.begin());
 }

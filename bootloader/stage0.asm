@@ -62,26 +62,26 @@ stage0_main:
     mov [es:di], eax                  ; Store the value of EAX as the first PML4E.
     
     ; Build the Page Directory Pointer Table.
-    mov ecx, 4
+    ; mov ecx, 1
     mov eax, 0x72000 | PAGE_FLAGS     ; Put the address of the Page Directory in to EAX.
     mov di, 0x1000
-    .PDPLoop:
+    ; .PDPLoop:
         mov [es:di], eax
-        add eax, 0x1000
-        add di, 8
-        dec ecx
-    jnz .PDPLoop
+    ;    add eax, 0x1000
+    ;    add di, 8
+    ;    dec ecx
+    ; jnz .PDPLoop
     
     ; Build the Page Directory Tables.
-    mov ecx, 2048
+    ; mov ecx, 1
     mov eax, PAGE_FLAGS | PAGE_SIZE
     mov di, 0x2000
-    .PDLoop:
+    ; .PDLoop:
         mov [es:di], eax
-        add eax, 0x200000
-        add di, 8
-        dec ecx
-    jnz .PDLoop
+    ;    add eax, 0x200000
+    ;    add di, 8
+    ;    dec ecx
+    ; jnz .PDLoop
     
     jmp stage1_main
 

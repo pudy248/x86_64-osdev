@@ -1,3 +1,4 @@
+#include <asm.hpp>
 #include <cstdint>
 #include <graphics/color.hpp>
 #include <graphics/graphics.hpp>
@@ -41,9 +42,9 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 			float lighting = dot(normal, lookdir);
 			//if (lighting < 0.f) continue;
 			if (lighting > 1.f) {
-				printf("%f %f %f dot %f %f %f = %f\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z,
-					   lighting);
-				continue;
+				//printf("%f %f %f dot %f %f %f = %f\n", lookdir.x, lookdir.y, lookdir.z, normal.x, normal.y, normal.z,
+				//	   lighting);
+				//continue;
 			}
 
 			int frameCtr = *(int*)(params[0]);
@@ -66,10 +67,14 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 	}
 }
 void _default_fragment_shader(RenderPipeline* pipeline, void** params) {
-	for (uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++) {
-		pipeline->renderTexture[index] = pipeline->fragTexture[index];
-		pipeline->fragTexture[index] = 0;
-	}
+	memcpy<64>(pipeline->renderTexture, pipeline->fragTexture, (pipeline->display_w * pipeline->display_h) >> 4);
+	//for (uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++) {
+	//	pipeline->renderTexture[index] = pipeline->fragTexture[index];
+	//}
+	bzero<64>(pipeline->fragTexture, (pipeline->display_w * pipeline->display_h) >> 4);
+	//for (uint32_t index = 0; index < pipeline->display_w * pipeline->display_h; index++) {
+	//	pipeline->fragTexture[index] = 0;
+	//}
 }
 
 void pipeline_execute(RenderPipeline* pipeline, void** params) {

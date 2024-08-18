@@ -1,20 +1,20 @@
+#include <asm.hpp>
 #include <cstdint>
 #include <drivers/ahci.hpp>
 #include <drivers/pci.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/global.hpp>
-#include <sys/paging.hpp>
+#include <sys/memory/paging.hpp>
 
 void ahci_init(pci_device ahci_pci) {
 	globals->ahci = waterline_new<ahci_device>();
-	hba_cmd_header* cmd_list = (hba_cmd_header*)0x52000;
-	fis_reg_h2d* fis = (fis_reg_h2d*)0x52800;
-	hba_cmd_tbl* ctbas = (hba_cmd_tbl*)0x53000;
-	memset((char*)ctbas, 0, 0x2000);
+	hba_cmd_header* cmd_list = (hba_cmd_header*)mmap(0, 0x1000, 0, MAP_PHYSICAL | MAP_INITIALIZE);
+	fis_reg_h2d* fis = (fis_reg_h2d*)((uint64_t)cmd_list + 0x800);
+	hba_cmd_tbl* ctbas = (hba_cmd_tbl*)mmap(0, 0x2000, 0, MAP_PHYSICAL | MAP_INITIALIZE);
 
 	volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
-	set_page_flags((void*)ahci_mem, PAGE_WT);
+	mprotect((void*)ahci_mem, 0x10000, PAGE_WT, MAP_PHYSICAL);
 	pci_enable_mem(ahci_pci.address);
 	//printf("Using AHCI MMIO at %08x\n", ahci_pci.bars[5]);
 	volatile hba_port* ports = (volatile hba_port*)(uint64_t)(ahci_pci.bars[5] + 0x100);

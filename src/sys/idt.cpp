@@ -1,3 +1,5 @@
+#include "sys/fixed_global.hpp"
+#include "sys/memory/paging.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <kstdio.hpp>
@@ -5,6 +7,8 @@
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
 #include <sys/idt.hpp>
+
+#define BETTER_EXCEPTION_PRINTING
 
 struct [[gnu::packed]] idt_entry {
 	uint16_t offset_low;
@@ -15,26 +19,24 @@ struct [[gnu::packed]] idt_entry {
 	uint32_t offset_high;
 	uint32_t reserved_1;
 };
+struct idt_t {
+	idt_entry entries[256];
+};
 struct [[gnu::packed]] idt_ptr {
 	uint16_t limit;
-	uint32_t base;
-};
-static struct idt_t {
-	struct idt_entry entries[256];
-	struct idt_ptr pointer;
-}* idt = (idt_t*)0x58000;
-void* idtptr;
+	uint64_t base;
+} idt_pointer;
 
 isr_t isr_fns[48];
 
 void idt_set(uint8_t index, uint64_t base, uint8_t flags) {
-	idt->entries[index] = { (uint16_t)base,
-							0x18,
-							0,
-							flags, // | 0x60,
-							(uint16_t)(base >> 16U),
-							(uint32_t)(base >> 32U),
-							0 };
+	((idt_t*)(fixed_globals->idt))->entries[index] = { (uint16_t)base,
+													   0x18,
+													   0,
+													   flags, // | 0x60,
+													   (uint16_t)(base >> 16U),
+													   (uint32_t)(base >> 32U),
+													   0 };
 }
 
 extern uint32_t isr_stub_table[48];
@@ -69,10 +71,13 @@ void isr_set(uint8_t index, isr_t fn) {
 	}
 }
 
-extern "C" [[gnu::force_align_arg_pointer]] void handle_exception(uint64_t int_num, register_file* registers,
-																  uint64_t err_code, bool is_fatal) {
-	qprintf<80>("\nException v=%02x e=%04x %s\n", int_num, err_code, int_num >= 0x20 ? "IRQ" : exceptions[int_num]);
-	qprintf<80>("RIP=%016x RSP=%016x RFLAGS=", registers->rip, registers->rsp);
+extern "C" void handle_exception(uint64_t int_num, register_file* registers, uint64_t err_code, bool is_fatal) {
+	qprintf<80>("\nException v=%02x e=%04x %s\n", int_num, err_code,
+				int_num >= 0x20 ? "IRQ" :
+				int_num >= 19	? "OUT OF RANGE" :
+								  exceptions[int_num]);
+#ifdef BETTER_EXCEPTION_PRINTING
+	qprintf<128>("RIP=%016x RSP=%016x RFLAGS=", registers->rip, registers->rsp);
 	uint64_t rflags = registers->rflags;
 	const char* flagchars = "C-P-A-ZSTIDO";
 	for (int i = 0; i < 12; i++) {
@@ -84,13 +89,26 @@ extern "C" [[gnu::force_align_arg_pointer]] void handle_exception(uint64_t int_n
 		rflags >>= 1;
 	}
 	print("\nRegister dump:\n");
+	qprintf<128>("RAX=%012x RBX=%012x RCX=%012x RDX=%012x\n", registers->rax, registers->rbx, registers->rcx,
+				 registers->rdx);
+	qprintf<128>("RSI=%012x RDI=%012x RBP=%012x RSP=%012x\n", registers->rsi, registers->rdi, registers->rbp,
+				 registers->rsp);
+	qprintf<128>("R08=%012x R09=%012x R10=%012x R11=%012x\n", registers->r8, registers->r9, registers->r10,
+				 registers->r11);
+	qprintf<128>("R12=%012x R13=%012x R14=%012x R15=%012x\n", registers->r12, registers->r13, registers->r14,
+				 registers->r15);
+	qprintf<128>("CR0=%012x CR2=%012x CR3=%012x CR4=%012x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+#else
+	qprintf<80>("RIP=%016x RSP=%016x RFLAGS=%016x\nRegister dump:\n", registers->rip, registers->rsp,
+				registers->rflags);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->r8, registers->r9, registers->r10, registers->r11);
 	qprintf<80>("%016x %016x %016x %016x\n", registers->r12, registers->r13, registers->r14, registers->r15);
 	qprintf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+#endif
 
-	stacktrace();
+	//inline_stacktrace();
 
 	if (is_fatal) {
 		print("Unrecoverable exception - halting...\n");
@@ -99,10 +117,16 @@ extern "C" [[gnu::force_align_arg_pointer]] void handle_exception(uint64_t int_n
 }
 
 void idt_init() {
-	idt->pointer.limit = sizeof(idt->entries) - 1;
-	idt->pointer.base = (uint64_t)&idt->entries[0];
-	memset((char*)&idt->entries[0], 0, sizeof(idt->entries));
+	fixed_globals->idt = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
+	register_file_ptr = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
+	register_file_ptr_swap = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
+
+	idt_pointer.limit = sizeof(((idt_t*)(fixed_globals->idt))->entries) - 1;
+	idt_pointer.base = (uint64_t) & ((idt_t*)(fixed_globals->idt))->entries[0];
 	int i = 0;
+	for (; i < 30; i++) {
+		idt_set((uint8_t)i, isr_stub_table[i], 0x8e);
+	}
 	for (; i < 32; i++) {
 		idt_set((uint8_t)i, isr_stub_table[i], 0x8e);
 	}
@@ -115,7 +139,6 @@ void idt_init() {
 	for (int i = 0; i < 48; i++) {
 		isr_fns[i] = NULL;
 	}
-	idtptr = (void*)&idt->pointer;
-	load_idt(idtptr);
+	load_idt(&idt_pointer);
 	//asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
 }

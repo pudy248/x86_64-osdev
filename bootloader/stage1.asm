@@ -33,7 +33,7 @@ stage1_main:
     mov edx, 0x70000                  ; Point CR3 at the PML4.
     mov cr3, edx
     mov ecx, 0xC0000080               ; Read from the EFER MSR. 
-    rdmsr    
+    rdmsr
     or eax, 0x00000100                ; Set the LME bit.
     wrmsr
     mov ebx, cr0                      ; Activate long mode -
@@ -88,13 +88,16 @@ enable_sse:
     and al, 0xfb
     or rax, 0x2
     mov cr0, rax
-
     mov rax, cr4
-    or rax, 0x40600
+    or rax, 0x600
     mov cr4, rax
     ret
 
 enable_avx:
+    mov rax, cr4
+    or rax, 0x40000
+    mov cr4, rax
+
     xor rcx, rcx
     xgetbv
     or rax, 7

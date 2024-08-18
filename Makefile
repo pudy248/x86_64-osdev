@@ -1,28 +1,31 @@
-CC:=/usr/bin/clang-18
-LD:=/usr/bin/ld.lld-18
-CFLAGS_CC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
-CFLAGS_CC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
-# 
+LLVM_VERSION:=18
+
+CC:=/usr/bin/clang-$(LLVM_VERSION)
+LD:=/usr/bin/ld.lld-$(LLVM_VERSION)
+CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
+CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
+CFLAGS_DBG:=-g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
+CFLAGS:=\
+-m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
+-nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
+-fno-finite-loops -felide-constructors -fno-exceptions -frelaxed-template-template-args \
+-Oz -ffast-math -Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
+$(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG)
+
+LDFLAGS_INC:=--lto=thin --ignore-data-address-equality --ignore-function-address-equality
+LDFLAGS_FIN:=-gc-sections --lto=thin --icf=all --ignore-data-address-equality --ignore-function-address-equality
 
 ASM:=nasm
 ASMFLAGS:=-f elf64
 
-CFLAGS_DBG:= -g -fno-omit-frame-pointer $(CFLAGS_CC_DBG)
-# 
+IWYUFLAGS:=-std=c++26 -Iinclude -Iinclude/std -I/usr/lib/llvm-$(LLVM_VERSION)/lib/clang/$(LLVM_VERSION)/include
+CLANG_TIDY_CHECKS_EXTRA:=*,-llvmlibc-callee-namespace,$(CLANG_TIDY_CHECKS)
+CLANG_TIDY_CHECKS:=-bugprone-suspicious-include,-clang-analyzer-valist.Uninitialized
+CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS) -header-filter=.*
+CLANG_TIDY_CC_FLAGS:=-std=c++26 -Iinclude -Iinclude/std
 
-CFLAGS:=\
--m64 -march=haswell -std=c++23 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
--nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--fno-finite-loops -felide-constructors -fno-exceptions \
--Oz -Iinclude -Iinclude/std -Wall -Wextra \
--Wno-pointer-arith -Wno-strict-aliasing -Wno-writable-strings -Wno-unused-parameter \
-$(CFLAGS_CC) $(CFLAGS_DBG)
-CFLAGS_WEVERYTHING:=-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++14-compat -Wno-old-style-cast -Wno-unsafe-buffer-usage
-
-IWYUFLAGS:=-std=c++23 -Iinclude -Iinclude/std -I/usr/lib/llvm-18/lib/clang/18/include
-
-LDFLAGS_INC:=--lto=thin
-LDFLAGS_FIN:=-gc-sections --lto=thin
+OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source
 
 ASM_SRC:=$(shell find ./src -name "*.asm" | sed -e "s/^\.\///g")
 C_HDR:=$(shell find ./include -name "*.hpp" | sed -e "s/^\.\///g")
@@ -40,23 +43,22 @@ QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
 QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=tmp/dump.pcap
 QEMU_VIDEO:=-vga vmware
 QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
-QEMU_MISC:=-m 4G -cpu Haswell
+QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-#LOCAL_IP:=192.168.0.15
-LOCAL_IP:=172.29.244.210
+LOCAL_IP:=192.168.56.1
+#LOCAL_IP:=172.29.244.210
 
-.PHONY: default clean start start-trace start-db include-check
-default: disk_2.img
+.PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
+default: disk.img
 clean:
 	@rm -f disk.img disk_2.img dump.pcap fattener
 	@rm -rf tmp/*
 
-disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp
+disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp tmp/diskflasher.img
 	$(CC) fattener.cpp -o fattener
 	./fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
-#	@truncate -s 64M disk.img
-disk_2.img: disk.img tmp/diskflasher.img
+	@truncate -s 64M disk.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
 
 start: disk.img
@@ -64,10 +66,12 @@ start: disk.img
 start-flash: disk_2.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) $(QEMU_STORAGE_AUX)
 start-trace: disk.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -d cpu_reset
+start-trace-2: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
-start-db: disk.img
+start-dbg: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null 2> /dev/null &
-	lldb-18 -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
+	lldb-$(LLVM_VERSION) -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5556
@@ -77,21 +81,21 @@ tmp/diskflasher.img: diskflasher.asm
 
 $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
-tmp/obj.o : $(C_SRC)
-	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"\n" > tmp/all.cpp
+tmp/obj.o : $(C_SRC) $(C_HDR)
+	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
 	$(CC) $(CFLAGS) -D KERNEL -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
-#	llvm-objdump --x86-asm-syntax=intel --demangle -d $@ > tmp/base.S
+#	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) $@ > tmp/base.S
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	llvm-objdump --x86-asm-syntax=intel --demangle -d $^ > tmp/kernel.S
-	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
-	llvm-objcopy -O binary $< $@
+	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
+	llvm-objdump-$(LLVM_VERSION) --syms --demangle $^ > tmp/symbols.txt
+	llvm-objcopy-$(LLVM_VERSION) -O binary $< $@
 
 $(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
@@ -100,17 +104,20 @@ $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
 
 tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
 #	llvm-objcopy -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
-	llvm-objcopy --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
+	llvm-objcopy-$(LLVM_VERSION) --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
 	
-	llvm-objdump --x86-asm-syntax=intel --demangle -d tmp/bootloader.img.elf > tmp/bootloader.S
-	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
+#	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump-$(LLVM_VERSION) --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
 format:
-	clang-format -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
+	clang-format-$(LLVM_VERSION) -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 
-iwyu: 
-	for file in $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC); do \
+tidy: tmp/obj.o
+	clang-tidy-$(LLVM_VERSION) $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
+
+iwyu: $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
+	for file in $^; do \
 		iwyu $(IWYUFLAGS) $$file; \
 	done

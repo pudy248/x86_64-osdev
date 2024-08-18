@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <drivers/ahci.hpp>
+#include <kassert.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/fat.hpp>
@@ -132,10 +133,10 @@ void fat_init() {
 	for (; i < 4; i++)
 		if (partTable->entries[i].sysid == SIG_MBR_FAT32)
 			break;
-	kassert(i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
+	kassert(ALWAYS_ACTIVE, ERROR, i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
 	fat32_bpb* bpb = new fat32_bpb();
 	read_disk(bpb, partTable->entries[i].lba_start, 1);
-	kassert(bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
+	kassert(ALWAYS_ACTIVE, ERROR, bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
 
 	globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
 	globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
@@ -153,21 +154,18 @@ void fat_init() {
 				  bpb->sectors_per_fat32);
 	}
 
-	new (&globals->fat_data.root_directory)
-		FILE(new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIR,
-						   NULL, bpb->root_cluster_num));
-	new (&globals->fat_data.working_directory) FILE(globals->fat_data.root_directory);
+	new (&globals->fat_data.root_directory) fat_file(
+		new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
+					  NULL, bpb->root_cluster_num));
+	new (&globals->fat_data.working_directory) fat_file(globals->fat_data.root_directory);
 	delete bpb;
 }
 
 fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, uint32_t start_cluster)
 	: filesize(filesize)
 	, attributes(attributes)
-	, opened(0)
 	, loaded(0)
-	, edited(0)
-	, references(0)
-	, internal_references(0)
+	, references()
 	, parent(parent)
 	, start_cluster(start_cluster)
 	, disk_layout() {
@@ -206,11 +204,14 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLF
 	//qprintf<64>("name: %S\n", &inode->filename);
 	return inode;
 }
-static void* read_from_disk_layout(fat_inode* inode) {
+static void* read_from_disk_layout(fat_inode* inode, int* out_sz) {
 	int cluster_idx = 0;
 	for (int i = 0; i < inode->disk_layout.size(); i++)
 		cluster_idx += inode->disk_layout.at(i).span_length;
-	void* dat = malloc(cluster_idx * globals->fat_data.bytes_per_cluster);
+	int sz = cluster_idx * globals->fat_data.bytes_per_cluster;
+	if (out_sz)
+		*out_sz = sz;
+	void* dat = kmalloc(sz);
 	cluster_idx = 0;
 	int cluster = inode->disk_layout.at(0).sector_start;
 	for (int i = 0; i < inode->disk_layout.size(); i++) {
@@ -223,19 +224,12 @@ static void* read_from_disk_layout(fat_inode* inode) {
 }
 
 void fat_inode::open() {
-	if (opened)
-		return;
-	disk_layout = read_file_layout(start_cluster);
-	opened = 1;
-}
-void fat_inode::read() {
 	if (loaded)
 		return;
-	if (!opened)
-		open();
-	void* dat = read_from_disk_layout(this);
-
-	if (attributes & FAT_ATTRIBS::DIR) {
+	disk_layout = read_file_layout(start_cluster);
+	int sz = 0;
+	void* dat = read_from_disk_layout(this, &sz);
+	if (attributes & FAT_ATTRIBS::DIRECTORY) {
 		fat_dir_ent* entries = (fat_dir_ent*)dat;
 		int idx = 0;
 		while (entries[idx].file.attributes) {
@@ -245,32 +239,35 @@ void fat_inode::read() {
 				continue;
 			}
 			int sidx = idx;
-			//printf("%i:%i\n", sidx, idx);
 			while (entries[idx].file.attributes == FAT_ATTRIBS::LFN)
 				idx++;
 			int nLFNs = idx - sidx;
 			children.append(from_dir_ents(this, &entries[sidx], nLFNs));
-			//print("\n");
-			//pit_delay(1);
 			idx++;
 		}
+		kfree(dat);
 	} else
-		data = vector<char>((char*)dat, filesize);
-	free(dat);
+		data.unsafe_set(dat, sz, sz);
 	loaded = 1;
-	if (parent) {
-		parent->internal_references++;
-	}
+	if (parent)
+		parent->references[1]++;
+}
+
+void fat_inode::close() {
+	if (!loaded)
+		return;
+	purge();
 }
 
 void fat_inode::purge() {
-	if (attributes & FAT_ATTRIBS::DIR) {
+	if (!loaded)
+		return;
+	if (attributes & FAT_ATTRIBS::DIRECTORY) {
 		for (fat_inode* n : children)
-			if (!n->references && !n->internal_references)
-				n->close();
+			n->purge();
 	}
-	if (!references && !internal_references) {
-		if (attributes & FAT_ATTRIBS::DIR) {
+	if (!references[0] && !references[1]) {
+		if (attributes & FAT_ATTRIBS::DIRECTORY) {
 			for (fat_inode* n : children)
 				delete n;
 			children.clear();
@@ -278,81 +275,79 @@ void fat_inode::purge() {
 			data.clear();
 		disk_layout.clear();
 
-		opened = 0;
-		if (parent && loaded) {
-			parent->internal_references--;
-		}
+		if (parent && loaded)
+			parent->references[1]--;
 		loaded = 0;
 	}
 }
 
-void fat_inode::close() {
-	purge();
-}
-
-FILE::FILE()
+fat_file::fat_file()
 	: inode(NULL){};
-FILE::FILE(fat_inode* inode)
+fat_file::fat_file(fat_inode* inode)
 	: inode(inode) {
 	if (inode) {
-		inode->read();
-		inode->references++;
+		inode->open();
+		inode->references[0]++;
 	}
 }
-FILE::FILE(const FILE& other)
+fat_file::fat_file(const fat_file& other)
 	: inode(other.inode) {
 	if (inode)
-		inode->references++;
+		inode->references[0]++;
 }
-FILE::FILE(FILE&& other)
+fat_file::fat_file(fat_file&& other)
 	: inode(other.inode) {
 	other.inode = NULL;
 }
-FILE& FILE::operator=(const FILE& other) {
-	this->~FILE();
+fat_file& fat_file::operator=(const fat_file& other) {
+	this->~fat_file();
 	inode = other.inode;
 	if (inode)
-		inode->references++;
+		inode->references[0]++;
 	return *this;
 }
-FILE& FILE::operator=(FILE&& other) {
-	this->~FILE();
+fat_file& fat_file::operator=(fat_file&& other) {
+	this->~fat_file();
 	inode = other.inode;
 	other.inode = NULL;
 	return *this;
 }
-FILE::~FILE() {
+fat_file::~fat_file() {
 	if (inode) {
-		inode->references--;
-		if (!inode->references)
+		inode->references[0]--;
+		if (!inode->references[0])
 			inode->close();
 	}
 	inode = NULL;
 }
 
-FILE file_open(FILE& directory, rostring filename) {
+fat_file file_open(fat_file& directory, rostring filename) {
 	if (!directory.inode)
-		return FILE();
-	if (!(directory.inode->attributes & FAT_ATTRIBS::DIR))
-		return FILE();
+		return fat_file();
+	if (!(directory.inode->attributes & FAT_ATTRIBS::DIRECTORY))
+		return fat_file();
 	for (int i = 0; i < directory.inode->children.size(); i++) {
 		if (directory.inode->children[i]->filename == filename)
-			return FILE(directory.inode->children[i]);
+			return fat_file(directory.inode->children[i]);
 	}
 	return NULL;
 }
-FILE file_open(rostring absolute_path) {
-	vector<rostring> parts = absolute_path.split("\\/");
-	FILE file = globals->fat_data.root_directory;
+fat_file file_open(rostring absolute_path) {
+	vector<rostring> parts = absolute_path.split<vector>("\\/");
+	fat_file file;
+	if (!parts[0].size())
+		file = globals->fat_data.root_directory;
+	else
+		file = globals->fat_data.working_directory;
 	for (int i = 0; i < parts.size(); i++) {
 		if (!file.inode)
-			return FILE();
+			return fat_file();
 		if (!parts[i].size())
 			continue;
 		if (parts[i] == "."_RO)
 			continue;
 		if (parts[i] == ".."_RO) {
-			file = FILE(file.inode->parent);
+			file = fat_file(file.inode->parent);
 			continue;
 		}
 		file = file_open(file, parts[i]);

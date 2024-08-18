@@ -4,8 +4,7 @@
 
 struct pci_device;
 
-namespace E1000_REG
-{
+namespace E1000_REG {
 enum E1000_REG : uint16_t {
 	CTRL = 0x0000,
 	STATUS = 0x0008,
@@ -45,8 +44,7 @@ enum E1000_REG : uint16_t {
 };
 }
 
-namespace E1000_RCTL
-{
+namespace E1000_RCTL {
 enum E1000_RCTL : uint32_t {
 	EN = 1 << 1,
 	SBP = 1 << 2,
@@ -79,8 +77,7 @@ enum E1000_RCTL : uint32_t {
 };
 }
 
-namespace E1000_TCMD
-{
+namespace E1000_TCMD {
 enum E1000_TCMD : uint8_t {
 	EOP = 1 << 0,
 	IFCS = 1 << 1,
@@ -92,8 +89,7 @@ enum E1000_TCMD : uint8_t {
 };
 }
 
-namespace E1000_TCTL
-{
+namespace E1000_TCTL {
 enum E1000_TCTL : uint32_t {
 	EN = 1 << 1,
 	CTSHIFT = 4,
@@ -104,8 +100,7 @@ enum E1000_TCTL : uint32_t {
 };
 }
 
-namespace E1000_TSTA
-{
+namespace E1000_TSTA {
 enum E1000_TSTA : uint8_t {
 	DD = 1 << 0,
 	EC = 1 << 1,
@@ -141,11 +136,11 @@ struct [[gnu::packed]] e1000_tx_desc {
 struct e1000_handle {
 	uint64_t mmio_base;
 	uint16_t pio_base;
-	uint8_t mac[6]; // A buffer for storing the mack address
-	e1000_rx_desc* rx_descs; // Receive Descriptor Buffers
-	e1000_tx_desc* tx_descs; // Transmit Descriptor Buffers
-	uint16_t rx_cur; // Current Receive Descriptor Buffer
-	uint16_t tx_cur; // Current Transmit Descriptor Buffer
+	uint8_t mac[6];
+	e1000_rx_desc* rx_descs;
+	e1000_tx_desc* tx_descs;
+	uint16_t rx_cur;
+	uint16_t tx_cur;
 	uint8_t eeprom;
 };
 

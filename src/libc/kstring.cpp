@@ -5,58 +5,79 @@
 #include <stl/container.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
-#include <utility>
+#include <stl/view.hpp>
 
 char* string::c_str_new() {
-	return this->begin();
+	return &*this->begin();
 }
 char* string::c_str_this() {
-	if (!this->size() || this->back())
+	if (!this->size() || *(this->end() - 1))
 		this->append(0);
-	return this->begin();
+	return &*this->begin();
 }
 
-template <container<char> C>
-template <container<span<char>> CRet, container<char> CArg>
-CRet basic_string<C>::split(const CArg any) const {
-	istringstream stream(*this);
-	basic_ostream<CRet, rostring> out;
-	while (stream.readable()) {
-		out.swrite(stream.read_until_any<rostring>(any));
-		if (stream.readable() && any.contains(stream.front()))
-			stream.read_c();
+template <iterator_of<char> I, typename S>
+template <template <typename> typename C, comparable_iter_I<I> I2, typename S2>
+	requires requires {
+		requires container_template<C>;
+		requires(!view<I2, S2>::Infinite);
 	}
-	return out.data;
+C<basic_string<I, I>> basic_string<I, S>::split(const view<I2, S2>& any) const {
+	idx_t sz = this->count(any) + 1;
+	C<basic_string<I, I>> container{ sz };
+	idx_t i = 0;
+	istringstream stream(*this);
+	while (i < sz) {
+		container.at(i++) = stream.read_until_v(any);
+		stream.read_c();
+	}
+	return container;
+}
+template <iterator_of<char> I, typename S>
+template <template <typename...> typename C>
+	requires container_template<C>
+C<basic_string<I, I>> basic_string<I, S>::split(char c) const {
+	idx_t sz = this->count(c) + 1;
+	C<basic_string<I, I>> container{ sz };
+	idx_t i = 0;
+	istringstream stream(*this);
+	while (i < sz) {
+		container.at(i++) = stream.read_until_v(c);
+		stream.read_c();
+	}
+	return container;
 }
 
-template <container<char> C> template <container<span<char>> CRet> CRet basic_string<C>::split(char c) const {
-	return split(rostring(&c, 1));
+template <iterator_of<char> I, typename S>
+template <template <typename...> typename C>
+	requires container_template<C>
+C<basic_string<I, I>> basic_string<I, S>::split(const char* c) const {
+	return this->split<C>(rostring(c));
+}
+bool string::operator==(const rostring& other) {
+	return view(*this).equals(other);
 }
 
-template <container<char> C> template <container<span<char>> CRet> CRet basic_string<C>::split(const char* c) const {
-	return split(rostring(c));
-}
-
-int formats(container_wrapper<char> output, const rostring fmt, ...) {
+template <iterator_of<char> I> int formats(const I& output, const rostring fmt, ...) {
 	va_list l;
 	va_start(l, fmt);
 
 	istringstream fmts(fmt);
-	basic_ostringstream<container_wrapper<char>> ostr(output);
-	ostr.data.reserve(fmt.size());
+
+	basic_ostringstream<I> ostr(output);
 
 	const rostring fmtchars("ixXpbfsSIM");
 
 	while (fmts.readable()) {
 		char c = fmts.read_c();
 		if (c == '%') {
-			istringstream fmtArg(fmts.read_until_any<span<char>>(fmtchars, true));
+			istringstream fmtArg(fmts.read_until_v(fmtchars, true));
 			int leadingChars = 0;
 			int decimals = 3;
 			char leadingChar = ' ';
 
 			while (fmtArg.readable()) {
-				char front = fmtArg.front();
+				char front = *fmtArg.begin();
 				if (fmtchars.contains(front))
 					break;
 				else if (front == 'l' || front == 'z')
@@ -72,55 +93,54 @@ int formats(container_wrapper<char> output, const rostring fmt, ...) {
 					leadingChars = fmtArg.read_i();
 				}
 			}
-			char c2 = fmtArg.data.at(fmtArg.data.size() - 1);
+			char c2 = *(fmtArg.end() - 1);
 			if (c2 == 'i') {
-				ostr.write_i(va_arg(l, int64_t), leadingChars, 10, leadingChar);
+				ostr.writei(va_arg(l, int64_t), leadingChars, 10, leadingChar);
 			} else if (c2 == 'X') {
-				ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
 			} else if (c2 == 'x') {
-				ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar, "0123456789abcdef");
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, "0123456789abcdef");
 			} else if (c2 == 'p') {
-				ostr.write_c('0');
-				ostr.write_c('x');
-				ostr.write_u(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
+				ostr.write('0');
+				ostr.write('x');
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar);
 			} else if (c2 == 'b') {
-				ostr.write_u(va_arg(l, uint64_t), leadingChars, 2, leadingChar);
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 2, leadingChar);
 			} else if (c2 == 'f') {
-				ostr.write_f(va_arg(l, double), leadingChars, decimals, leadingChar);
+				ostr.writef(va_arg(l, double), leadingChars, decimals, leadingChar);
 			} else if (c2 == 's') {
 				const char* ptr = va_arg(l, const char*);
 				if (leadingChars)
-					ostr.write_str(rostring((char*)ptr, leadingChars, 0));
+					ostr.write(rostring(ptr, ptr + leadingChars));
 				else
-					ostr.write_cstr(ptr);
+					ostr.write(ptr);
 			} else if (c2 == 'S') {
-				ostr.write_str(*va_arg(l, rostring*));
+				ostr.write(*va_arg(l, rostring*));
 			} else if (c2 == 'I') {
 				ipv4_t ip = va_arg(l, ipv4_t);
 				for (int i = 0; i < 4; i++) {
-					ostr.write_i(((uint8_t*)&ip)[i]);
+					ostr.writei(((uint8_t*)&ip)[i]);
 					if (i < 3)
-						ostr.write_c('.');
+						ostr.write('.');
 				}
 			} else if (c2 == 'M') {
 				mac_t mac = va_arg(l, mac_t);
 				for (int i = 0; i < 6; i++) {
-					ostr.write_i(((uint8_t*)&mac)[i], 2, 16, '0', "0123456789abcdef");
+					ostr.writei(((uint8_t*)&mac)[i], 2, 16, '0', "0123456789abcdef");
 					if (i < 5)
-						ostr.write_c(':');
+						ostr.write(':');
 				}
 			}
 		} else
-			ostr.write_c(c);
+			ostr.write(c);
 	}
 	va_end(l);
 
-	output = std::move(ostr.data);
-	return ostr.offset;
+	return ostr.begin() - output;
 }
 
 template <typename... Args> string format(rostring fmt, Args... args) {
-	vector<char> v{};
-	formats(v, fmt, args...);
-	return string(v);
+	string s;
+	formats(s.begin(), fmt, args...);
+	return s;
 }

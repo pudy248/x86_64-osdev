@@ -1,6 +1,8 @@
 #pragma once
+#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <kassert.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/allocators/slab.hpp>
@@ -16,17 +18,11 @@ public:
 	using ptr_t = void*;
 };
 template <std::size_t PC, std::size_t MSS> class slab_pagemap : public default_allocator {
+	static_assert(std::has_single_bit(MSS), "MSS should be a power of two");
+
 protected:
-	constexpr static uint64_t next_power_of_two(uint64_t val) {
-		if (!val)
-			return 0;
-		for (uint64_t i = 1; i && i <= MSS; i <<= 1)
-			if (val <= i)
-				return i;
-		return 0;
-	}
 	template <std::size_t SS> slab_allocator<SS, 4096>* as_width(int index) {
-		return (slab_allocator<SS, 4096>*)&pages.at(index);
+		return (slab_allocator<SS, 4096>*)&pages[index];
 	}
 	template <std::size_t SS> slab_allocator<SS, 4096>* get_slab() {
 		for (std::size_t i = 0; i < PC; i++) {
@@ -37,7 +33,7 @@ protected:
 				break;
 		}
 		allocated_pages++;
-		kassert((uint64_t)allocated_pages < PC, "Pagemap exhausted.");
+		kassert(DEBUG_ONLY, WARNING, (uint64_t)allocated_pages < PC, "Pagemap exhausted.");
 		slab_widths[allocated_pages - 1] = SS;
 		new (as_width<SS>(allocated_pages - 1)) slab_allocator<SS, 4096>();
 		return as_width<SS>(allocated_pages - 1);
@@ -93,7 +89,7 @@ public:
 	ptr_t alloc(uint64_t size) {
 		if (size > MSS)
 			return nullptr;
-		switch (next_power_of_two(size)) {
+		switch (std::bit_ceil(size)) {
 		case 1:
 			return get_slab<1>()->alloc(0);
 		case 2:
@@ -143,7 +139,7 @@ public:
 			as_width<128>(index)->dealloc(ptr);
 			break;
 		default:
-			kassert(false, "Deallocated invalid slab block.");
+			kassert(DEBUG_ONLY, ERROR, false, "Deallocated invalid slab block.");
 		}
 	}
 };

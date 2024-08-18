@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
+#include <kassert.hpp>
 #include <kstdlib.hpp>
 #include <resources/ms_gothic_small.hpp>
 #include <text/graphical_console.hpp>
@@ -29,7 +30,7 @@ static void render_char(uint32_t px, uint32_t py, char c, int scale) {
 
 void graphics_text_init() {
 	pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
-	kassert(svga_pci, "No VGA display device detected!\r\n");
+	kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, svga_pci, "No VGA display device detected!\r\n");
 	svga_init(*svga_pci, graphics_text_dimensions[0] * 8, graphics_text_dimensions[1] * 16);
 
 	storage_buffer = (char*)walloc(graphics_text_dimensions[0] * graphics_text_dimensions[1], 0x10);

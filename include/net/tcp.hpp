@@ -1,4 +1,5 @@
 #pragma once
+#include "net/tcp.hpp"
 #include <cstdint>
 #include <kstddefs.hpp>
 #include <net/net.hpp>
@@ -6,8 +7,7 @@
 
 struct ip_packet;
 
-namespace TCP_STATE
-{
+namespace TCP_STATE {
 enum TCP_STATE {
 	UNINITIALIZED,
 	LISTENING,
@@ -55,6 +55,13 @@ struct tcp_packet_partial {
 
 struct tcp_packet {
 	span<char> contents;
+};
+
+struct tcp_iterator_r {
+	struct tcp_connection* conn;
+};
+struct tcp_iterator_w {
+	struct tcp_connection* conn;
 };
 
 struct tcp_connection {

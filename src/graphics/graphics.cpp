@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <graphics/color.hpp>
 #include <graphics/graphics.hpp>
 #include <graphics/math.hpp>
 #include <graphics/pipeline.hpp>
@@ -19,14 +20,14 @@ static void create_frag(RenderPipeline* pipeline, int x, int y, Vec4 color, floa
 	uint32_t idx = pipeline->display_w * (uint32_t)y + (uint32_t)x;
 	//if (pipeline->fragBuffer[idx].depth != 0 && pipeline->fragBuffer[idx].depth < depth) return;
 	//pipeline->fragBuffer[idx] = (Fragment){depth};
-	pipeline->fragTexture[idx] = 0xffff00ff; //rgba2u32(color);
+	pipeline->fragTexture[idx] = rgba2u32(color);
 	//printf("%i:%i\n", idx, pipeline->fragTexture[idx]);
 }
 
 void raster_point(RenderPipeline* pipeline, uint32_t p) {
-	ProjectedVertex v = pipeline->projVertBuffer[p];
-	if (clip(v.spos))
-		return;
+	ProjectedVertex& v = pipeline->projVertBuffer[p];
+	//if (clip(v.spos))
+	//	return;
 	Vec4 ss = screenspace(pipeline, v.spos);
 	create_frag(pipeline, (int)ss.x, (int)ss.y, v.color, ss.w);
 }
@@ -51,20 +52,23 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 
 	float yp = 0;
 	float dy12 = ss2.y - ss1.y;
+	float mi12 = (ss2.x - ss1.x) / dy12;
+	float bi12 = ss1.x - ss1.y * mi12;
 
-	for (; yp < dy12; yp++) {
-		float yf = min(1, yp / dy12);
-		float yfp = min(1, (yp + 1) / dy12);
-		Vec4 pos1 = lerp4(ss1, ss2, yf);
-		Vec4 pos2 = lerp4(ss1, ss2, yfp);
-		Vec4 color1 = lerp4(v1.color, v2.color, yf);
-		Vec4 color2 = lerp4(v1.color, v2.color, yfp);
-		int x1 = (int)pos1.x;
-		int x2 = (int)pos2.x;
-		for (int x = x1; x != x2; x += sign(x2 - x1)) {
-			float xf = (float)(x - x1) / (float)(x2 - x1);
-			Vec4 col = lerp4(color1, color2, xf);
-			create_frag(pipeline, x, (int)pos1.y, col, lerpf(pos1.w, pos2.w, xf));
+	for (int y = (int)ss1.y; y < ss2.y; y++) {
+		int x1 = max(ss1.y, y) * mi12 + bi12;
+		int x2 = min(ss2.y, y + 1) * mi12 + bi12;
+		if (x1 == x2)
+			x2++;
+		int xl = min(x1, x2);
+		int xr = max(x1, x2);
+		for (int x = xl; x < xr; x++) {
+			if (x < 0 || x > (int)pipeline->display_w)
+				continue;
+			create_frag(pipeline, x, y, v1.color, v1.wpos.w);
+			//float xf = (float)(x - x1) / (float)(x2 - x1);
+			//Vec4 col = lerp4(color1, color2, xf);
+			//create_frag(pipeline, x, (int)pos1.y, col, lerpf(pos1.w, pos2.w, xf));
 		}
 	}
 }
@@ -94,10 +98,13 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
 	uint32_t p1 = pipeline->triangleBuffer[3 * tri];
 	uint32_t p3 = pipeline->triangleBuffer[3 * tri + 1];
 	uint32_t p2 = pipeline->triangleBuffer[3 * tri + 2];
-	//raster_point(pipeline, p1);
-	//raster_point(pipeline, p2);
-	//raster_point(pipeline, p3);
-	//return;
+	raster_point(pipeline, p1);
+	raster_point(pipeline, p2);
+	raster_point(pipeline, p3);
+	//raster_line(pipeline, p1, p2);
+	//raster_line(pipeline, p1, p3);
+	//raster_line(pipeline, p2, p3);
+	return;
 
 	ProjectedVertex v1 = pipeline->projVertBuffer[p1];
 	ProjectedVertex v2 = pipeline->projVertBuffer[p2];

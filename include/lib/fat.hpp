@@ -1,16 +1,16 @@
 #pragma once
 #include <cstdint>
+#include <kassert.hpp>
 #include <kstring.hpp>
 #include <stl/vector.hpp>
 
-namespace FAT_ATTRIBS
-{
+namespace FAT_ATTRIBS {
 enum FAT_ATTRIBS {
 	READONLY = 0x01,
 	HIDDEN = 0x02,
 	SYSTEM = 0x04,
 	VOL_ID = 0x08,
-	DIR = 0x10,
+	DIRECTORY = 0x10,
 	ARCHIVE = 0x20,
 	LFN = 0x0f,
 };
@@ -21,35 +21,32 @@ struct fat_disk_span {
 	uint32_t span_length;
 };
 
-struct FILE {
+struct fat_file {
 	struct fat_inode* inode;
 
-	FILE();
-	FILE(struct fat_inode* inode);
-	FILE(const FILE& other);
-	FILE(FILE&& other);
-	FILE& operator=(const FILE& other);
-	FILE& operator=(FILE&& other);
-	~FILE();
+	fat_file();
+	fat_file(struct fat_inode* inode);
+	fat_file(const fat_file& other);
+	fat_file(fat_file&& other);
+	fat_file& operator=(const fat_file& other);
+	fat_file& operator=(fat_file&& other);
+	~fat_file();
 
 	vector<char>& data() const;
-	vector<FILE>& children() const;
+	vector<fat_file>& children() const;
 };
 
 struct fat_inode {
 	string filename;
 	uint32_t filesize;
 	uint8_t attributes;
-	uint8_t opened : 1;
 	uint8_t loaded : 1;
-	uint8_t edited : 1;
 
 	//timepoint created;
 	//timepoint modified;
 	//timepoint accessed;
 
-	uint16_t references;
-	uint16_t internal_references;
+	uint16_t references[2];
 
 	union {
 		vector<char> data;
@@ -66,7 +63,6 @@ struct fat_inode {
 	~fat_inode();
 
 	void open();
-	void read();
 	void write();
 	void close();
 	void purge();
@@ -81,22 +77,22 @@ struct fat_sys_data {
 
 	vector<uint32_t*> fat_tables;
 
-	FILE root_directory;
-	FILE working_directory;
+	fat_file root_directory;
+	fat_file working_directory;
 };
 
 void fat_init();
 
-//bool file_exists(FILE& directory, rostring filename);
+//bool file_exists(fat_file& directory, rostring filename);
 //bool file_exists(rostring absolute_path);
 //bool file_exists_rel(rostring relative_path);
 
-FILE file_open(FILE& directory, rostring filename);
-FILE file_open(rostring absolute_path);
-FILE file_open_rel(rostring relative_path);
+fat_file file_open(fat_file& directory, rostring filename);
+fat_file file_open(rostring absolute_path);
+fat_file file_open_rel(rostring relative_path);
 
-FILE file_create(FILE& directory, rostring filename);
-FILE file_create(rostring absolute_path);
-FILE file_create_rel(rostring relative_path);
+fat_file file_create(fat_file& directory, rostring filename);
+fat_file file_create(rostring absolute_path);
+fat_file file_create_rel(rostring relative_path);
 
-void file_close(FILE& file);
+void file_close(fat_file& file);
