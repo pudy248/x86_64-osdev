@@ -9,12 +9,10 @@ template <typename T> class optional {
 public:
 	optional()
 		: has_value(false)
-		, value() {
-	}
+		, value() {}
 	optional(T val)
 		: has_value(true)
-		, value(val) {
-	}
+		, value(val) {}
 	operator T() const volatile {
 		kassert(DEBUG_ONLY, ERROR, has_value, "Attempted to convert empty optional.");
 		return value;

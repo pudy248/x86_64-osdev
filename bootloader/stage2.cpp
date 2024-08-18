@@ -41,7 +41,8 @@ extern "C" void* stage2_main() {
 		kassert(UNMASKABLE, CATCH_FIRE, kernel.inode, "Kernel image not found!\n");
 		uint64_t kernel_link_loc = ((uint64_t*)&*kernel.inode->data.begin())[0];
 		kernel_main = ((uint64_t*)&*kernel.inode->data.begin())[1];
-		memcpy<8>((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->data.size() + 8);
+		memcpy<8>((void*)kernel_link_loc, kernel.inode->data.begin(),
+				  kernel.inode->data.size() + 8);
 	}
 
 	global_dtors();

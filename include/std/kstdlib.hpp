@@ -9,7 +9,8 @@ void memmove(void* dest, void* src, uint64_t size);
 void memset(void* dest, uint8_t src, uint64_t size);
 }
 
-template <std::size_t A = 1> void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
+template <std::size_t A = 1>
+void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	void* asrc = __builtin_assume_aligned(src, A);
 	__builtin_assume(size % A == 0);
@@ -21,17 +22,13 @@ template <std::size_t A = 1> void memcpy(void* __restrict dest, const void* __re
 template <std::size_t A = 1> void memset(void* __restrict dest, uint8_t src, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	__builtin_assume(size % A == 0);
-	for (uint64_t i = 0; i < size; i++) {
-		((uint8_t*)adest)[i] = src;
-	}
+	for (uint64_t i = 0; i < size; i++) { ((uint8_t*)adest)[i] = src; }
 }
 
 template <std::size_t A = 1> void bzero(void* __restrict dest, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	__builtin_assume(size % A == 0);
-	for (uint64_t i = 0; i < size; i++) {
-		((uint8_t*)adest)[i] = 0;
-	}
+	for (uint64_t i = 0; i < size; i++) { ((uint8_t*)adest)[i] = 0; }
 }
 
 void mem_init();
@@ -50,8 +47,7 @@ void operator delete(void* ptr) noexcept;
 void operator delete[](void* ptr) noexcept;
 template <typename T> static inline void destruct(T* ptr, int count) {
 	if constexpr (std::is_destructible_v<T>)
-		for (int i = 0; i < count; i++)
-			ptr[i].~T();
+		for (int i = 0; i < count; i++) ptr[i].~T();
 }
 
 template <typename T> T* waterline_new(uint64_t count = 1, uint16_t alignment = alignof(T)) {

@@ -20,8 +20,7 @@ extern "C" void swap_context();
 
 template <typename R> static thread_context<R>* get_thread_context(thread<R> t) {
 	for (thread_context<int>* c : contexts) {
-		if (c->id == t.id)
-			return (thread_context<R>*)c;
+		if (c->id == t.id) return (thread_context<R>*)c;
 	}
 	kassert(ALWAYS_ACTIVE, CATCH_FIRE, true, "Failed to find thread.");
 	return NULL;
@@ -56,7 +55,8 @@ template <typename R, typename... Args> thread<R> thread_create(R (*fn)(Args...)
 
 template <typename R, typename... Args>
 thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... args) {
-	function_instance<R (*)(Args...)>* dispatch = new function_instance<R (*)(Args...)>(fn, args...);
+	function_instance<R (*)(Args...)>* dispatch =
+		new function_instance<R (*)(Args...)>(fn, args...);
 	thread_context<R>* context = new thread_context<R>();
 	contexts.append((thread_context<int>*)context);
 	context->id = thread_id_ctr++;
@@ -71,8 +71,7 @@ thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... a
 	context->registers.isr_rsp = context->registers.rsp - 0x38;
 	context->registers.rdi = (uint64_t)context;
 
-	if (opts.run_now)
-		thread_switch(context->handle());
+	if (opts.run_now) thread_switch(context->handle());
 
 	return context->handle();
 }
@@ -117,18 +116,17 @@ template <typename R> R thread_join(thread<R> t) {
 }
 template <typename R> void thread_kill(thread<R> t) {
 	for (int i = 0; i < contexts.size(); i++) {
-		if (contexts[i]->id == t.id)
-			contexts.erase(i);
+		if (contexts[i]->id == t.id) contexts.erase(i);
 	}
 }
 template <typename R> R thread_co_await(thread<R> t) {
 	volatile thread_context<R>* context = get_thread_context(t);
-	while (context->state != THREAD_STATE::COYIELD_WAIT && context->state != THREAD_STATE::JOIN_WAIT) {
+	while (context->state != THREAD_STATE::COYIELD_WAIT &&
+		   context->state != THREAD_STATE::JOIN_WAIT) {
 		thread_switch(t);
 	}
 	R val = context->return_val;
-	if (context->state == THREAD_STATE::COYIELD_WAIT)
-		context->state = THREAD_STATE::SUSPENDED;
+	if (context->state == THREAD_STATE::COYIELD_WAIT) context->state = THREAD_STATE::SUSPENDED;
 	return val;
 }
 template <typename R> void thread_co_yield(R co_ret) {

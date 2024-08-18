@@ -34,8 +34,7 @@ struct arp_entry {
 	arp_entry() = default;
 	arp_entry(mac_t _mac, ipv4_t _ip)
 		: mac(_mac)
-		, ip(_ip) {
-	}
+		, ip(_ip) {}
 };
 
 extern vector<arp_entry> arp_table;

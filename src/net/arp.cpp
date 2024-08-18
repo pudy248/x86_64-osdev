@@ -25,15 +25,13 @@ void arp_update(mac_t mac, ipv4_t ip) {
 
 ipv4_t arp_translate_mac(mac_t mac) {
 	for (int i = 0; i < arp_table.size(); i++) {
-		if (mac == arp_table[i].mac)
-			return arp_table[i].ip;
+		if (mac == arp_table[i].mac) return arp_table[i].ip;
 	}
 	return 0;
 }
 mac_t arp_translate_ip(ipv4_t ip) {
 	for (int i = 0; i < arp_table.size(); i++) {
-		if (ip == arp_table[i].ip)
-			return arp_table[i].mac;
+		if (ip == arp_table[i].ip) return arp_table[i].mac;
 	}
 	return 0;
 }
@@ -53,8 +51,7 @@ void arp_process(ethernet_packet packet) {
 	char tMac = !!targetMac;
 	char tIp = !!targetIP;
 
-	if (sMac && sIp)
-		arp_update(selfMac, selfIP);
+	if (sMac && sIp) arp_update(selfMac, selfIP);
 
 	switch ((sMac << 0) | (sIp << 1) | (tMac << 2) | (tIp << 3) | (htons(h->op) << 4)) {
 	case 0x19: //Probe
@@ -67,8 +64,7 @@ void arp_process(ethernet_packet packet) {
 	case 0x1B:
 		if (selfIP != targetIP) { //Request
 			printf("[ARP] %I wants to know: Who is %I?\n", selfIP, targetIP);
-			if (targetIP == new_ipv4(10, 0, 2, 15))
-				global_ip = targetIP;
+			if (targetIP == new_ipv4(10, 0, 2, 15)) global_ip = targetIP;
 
 			if (targetIP == global_ip) {
 				printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
@@ -85,8 +81,9 @@ void arp_process(ethernet_packet packet) {
 		}
 		break;
 	default:
-		printf("[ARP] Not sure what to do with %s. (%M %I) (%M %I)\n", htons(h->op) == 2 ? "reply" : "request",
-			   h->selfMac, h->selfIP, h->targetMac, h->targetIP);
+		printf("[ARP] Not sure what to do with %s. (%M %I) (%M %I)\n",
+			   htons(h->op) == 2 ? "reply" : "request", h->selfMac, h->selfIP, h->targetMac,
+			   h->targetIP);
 		break;
 	}
 }

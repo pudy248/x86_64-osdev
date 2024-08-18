@@ -28,18 +28,18 @@ bool http_process(tcp_connection* conn, tcp_packet p) {
 		}
 	}
 	printf("%S\n", &file.inode->filename);
-	if (view(file.inode->filename).ends_with(rostring(".png")))
-		http_send(conn, rostring("image/png"), rostring(file.inode->data));
-	else if (view(file.inode->filename).ends_with(rostring(".webp")))
-		http_send(conn, rostring("image/webp"), rostring(file.inode->data));
-	else if (view(file.inode->filename).ends_with(rostring(".wasm")))
-		http_send(conn, rostring("application/wasm"), rostring(file.inode->data));
-	else if (view(file.inode->filename).ends_with(rostring(".css")))
-		http_send(conn, rostring("text/css"), rostring(file.inode->data));
-	else if (view(file.inode->filename).ends_with(rostring(".js")))
-		http_send(conn, rostring("text/javascript"), rostring(file.inode->data));
+	if (view(file.inode->filename).ends_with(".png"_RO))
+		http_send(conn, "image/png"_RO, view(file.inode->data).reinterpret_as<char>());
+	else if (view(file.inode->filename).ends_with(".webp"_RO))
+		http_send(conn, "image/webp"_RO, view(file.inode->data).reinterpret_as<char>());
+	else if (view(file.inode->filename).ends_with(".wasm"_RO))
+		http_send(conn, "application/wasm"_RO, view(file.inode->data).reinterpret_as<char>());
+	else if (view(file.inode->filename).ends_with(".css"_RO))
+		http_send(conn, "text/css"_RO, view(file.inode->data).reinterpret_as<char>());
+	else if (view(file.inode->filename).ends_with(".js"_RO))
+		http_send(conn, "text/javascript"_RO, view(file.inode->data).reinterpret_as<char>());
 	else
-		http_send(conn, rostring("text/html"), rostring(file.inode->data));
+		http_send(conn, "text/html"_RO, view(file.inode->data).reinterpret_as<char>());
 
 	return false;
 }

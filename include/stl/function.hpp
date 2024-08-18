@@ -7,16 +7,15 @@
 #include <type_traits>
 #include <utility>
 
-template <typename... T> consteval static size_t parameter_pack_count() {
-	return sizeof...(T);
-}
+template <typename... T> consteval static size_t parameter_pack_count() { return sizeof...(T); }
 template <typename... T> consteval static size_t parameter_pack_size() {
 	return (0 + ... + sizeof(T));
 }
 
 template <typename F> class function_instance;
 template <typename R, typename... Args> class function_instance<R (*)(Args...)> {
-	static_assert((std::is_move_assignable<Args>() && ...), "Function instances require moveable arguments.");
+	static_assert((std::is_move_assignable<Args>() && ...),
+				  "Function instances require moveable arguments.");
 	static_assert((std::is_default_constructible<Args>() && ...),
 				  "Function instances require default-constructible arguments.");
 
@@ -37,8 +36,7 @@ protected:
 public:
 	constexpr function_instance(R (*fn)(Args...))
 		: function(fn)
-		, _has_args(false) {
-	}
+		, _has_args(false) {}
 	constexpr function_instance(R (*fn)(Args...), Args... args)
 		: function(fn)
 		, _has_args(true) {
@@ -58,13 +56,13 @@ public:
 	constexpr void set_args(Args&&... args) {
 		_has_args = true;
 		size_t offset = 0;
-		((new ((Args*)&arg_data[(offset += sizeof(Args)) - sizeof(Args)]) Args(std::move(args))), ...);
+		((new ((Args*)&arg_data[(offset += sizeof(Args)) - sizeof(Args)]) Args(std::move(args))),
+		 ...);
 	}
-	constexpr bool has_args() {
-		return _has_args;
-	}
+	constexpr bool has_args() { return _has_args; }
 	constexpr R operator()() {
-		kassert(DEBUG_ONLY, WARNING, _has_args, "Function instances cannot be evaluated when no argument pack exists!");
+		kassert(DEBUG_ONLY, WARNING, _has_args,
+				"Function instances cannot be evaluated when no argument pack exists!");
 		//Arguments must be default constructed so that we can emplace the actual values later. This is super lame.
 		return dummy_function(Args()...);
 	}

@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <sys/idt.hpp>
 
-
 struct timepoint {
 	uint32_t micros;
 	uint8_t second;
@@ -39,3 +38,5 @@ void rtc_delay(uint32_t seconds);
 void tsc_delay(uint64_t cycles);
 
 int clockspeed_MHz(void);
+
+extern bool do_pit_readout;

@@ -41,7 +41,9 @@ private:
 		return (heap_blk*)(blk->data + blk->blk_size - sizeof(heap_blk));
 	}
 	static inline uint64_t heap_alloc_size(uint64_t requested_size) {
-		return (requested_size + sizeof(heap_meta_head) + sizeof(heap_meta_tail) + (sizeof(heap_blk) - 1)) & ~0xFLLU;
+		return (requested_size + sizeof(heap_meta_head) + sizeof(heap_meta_tail) +
+				(sizeof(heap_blk) - 1)) &
+			   ~0xFLLU;
 	}
 
 public:
@@ -55,20 +57,15 @@ public:
 		, end(end)
 		, used(0) {
 		((heap_blk*)begin)->blk_size = (uint64_t)end - (uint64_t)begin - sizeof(heap_blk);
-		((heap_blk*)begin)->data = (uint64_t) & ((heap_blk*)begin)[1];
+		((heap_blk*)begin)->data = (uint64_t)&((heap_blk*)begin)[1];
 		heap_next((heap_blk*)begin)->data = 0;
 		heap_next((heap_blk*)begin)->blk_size = 0;
 	}
 	heap_allocator(ptr_t begin, uint64_t size)
-		: heap_allocator(begin, (ptr_t)((uint64_t)begin + size)) {
-	}
+		: heap_allocator(begin, (ptr_t)((uint64_t)begin + size)) {}
 
-	bool contains(ptr_t ptr) {
-		return ptr >= begin && ptr < end;
-	}
-	uint64_t mem_used() {
-		return used;
-	}
+	bool contains(ptr_t ptr) { return ptr >= begin && ptr < end; }
+	uint64_t mem_used() { return used; }
 
 	ptr_t alloc(uint64_t size, uint16_t alignment = 0x10) {
 		alignment = min(alignment, sizeof(heap_blk));
@@ -86,7 +83,8 @@ public:
 		uint64_t align_offset;
 		while (true) {
 			uint64_t block_ptr = (uint64_t)target_block->data;
-			aligned_addr = align_to(block_ptr + sizeof(heap_meta_head), alignment) - sizeof(heap_meta_head);
+			aligned_addr =
+				align_to(block_ptr + sizeof(heap_meta_head), alignment) - sizeof(heap_meta_head);
 
 			uint64_t blk_size_aligned = target_block->blk_size - (aligned_addr - block_ptr);
 			if (blk_size_aligned >= adj_size) {
@@ -115,7 +113,8 @@ public:
 		}
 
 		heap_meta_head* head_ptr = (heap_meta_head*)aligned_addr;
-		heap_meta_tail* tail_ptr = (heap_meta_tail*)(aligned_addr + sizeof(heap_meta_head) + blk_size);
+		heap_meta_tail* tail_ptr =
+			(heap_meta_tail*)(aligned_addr + sizeof(heap_meta_head) + blk_size);
 		head_ptr->size = blk_size;
 		head_ptr->alignment_offset = align_offset;
 		tail_ptr->flags = 0;
@@ -130,9 +129,9 @@ public:
 	}
 
 	void dealloc(ptr_t ptr) {
-		if (!ptr)
-			return;
-		kassert(ALWAYS_ACTIVE, ERROR, (uint64_t)ptr >= (uint64_t)begin && (uint64_t)ptr <= (uint64_t)end,
+		if (!ptr) return;
+		kassert(ALWAYS_ACTIVE, ERROR,
+				(uint64_t)ptr >= (uint64_t)begin && (uint64_t)ptr <= (uint64_t)end,
 				"Tried to free pointer out of range of heap.");
 #ifdef HEAP_VERBOSE_LISTS
 		qprintf<64>("\nFREE HEAP DUMP: PTR %08p\n", ptr);
@@ -148,16 +147,19 @@ public:
 		tail_ptr->flags = 1;
 #ifdef HEAP_ALLOC_PROTECTOR
 		if (head_ptr->protector != protector_head_magic) {
-			qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n",
-						 ptr, head_ptr->protector, protector_head_magic);
+			qprintf<256>(
+				"FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n",
+				ptr, head_ptr->protector, protector_head_magic);
 			kassert_trace(DEBUG_ONLY, ERROR);
 		}
 		if (tail_ptr->protector != protector_tail_magic) {
-			qprintf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail, expected [%08X].\n",
-						 ptr, tail_ptr->protector, protector_tail_magic);
+			qprintf<256>(
+				"FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail, expected [%08X].\n",
+				ptr, tail_ptr->protector, protector_tail_magic);
 			kassert(false, "");
 		}
-		if (head_ptr->protector != protector_head_magic || tail_ptr->protector != protector_tail_magic)
+		if (head_ptr->protector != protector_head_magic ||
+			tail_ptr->protector != protector_tail_magic)
 			inf_wait();
 #endif
 		uint64_t base_addr = (uint64_t)head_ptr - head_ptr->alignment_offset;
@@ -184,7 +186,8 @@ public:
 		((heap_blk*)begin)->data = base_addr;
 		((heap_blk*)begin)->blk_size = end_addr - base_addr, *heap_next((heap_blk*)begin) = orig;
 
-		used -= head_ptr->alignment_offset + sizeof(heap_meta_head) + head_ptr->size + sizeof(heap_meta_tail);
+		used -= head_ptr->alignment_offset + sizeof(heap_meta_head) + head_ptr->size +
+				sizeof(heap_meta_tail);
 	}
 
 	void destroy() {};

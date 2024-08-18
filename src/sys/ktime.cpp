@@ -12,41 +12,35 @@
 
 struct register_file;
 
-void inc_pit(uint64_t, register_file* regs) {
+bool do_pit_readout = false;
+
+void inc_pit(uint64_t, register_file*) {
 	globals->elapsedPITs = globals->elapsedPITs + 1;
 	//Print diagnostics
-	if (0) {
+	if (do_pit_readout) {
 		int x, l;
 		array<char, 20> arr;
 		x = globals->g_console->text_rect[2] - 1;
 		l = formats(arr.begin(), "    W %i", globals->global_waterline.mem_used());
-		for (int i = l - 1; i >= 0; --i)
-			globals->g_console->set_char(x--, 0, arr[i]);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 0, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
 		l = formats(arr.begin(), "    S %i", globals->global_pagemap.mem_used());
-		for (int i = l - 1; i >= 0; --i)
-			globals->g_console->set_char(x--, 1, arr[i]);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 1, arr[i]);
 
 		x = globals->g_console->text_rect[2] - 1;
 		l = formats(arr.begin(), "    H %i", globals->global_heap.mem_used());
-		for (int i = l - 1; i >= 0; --i)
-			globals->g_console->set_char(x--, 2, arr[i]);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 2, arr[i]);
 
-		//timepoint t = timepoint::pit_time();
-		//x = globals->g_console->text_rect[2] - 1;
-		//l = formats(arr, "%02i:%02i:%02i.%03i", t.hour, t.minute, t.second, (int)(t.micros / 1000));
-		//for (int i = l - 1; i >= 0; --i)
-		//    globals->g_console->set_char(x--, 3, arr[i]);
+		timepoint t = timepoint::pit_time_imprecise();
+		x = globals->g_console->text_rect[2] - 1;
+		l = formats(arr.begin(), "%02i:%02i:%02.3f", t.hour, t.minute,
+					t.second + t.micros / 1000000.);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 3, arr[i]);
 
 		globals->g_console->refresh();
 	}
 }
-
-static const char* months[12] = {
-	"January", "February", "March",		"April",   "May",	   "June",
-	"July",	   "August",   "September", "October", "November", "December",
-};
 
 static uint8_t get_cmos_register(uint8_t reg) {
 	outb(0x70, reg);
@@ -62,8 +56,7 @@ void time_init(void) {
 
 timepoint timepoint::cmos_time() {
 	timepoint t;
-	while (get_cmos_register(0x0a) & 0x80)
-		;
+	while (get_cmos_register(0x0a) & 0x80);
 	t.year = get_cmos_register(0x9);
 	t.month = get_cmos_register(0x8);
 	t.day = get_cmos_register(0x7);
@@ -106,9 +99,7 @@ timepoint timepoint::pit_time() {
 	return pit_time_override(subcnt);
 }
 
-timepoint timepoint::pit_time_imprecise() {
-	return pit_time_override(0);
-}
+timepoint timepoint::pit_time_imprecise() { return pit_time_override(0); }
 
 double timepoint::unix_seconds() {
 	double unixsecs = micros / 1000000.0 + second + minute * 60 + hour * 3600 + hour * 24 * 3600;
@@ -117,17 +108,20 @@ double timepoint::unix_seconds() {
 
 void tsc_delay(uint64_t cycles) {
 	uint64_t start = rdtsc();
-	while (rdtsc() - start < cycles)
-		;
+	while (rdtsc() - start < cycles);
 }
 
 void pit_delay(double seconds) {
 	double start = timepoint::pit_time().unix_seconds();
-	while (timepoint::pit_time().unix_seconds() - start < seconds)
-		;
+	while (timepoint::pit_time().unix_seconds() - start < seconds);
 }
 
 /*
+static const char* months[12] = {
+	"January", "February", "March",		"April",   "May",	   "June",
+	"July",	   "August",   "September", "October", "November", "December",
+};
+
 void print_lres_timepoint(lres_timepoint rtc, int fmt) {
     switch(fmt) {
         case 0: printf("%s %i, 20%02i - %02i:%02i:%02i\n", months[rtc.month], rtc.day, rtc.year, rtc.hour, rtc.minute, rtc.second); break;
@@ -145,6 +139,7 @@ int clockspeed_MHz() {
 
 	double eSec = (t2 - t1);
 	double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-	printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc, (uint32_t)(eSec * 1000000));
+	printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc,
+		   (uint32_t)(eSec * 1000000));
 	return freqMHz;
 }

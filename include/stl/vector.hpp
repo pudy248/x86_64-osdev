@@ -21,7 +21,8 @@ public:
 	using value_type = T;
 };
 
-template <typename T, typename A> class vector_iterator : public iterator_crtp<vector_iterator<T, A>> {
+template <typename T, typename A>
+class vector_iterator : public iterator_crtp<vector_iterator<T, A>> {
 public:
 	union {
 		vector<T, A>* ptr;
@@ -29,18 +30,10 @@ public:
 	};
 	idx_t offset;
 
-	constexpr T& operator*() {
-		return ptr->at(offset);
-	}
-	constexpr T& operator*() const {
-		return (*cptr)[offset];
-	}
-	constexpr operator T*() {
-		return &**this;
-	}
-	constexpr operator const T*() const {
-		return &**this;
-	}
+	constexpr T& operator*() { return ptr->at(offset); }
+	constexpr T& operator*() const { return (*cptr)[offset]; }
+	constexpr operator T*() { return &**this; }
+	constexpr operator const T*() const { return &**this; }
 	constexpr vector_iterator& operator+=(idx_t v) {
 		offset += v;
 		return *this;
@@ -65,14 +58,11 @@ public:
 	using value_type = T;
 	using iterator_type = vector_iterator<T, A>;
 
-	constexpr T& m_at(idx_t idx) const {
-		return ((T*)m_arr)[idx];
-	}
+	constexpr T& m_at(idx_t idx) const { return ((T*)m_arr)[idx]; }
 	constexpr vector()
 		: m_arr(nullptr)
 		, m_size(0)
-		, m_capacity(0) {
-	}
+		, m_capacity(0) {}
 	vector(idx_t size, A _alloc = A())
 		: m_size(0)
 		, alloc(_alloc)
@@ -88,18 +78,14 @@ public:
 		, m_capacity(v.size()) {
 		this->m_arr = (T*)alloc.alloc(sizeof(T) * m_capacity);
 		I iter = v.begin();
-		for (idx_t i = 0; i < size(); i++, iter++) {
-			new (&m_at(i)) T(*iter);
-		}
+		for (idx_t i = 0; i < size(); i++, iter++) { new (&m_at(i)) T(*iter); }
 	}
 	template <convertible_iter_I<iterator_type> I, typename S>
 	constexpr vector(const I& begin, const S& end, const A& _alloc = A())
-		: vector(view(begin, end), _alloc) {
-	}
+		: vector(view(begin, end), _alloc) {}
 
 	vector(const vector& other)
-		: vector(other.begin(), other.end(), other.alloc) {
-	}
+		: vector(other.begin(), other.end(), other.alloc) {}
 	constexpr vector(vector&& other)
 		: m_arr(other.m_arr)
 		, m_size(other.m_size)
@@ -108,12 +94,10 @@ public:
 		other.unsafe_clear();
 	}
 	vector(std::initializer_list<T> list)
-		: vector(list.begin(), list.end()) {
-	}
+		: vector(list.begin(), list.end()) {}
 
 	template <allocator A2> vector& operator=(const vector<T, A2>& other) {
-		if (&other == this)
-			return *this;
+		if (&other == this) return *this;
 		this->~vector();
 		new (this) vector(other);
 		return *this;
@@ -149,8 +133,7 @@ public:
 	constexpr T& at(int idx) {
 		if (this->capacity() <= idx) {
 			int newCap = m_capacity < 1 ? 1 : m_capacity;
-			while (newCap <= idx)
-				newCap = newCap * resize_ratio;
+			while (newCap <= idx) newCap = newCap * resize_ratio;
 			reserve(newCap);
 		}
 		this->m_size = max(this->m_size, idx + 1);
@@ -163,28 +146,22 @@ public:
 	template <typename Derived> constexpr auto& operator[](this Derived& self, int idx) {
 		return self.m_at(idx);
 	}
-	constexpr iterator_type begin() {
-		return vector_iterator<T, A>{ {}, { this }, 0 };
-	}
+	constexpr iterator_type begin() { return vector_iterator<T, A>{ {}, { this }, 0 }; }
 	constexpr const iterator_type begin() const {
 		return vector_iterator<T, A>{ {}, { .cptr = this }, 0 };
 	}
-	constexpr iterator_type end() {
-		return vector_iterator<T, A>{ {}, { this }, this->size() };
-	}
+	constexpr iterator_type end() { return vector_iterator<T, A>{ {}, { this }, this->size() }; }
 	constexpr const iterator_type end() const {
 		return vector_iterator<T, A>{ {}, { .cptr = this }, this->size() };
 	}
 
 	void reserve(int size) {
-		if (m_capacity >= size)
-			return;
+		if (m_capacity >= size) return;
 		if (m_capacity)
 			m_arr = (T*)alloc.realloc(m_arr, sizeof(T) * m_capacity, sizeof(T) * size);
 		else
 			m_arr = (T*)alloc.alloc(sizeof(T) * size);
-		for (int i = m_capacity; i < size; i++)
-			new (&m_at(i)) T();
+		for (int i = m_capacity; i < size; i++) new (&m_at(i)) T();
 		m_capacity = size;
 	}
 	void resize(int size) {
@@ -192,19 +169,14 @@ public:
 		this->m_size = size;
 	}
 
-	constexpr void append(T& elem) {
-		this->at(this->size()) = std::forward<T>(elem);
-	}
-	constexpr void append(T&& elem) {
-		this->at(this->size()) = std::forward<T>(elem);
-	}
+	constexpr void append(T& elem) { this->at(this->size()) = std::forward<T>(elem); }
+	constexpr void append(T&& elem) { this->at(this->size()) = std::forward<T>(elem); }
 	template <convertible_iter_I<iterator_type> I, typename S>
 		requires(!view<I, S>::Infinite)
 	constexpr void append(const view<I, S>& other) {
 		reserve(size() + other.size());
 		I iter = other.begin();
-		for (idx_t i = 0; iter != other.end(); i++, iter++)
-			append(*iter);
+		for (idx_t i = 0; iter != other.end(); i++, iter++) append(*iter);
 	}
 	constexpr void append(const T* elems, idx_t count) {
 		append(view<T*, T*>(elems, elems + count));
@@ -216,8 +188,7 @@ public:
 		else {
 			idx_t i = this->size();
 			this->at(i) = m_at(i - 1);
-			for (i--; i > idx; i--)
-				m_at(i) = std::move(m_at(i - 1));
+			for (i--; i > idx; i--) m_at(i) = std::move(m_at(i - 1));
 			m_at(i) = std::forward<T>(elem);
 		}
 	}
@@ -226,36 +197,26 @@ public:
 			this->at(idx) = elem;
 		else {
 			resize(size() + 1);
-			for (idx_t i = this->size() - 1; i > idx; i--)
-				m_at(i) = std::move(m_at(i - 1));
+			for (idx_t i = this->size() - 1; i > idx; i--) m_at(i) = std::move(m_at(i - 1));
 			m_at(idx) = std::forward<T>(elem);
 		}
 	}
 
 	void erase(idx_t idx) {
-		if (idx >= this->size())
-			return;
-		for (idx_t i = idx + 1; i < this->size(); i++)
-			m_at(i - 1) = m_at(i);
+		if (idx >= this->size()) return;
+		for (idx_t i = idx + 1; i < this->size(); i++) m_at(i - 1) = m_at(i);
 		this->m_size--;
 	}
 	void erase(idx_t idx, idx_t count) {
-		if (idx >= this->size())
-			return;
-		for (idx_t i = 0; i < count; i++)
-			erase(idx);
+		if (idx >= this->size()) return;
+		for (idx_t i = 0; i < count; i++) erase(idx);
 	}
 
 	T* c_arr() const {
 		T* arr2 = new T[this->size()];
-		for (idx_t i = 0; i < this->size(); i++)
-			arr2[i] = m_at(i);
+		for (idx_t i = 0; i < this->size(); i++) arr2[i] = m_at(i);
 		return arr2;
 	}
-	constexpr idx_t size() const volatile {
-		return m_size;
-	}
-	constexpr idx_t capacity() const volatile {
-		return m_capacity;
-	}
+	constexpr idx_t size() const volatile { return m_size; }
+	constexpr idx_t capacity() const volatile { return m_capacity; }
 };

@@ -58,16 +58,15 @@ struct [[gnu::packed]] page_t {
 	}
 
 	page_t(void* address, uint16_t flags) {
-		kassert(DEBUG_ONLY, ERROR, !((uint64_t)address & 0xfff), "Attempted to use non-page-aligned address for page.");
+		kassert(DEBUG_ONLY, ERROR, !((uint64_t)address & 0xfff),
+				"Attempted to use non-page-aligned address for page.");
 		addr = (uint64_t)address >> 12;
 		set_flags(flags);
 		avl = 0;
 		avl2 = 0;
 		pk = 0;
 	}
-	void* address() {
-		return (void*)(addr << 12);
-	}
+	void* address() { return (void*)(addr << 12); }
 };
 
 struct page_table {
@@ -99,9 +98,7 @@ struct frame_info {
 	}
 };
 
-static inline void invlpg(void* m) {
-	asmv("invlpg (%0)\n" : : "b"(m) : "memory");
-}
+static inline void invlpg(void* m) { asmv("invlpg (%0)\n" : : "b"(m) : "memory"); }
 
 void* virt2phys(void* virt);
 void* phys2virt(void* phys);

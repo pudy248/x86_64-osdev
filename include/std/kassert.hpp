@@ -24,7 +24,7 @@ enum DEBUG_LEVEL {
 namespace assert {
 constexpr int DEFAULT_DEBUG_LEVEL = ALWAYS_ACTIVE;
 constexpr int DEFAULT_DEBUG_HALT_SEVERITY = ERROR;
-constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = IGNORE;
+constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = COMMENT;
 
 #ifndef NDEBUG_LEVEL
 #define NDEBUG_LEVEL assert::DEFAULT_DEBUG_LEVEL
@@ -40,10 +40,11 @@ constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = IGNORE;
 #endif
 
 static const char* debug_severities[] = {
-	"halt and catch fire!! ", "fatal exception: ", "error: ", "warning: ", "info: ", "note: "
+	"halt and catch fire!! ", "fatal exception: ", "error: ", "warning: ", "info: ", "note: ", ""
 };
 
-template <bool halt> [[gnu::used]] static void kassert_impl(int severity, const char* location, const char* message) {
+template <bool halt>
+[[gnu::used]] static void kassert_impl(int severity, const char* location, const char* message) {
 	print(debug_severities[severity]);
 	print(location);
 	print(": ");
@@ -58,16 +59,17 @@ template <bool halt> [[gnu::used]] static void kassert_impl(int severity, const 
 
 #define STRINGIZE(x) STRINGIZE2(x)
 #define STRINGIZE2(x) #x
-#define kassert(level, severity, condition, msg)                                                                    \
-	do {                                                                                                            \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                                   \
-			if (!(condition))                                                                                       \
-				assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity, __FILE__ ":" STRINGIZE(__LINE__), \
-																										 msg);      \
+#define kassert(level, severity, condition, msg)                                  \
+	do {                                                                          \
+		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY) \
+			if (!(condition))                                                     \
+				assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(          \
+					severity, __FILE__ ":" STRINGIZE(__LINE__), msg);             \
 	} while (0)
 
-#define kassert_trace(level, severity)                                                                               \
-	do {                                                                                                             \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                                    \
-			assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity, __FILE__ ":" STRINGIZE(__LINE__), ""); \
+#define kassert_trace(level, severity)                                            \
+	do {                                                                          \
+		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY) \
+			assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(              \
+				severity, __FILE__ ":" STRINGIZE(__LINE__), "Backtrace");         \
 	} while (0)

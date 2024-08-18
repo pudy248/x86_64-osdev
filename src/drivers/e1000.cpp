@@ -27,10 +27,10 @@ static uint16_t e1000_read_eeprom(uint8_t addr) {
 	for (int i = 0; 1; i++) {
 		outb(0x80, 0);
 		tmp = e1000_read(E1000_REG::EERD);
-		if (tmp & 0x10)
-			break;
+		if (tmp & 0x10) break;
 		if (i > 1000) {
-			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
+			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD),
+						e1000_read(E1000_REG::EERD));
 			inf_wait();
 		}
 	}
@@ -104,11 +104,11 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 		e1000_dev->mac[5] = v >> 8;
 	}
 
-	qprintf<80>("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", e1000_dev->mac[0], e1000_dev->mac[1],
-				e1000_dev->mac[2], e1000_dev->mac[3], e1000_dev->mac[4], e1000_dev->mac[5]);
+	qprintf<80>("Found MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", e1000_dev->mac[0],
+				e1000_dev->mac[1], e1000_dev->mac[2], e1000_dev->mac[3], e1000_dev->mac[4],
+				e1000_dev->mac[5]);
 
-	for (int i = 0; i < 0x80; i++)
-		e1000_write(0x5200 + i * 4, 0);
+	for (int i = 0; i < 0x80; i++) e1000_write(0x5200 + i * 4, 0);
 
 	//Initialize RX
 	for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
@@ -123,8 +123,9 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	e1000_write(E1000_REG::RXDESCHD, 0);
 	e1000_write(E1000_REG::RXDESCTL, E1000_NUM_RX_DESC);
 	e1000_dev->rx_cur = 0;
-	e1000_write(E1000_REG::RCTRL, E1000_RCTL::EN | E1000_RCTL::SBP | E1000_RCTL::UPE | E1000_RCTL::MPE |
-									  E1000_RCTL::RDMTS_H | E1000_RCTL::BAM | E1000_RCTL::SECRC | E1000_BUFSIZE_FLAGS);
+	e1000_write(E1000_REG::RCTRL, E1000_RCTL::EN | E1000_RCTL::SBP | E1000_RCTL::UPE |
+									  E1000_RCTL::MPE | E1000_RCTL::RDMTS_H | E1000_RCTL::BAM |
+									  E1000_RCTL::SECRC | E1000_BUFSIZE_FLAGS);
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
@@ -154,26 +155,23 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	print("e1000e network card initialized.\n\n");
 }
 
-void e1000_enable() {
-	e1000_write(E1000_REG::IMS, 0xFF & ~4);
-}
+void e1000_enable() { e1000_write(E1000_REG::IMS, 0xFF & ~4); }
 
 static void e1000_int_handler(uint64_t, register_file*) {
 	e1000_write(E1000_REG::IMS, 0x1);
 	uint32_t status = e1000_read(E1000_REG::ICR);
 	//printf("%02x\n", status);
-	if (status & 0x02) {
-	}
-	if (status & 0x04)
-		e1000_link();
+	if (status & 0x02) {}
+	if (status & 0x04) e1000_link();
 	if (status & 0x40) {
 		print("RXO\n");
 		printf("  RCTRL %08x\n", e1000_read(E1000_REG::RCTRL));
-		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
-		printf("  RX0 ADDR %08x STATUS %02x\n", e1000_dev->rx_descs->addr, e1000_dev->rx_descs->status);
+		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD),
+			   e1000_read(E1000_REG::RXDESCTL));
+		printf("  RX0 ADDR %08x STATUS %02x\n", e1000_dev->rx_descs->addr,
+			   e1000_dev->rx_descs->status);
 	}
-	if (status & 0x80)
-		e1000_receive();
+	if (status & 0x80) e1000_receive();
 }
 
 void e1000_receive() {
@@ -200,11 +198,11 @@ void e1000_receive() {
 }
 
 int e1000_send_async(void* data, uint16_t len) {
-	while (~e1000_dev->tx_descs[e1000_dev->tx_cur].status & 1)
-		asmv("nop");
+	while (~e1000_dev->tx_descs[e1000_dev->tx_cur].status & 1) asmv("nop");
 	memcpy((void*)e1000_dev->tx_descs[e1000_dev->tx_cur].addr, data, len);
 	e1000_dev->tx_descs[e1000_dev->tx_cur].length = len;
-	e1000_dev->tx_descs[e1000_dev->tx_cur].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
+	e1000_dev->tx_descs[e1000_dev->tx_cur].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS |
+												 E1000_TCMD::RS;
 	e1000_dev->tx_descs[e1000_dev->tx_cur].status = 0;
 	uint8_t handle = e1000_dev->tx_cur;
 	e1000_dev->tx_cur = (e1000_dev->tx_cur + 1) % E1000_NUM_TX_DESC;
@@ -214,6 +212,5 @@ int e1000_send_async(void* data, uint16_t len) {
 }
 
 void net_await(int handle) {
-	while (~e1000_dev->tx_descs[handle].status & 1)
-		asmv("nop");
+	while (~e1000_dev->tx_descs[handle].status & 1) asmv("nop");
 }

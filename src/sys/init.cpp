@@ -14,16 +14,14 @@ extern uint64_t start_dtors;
 extern uint64_t end_dtors;
 
 void global_ctors() {
-	void (**i)() = (void (**)()) & start_ctors;
-	void (**end)() = (void (**)()) & end_ctors;
-	while (i < end)
-		(*(i++))();
+	void (**i)() = (void (**)())&start_ctors;
+	void (**end)() = (void (**)())&end_ctors;
+	while (i < end) (*(i++))();
 }
 void global_dtors() {
-	void (**i)() = (void (**)()) & start_dtors;
-	void (**end)() = (void (**)()) & end_dtors;
-	while (i < end)
-		(*(i++))();
+	void (**i)() = (void (**)())&start_dtors;
+	void (**end)() = (void (**)())&end_dtors;
+	while (i < end) (*(i++))();
 }
 
 void init_libcpp() {

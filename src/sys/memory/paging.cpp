@@ -9,23 +9,19 @@
 #define __frame_info ((frame_info*)fixed_globals->frame_info_table)
 
 void* page_table::at(int index) {
-	if (CHECK_PRESENT && !entries[index].p)
-		inf_wait();
+	if (CHECK_PRESENT && !entries[index].p) inf_wait();
 	return entries[index].address();
 }
 page_table* page_pdt::at(int index) {
-	if (CHECK_PRESENT && !entries[index].p)
-		inf_wait();
+	if (CHECK_PRESENT && !entries[index].p) inf_wait();
 	return (page_table*)entries[index].address();
 }
 page_pdt* page_pdpt::at(int index) {
-	if (CHECK_PRESENT && !entries[index].p)
-		inf_wait();
+	if (CHECK_PRESENT && !entries[index].p) inf_wait();
 	return (page_pdt*)entries[index].address();
 }
 page_pdpt* page_pml4::at(int index) {
-	if (CHECK_PRESENT && !entries[index].p)
-		inf_wait();
+	if (CHECK_PRESENT && !entries[index].p) inf_wait();
 	return (page_pdpt*)entries[index].address();
 }
 
@@ -45,17 +41,13 @@ static page_resolution resolve_page(void* virtual_addr, int stop_level) {
 	uint64_t pdt_idx = (addr >> 21) & 0x1ff;
 	uint64_t pt_idx = (addr >> 12) & 0x1ff;
 	page_t* page = &fixed_globals->pml4->entries[pml4_idx];
-	if (!page->p || stop_level == 4)
-		return { page, 4 };
+	if (!page->p || stop_level == 4) return { page, 4 };
 	page = &fixed_globals->pml4->at(pml4_idx)->entries[pdpt_idx];
-	if (!page->p || stop_level == 3)
-		return { page, 3 };
+	if (!page->p || stop_level == 3) return { page, 3 };
 	page = &fixed_globals->pml4->at(pml4_idx)->at(pdpt_idx)->entries[pdt_idx];
-	if (!page->p || stop_level == 2)
-		return { page, 2 };
+	if (!page->p || stop_level == 2) return { page, 2 };
 	page = &fixed_globals->pml4->at(pml4_idx)->at(pdpt_idx)->at(pdt_idx)->entries[pt_idx];
-	if (!page->p || stop_level == 1)
-		return { page, 1 };
+	if (!page->p || stop_level == 1) return { page, 1 };
 	return { (page_t*)page->address(), 0 };
 }
 
@@ -64,8 +56,7 @@ static void* find_contiguous_frame(uint64_t start, size_t size) {
 	for (uint64_t i = start; i < 0x10000; i++) {
 		if (!__frame_info[i].p) {
 			counter++;
-			if (counter == size)
-				return (void*)((i - counter + 1) << 12);
+			if (counter == size) return (void*)((i - counter + 1) << 12);
 		} else
 			counter = 0;
 	}
@@ -81,9 +72,7 @@ void* virt2phys(void* virt) {
 	kassert(ALWAYS_ACTIVE, ERROR, !result.layer, "Virtual address not present in virt2phys.");
 	return result.ptr;
 }
-void* phys2virt(void* phys) {
-	return phys;
-}
+void* phys2virt(void* phys) { return phys; }
 
 static void map_page(void* physical_addr, int page_flags) {
 	page_resolution pr = resolve_page(physical_addr, 1);
@@ -104,13 +93,10 @@ void* mmap(void* addr, size_t size, uint16_t flags, int map) {
 	mprotect(addr, size, flags, map);
 	return addr;
 }
-void munmap(void* addr, size_t size) {
-	mprotect(addr, size, DEFAULT_FLAGS, MAP_EXISTS);
-}
+void munmap(void* addr, size_t size) { mprotect(addr, size, DEFAULT_FLAGS, MAP_EXISTS); }
 void mprotect(void* addr, size_t size, uint16_t flags, int map) {
 	if constexpr (false) {
-		if (~map & MAP_PHYSICAL)
-			addr = virt2phys(addr);
+		if (~map & MAP_PHYSICAL) addr = virt2phys(addr);
 	}
 
 	size_t page_count = (size + 0xfff) >> 12;
@@ -123,15 +109,15 @@ void mprotect(void* addr, size_t size, uint16_t flags, int map) {
 
 		if (fi.p && !(map & (MAP_REMAP | MAP_EXISTS)))
 			printf("%08x\n", (uint64_t)addr + 0x1000 * i);
-		kassert(DEBUG_ONLY, WARNING, !fi.permanent || !(map & MAP_EXISTS), "Attempted to unmap permanent allocation.");
+		kassert(DEBUG_ONLY, WARNING, !fi.permanent || !(map & MAP_EXISTS),
+				"Attempted to unmap permanent allocation.");
 		fi.set_flags(MAP_EXISTS ^ map);
 	}
 	if (~map & MAP_INFO_ONLY)
 		for (size_t i = 0; i < page_count; i++)
 			map_page((void*)((uint64_t)addr + (i << 12)), flags ^ DEFAULT_FLAGS);
 
-	if (map & MAP_INITIALIZE)
-		bzero<4096>(addr, size);
+	if (map & MAP_INITIALIZE) bzero<4096>(addr, size);
 }
 
 void paging_init() {

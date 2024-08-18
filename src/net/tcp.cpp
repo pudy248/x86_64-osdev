@@ -46,12 +46,8 @@ static void tcp_checksum(ip_header ip, tcp_header* tcp) {
 		sum += *ip_payload++;
 		tcp_len -= 2;
 	}
-	if (tcp_len > 0) {
-		sum += ((*ip_payload) & htons(0xFF00));
-	}
-	while (sum >> 16) {
-		sum = (sum & 0xffff) + (sum >> 16);
-	}
+	if (tcp_len > 0) { sum += ((*ip_payload) & htons(0xFF00)); }
+	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
 	sum = ~sum;
 	tcp->checksum = sum;
 }
@@ -60,12 +56,10 @@ static tcp_flags set_flags(uint16_t dat) {
 	*(uint16_t*)&f = dat;
 	return f;
 }
-constexpr bool TCP_STATE::valid(TCP_STATE s) {
-	return s == ESTABLISHED;
-}
+constexpr bool TCP_STATE::valid(TCP_STATE s) { return s == ESTABLISHED; }
 
 static int tcp_transmit(tcp_connection* conn, tcp_packet packet, uint16_t flags) {
-	void* buf = malloc(packet.contents.size() + sizeof(tcp_header));
+	void* buf = kmalloc(packet.contents.size() + sizeof(tcp_header));
 	tcp_header* tcp = (tcp_header*)buf;
 	tcp->src_port = htons(conn->cur_port);
 	tcp->dst_port = htons(conn->cli_port);
@@ -81,7 +75,8 @@ static int tcp_transmit(tcp_connection* conn, tcp_packet packet, uint16_t flags)
 	ip.total_length = htons(20 + packet.contents.size() + sizeof(tcp_header));
 	ip.src_ip = conn->cur_ip;
 	ip.dst_ip = conn->cli_ip;
-	memcpy((void*)((uint64_t)buf + sizeof(tcp_header)), packet.contents.begin(), packet.contents.size());
+	memcpy((void*)((uint64_t)buf + sizeof(tcp_header)), packet.contents.begin(),
+		   packet.contents.size());
 	tcp_checksum(ip, tcp);
 
 	ip_packet p_ip;
@@ -90,7 +85,7 @@ static int tcp_transmit(tcp_connection* conn, tcp_packet packet, uint16_t flags)
 	p_ip.protocol = IP_PROTOCOL_TCP;
 	p_ip.contents = span<char>((char*)buf, packet.contents.size() + sizeof(tcp_header));
 	int handle = ipv4_send(p_ip);
-	free(buf);
+	kfree(buf);
 	return handle;
 }
 
@@ -105,7 +100,8 @@ void tcp_process(ip_packet packet) {
 		tcp_connection* conn = open_connections.at(i);
 
 		if (conn->state == TCP_STATE::LISTENING) {
-			if ((!conn->cur_port || conn->cur_port == htons(tcp->dst_port)) && tcp->flags.syn && !tcp->flags.ack) {
+			if ((!conn->cur_port || conn->cur_port == htons(tcp->dst_port)) && tcp->flags.syn &&
+				!tcp->flags.ack) {
 				conn->cli_ip = packet.src;
 				conn->cur_ip = packet.dst;
 				conn->cli_port = htons(tcp->src_port);
@@ -117,21 +113,19 @@ void tcp_process(ip_packet packet) {
 				conn->cli_ack = conn->start_seq;
 
 				if (TCP_VERBOSE_LOGGING)
-					printf("[TCP] Opening connection to port %i with %I:%i.\n", conn->cur_port, conn->cli_ip,
-						   conn->cli_port);
+					printf("[TCP] Opening connection to port %i with %I:%i.\n", conn->cur_port,
+						   conn->cli_ip, conn->cli_port);
 				tcp_mss mss = { 0x02, 0x04, htons(TCP_MSS) };
 				conn->state = TCP_STATE::SYNACK_SENT;
-				tcp_transmit(conn, { span<char>((char*)&mss, 4) }, TCP_DATA_OFFSET(1) | TCP_FLAG_SYN | TCP_FLAG_ACK);
+				tcp_transmit(conn, { span<char>((char*)&mss, 4) },
+							 TCP_DATA_OFFSET(1) | TCP_FLAG_SYN | TCP_FLAG_ACK);
 				return;
 			}
 		}
 
-		if (conn->state == TCP_STATE::UNINITIALIZED)
-			continue;
-		if (conn->cur_port != htons(tcp->dst_port))
-			continue;
-		if (conn->cli_ip != packet.src)
-			continue;
+		if (conn->state == TCP_STATE::UNINITIALIZED) continue;
+		if (conn->cur_port != htons(tcp->dst_port)) continue;
+		if (conn->cli_ip != packet.src) continue;
 		if (conn->cli_port != htons(tcp->src_port))
 			continue;
 
@@ -144,7 +138,8 @@ void tcp_process(ip_packet packet) {
 		}
 
 		if (tcp->flags.rst) {
-			printf("[TCP] %I:%i->%i: RST recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+			printf("[TCP] %I:%i->%i: RST recieved.\n", conn->cli_ip, conn->cli_port,
+				   conn->cur_port);
 			tcp_packet p_ack = { span<char>() };
 			tcp_transmit(conn, p_ack, TCP_DATA_OFFSET(0) | TCP_FLAG_RST | TCP_FLAG_ACK);
 			conn->state = TCP_STATE::CLOSED;
@@ -160,7 +155,8 @@ void tcp_process(ip_packet packet) {
 			tcp_packet p_ack = { span<char>() };
 			tcp_transmit(conn, p_ack, TCP_DATA_OFFSET(0) | TCP_FLAG_ACK);
 			if (TCP_VERBOSE_LOGGING)
-				printf("[TCP] %I:%i->%i: SYN/ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+				printf("[TCP] %I:%i->%i: SYN/ACK recieved.\n", conn->cli_ip, conn->cli_port,
+					   conn->cur_port);
 			return;
 		} else if (conn->state == TCP_STATE::SYNACK_SENT) {
 			if (tcp->flags.syn || !tcp->flags.ack || tcp->flags.psh) {
@@ -169,7 +165,8 @@ void tcp_process(ip_packet packet) {
 			}
 			conn->cur_seq++;
 			if (TCP_VERBOSE_LOGGING)
-				printf("[TCP] %I:%i->%i: Handshake ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+				printf("[TCP] %I:%i->%i: Handshake ACK recieved.\n", conn->cli_ip, conn->cli_port,
+					   conn->cur_port);
 			conn->state = TCP_STATE::ESTABLISHED;
 			return;
 		} else if (conn->state == TCP_STATE::FIN_SENT) {
@@ -177,14 +174,16 @@ void tcp_process(ip_packet packet) {
 				conn->cur_ack++;
 				tcp_transmit(conn, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_ACK);
 				if (TCP_VERBOSE_LOGGING)
-					printf("[TCP] %I:%i->%i: FIN/ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+					printf("[TCP] %I:%i->%i: FIN/ACK recieved.\n", conn->cli_ip, conn->cli_port,
+						   conn->cur_port);
 				conn->state = TCP_STATE::CLOSED;
 				return;
 			}
 		} else if (conn->state == TCP_STATE::FINACK_SENT) {
 			if (tcp->flags.ack) {
 				if (TCP_VERBOSE_LOGGING)
-					printf("[TCP] %I:%i->%i: Final ACK recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+					printf("[TCP] %I:%i->%i: Final ACK recieved.\n", conn->cli_ip, conn->cli_port,
+						   conn->cur_port);
 				conn->state = TCP_STATE::CLOSED;
 			}
 			return;
@@ -196,8 +195,8 @@ void tcp_process(ip_packet packet) {
 				return;
 			}
 			if (TCP_VERBOSE_LOGGING)
-				printf("[TCP] %I:%i->%i: PSH recieved: %i bytes.\n", conn->cli_ip, conn->cli_port, conn->cur_port,
-					   size);
+				printf("[TCP] %I:%i->%i: PSH recieved: %i bytes.\n", conn->cli_ip, conn->cli_port,
+					   conn->cur_port, size);
 			uint32_t tmp_ack = conn->cur_ack;
 
 			conn->cur_ack = htonl(tcp->seq_num) + size;
@@ -207,10 +206,12 @@ void tcp_process(ip_packet packet) {
 				if (!conn->partial.start_seq) {
 					conn->partial.start_seq = tmp_ack;
 					conn->partial.end_seq = htonl(tcp->seq_num) + size;
-					conn->partial.contents = vector<char>(conn->partial.end_seq - conn->partial.start_seq);
+					conn->partial.contents =
+						vector<char>(conn->partial.end_seq - conn->partial.start_seq);
 				}
 				span<char>(conn->partial.contents)
-					.blit(span<char>((char*)contents, size), htonl(tcp->seq_num) - conn->partial.start_seq);
+					.blit(span<char>((char*)contents, size),
+						  htonl(tcp->seq_num) - conn->partial.start_seq);
 				if (htonl(tcp->seq_num) + size == conn->partial.end_seq)
 					conn->partial.end_seq = htonl(tcp->seq_num);
 				if (htonl(tcp->seq_num) == conn->partial.start_seq)
@@ -224,7 +225,7 @@ void tcp_process(ip_packet packet) {
 				}
 			} else {
 				//tcp_send(conn, { span<char>((uint8_t*)contents, size) }, set_flags(TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK));
-				void* buf = malloc(size);
+				void* buf = kmalloc(size);
 				memcpy(buf, contents, size);
 				conn->recieved_packets.append({ span<char>((char*)buf, size) });
 			}
@@ -248,7 +249,8 @@ void tcp_process(ip_packet packet) {
 			conn->cur_ack++;
 			tcp_transmit(conn, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
 			if (TCP_VERBOSE_LOGGING)
-				printf("[TCP] %I:%i->%i: FIN recieved.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+				printf("[TCP] %I:%i->%i: FIN recieved.\n", conn->cli_ip, conn->cli_port,
+					   conn->cur_port);
 			conn->state = TCP_STATE::FINACK_SENT;
 			return;
 		}
@@ -263,7 +265,8 @@ void tcp_process(ip_packet packet) {
 		conn->start_ack = htonl(tcp->seq_num);
 		conn->state = TCP_STATE::WAITING;
 		if (TCP_VERBOSE_LOGGING)
-			printf("[TCP] %I:%i->%i: SYN recieved, waiting.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+			printf("[TCP] %I:%i->%i: SYN recieved, waiting.\n", conn->cli_ip, conn->cli_port,
+				   conn->cur_port);
 		return;
 	}
 	printf("[TCP] Invalid packet: SRC %i, Flags=%02x, SYN=%i, ACK=%i\n", htons(tcp->src_port),
@@ -280,10 +283,8 @@ tcp_connection* tcp_create() {
 tcp_connection* tcp_accept(uint16_t port) {
 	for (int i = 0; i < open_connections.size(); i++) {
 		tcp_connection* conn = (tcp_connection*)open_connections.at(i);
-		if (conn->state != TCP_STATE::WAITING)
-			continue;
-		if (port && conn->cur_port != port)
-			continue;
+		if (conn->state != TCP_STATE::WAITING) continue;
+		if (port && conn->cur_port != port) continue;
 
 		conn->start_seq = htonl(open_connections.size());
 		conn->cur_ack = conn->start_ack + 1;
@@ -292,13 +293,13 @@ tcp_connection* tcp_accept(uint16_t port) {
 		conn->state = TCP_STATE::SYNACK_SENT;
 
 		if (TCP_VERBOSE_LOGGING)
-			printf("[TCP] %I:%i->%i: Accepting SYN.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
+			printf("[TCP] %I:%i->%i: Accepting SYN.\n", conn->cli_ip, conn->cli_port,
+				   conn->cur_port);
 		tcp_mss mss = { 0x02, 0x04, htons(TCP_MSS) };
 		tcp_transmit((tcp_connection*)conn, { span<char>((char*)&mss, 4) },
 					 TCP_DATA_OFFSET(1) | TCP_FLAG_SYN | TCP_FLAG_ACK);
 
-		while (conn->state != TCP_STATE::ESTABLISHED)
-			net_process();
+		while (conn->state != TCP_STATE::ESTABLISHED) net_process();
 		return conn;
 	}
 	return NULL;
@@ -307,29 +308,27 @@ tcp_connection* tcp_accept(uint16_t port) {
 void tcp_connection::listen(uint16_t port) {
 	this->cur_port = port;
 	this->state = TCP_STATE::LISTENING;
-	while (this->state != TCP_STATE::ESTABLISHED)
-		net_process();
+	while (this->state != TCP_STATE::ESTABLISHED) net_process();
 }
 int tcp_connection::send(tcp_packet p) {
 	if (p.contents.size() > TCP_CLI_MSS) {
-		if (TCP_VERBOSE_LOGGING)
-			printf("LARGE PACKET: %i bytes\n", p.contents.size());
+		if (TCP_VERBOSE_LOGGING) printf("LARGE PACKET: %i bytes\n", p.contents.size());
 		int offset = 0;
 		int handle = 0;
 		while (true) {
 			int size = min(p.contents.size() - offset, TCP_CLI_MSS);
-			handle = tcp_transmit((tcp_connection*)this, { span<char>(p.contents.begin() + offset, size) },
+			handle = tcp_transmit((tcp_connection*)this,
+								  { span<char>(p.contents.begin() + offset, size) },
 								  TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
 			this->cur_seq += size;
 			offset += size;
-			if (offset == p.contents.size())
-				break;
+			if (offset == p.contents.size()) break;
 		}
-		while (this->cur_seq != this->cli_ack)
-			net_process();
+		while (this->cur_seq != this->cli_ack) net_process();
 		return handle;
 	} else {
-		int handle = tcp_transmit((tcp_connection*)this, p, TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
+		int handle = tcp_transmit((tcp_connection*)this, p,
+								  TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
 		this->cur_seq += p.contents.size();
 		return handle;
 	}
@@ -337,8 +336,7 @@ int tcp_connection::send(tcp_packet p) {
 tcp_packet tcp_connection::recv() {
 	while (!this->recieved_packets.size()) {
 		net_process();
-		if (this->state == TCP_STATE::CLOSED)
-			return { span<char>() };
+		if (this->state == TCP_STATE::CLOSED) return { span<char>() };
 	}
 	tcp_packet p = this->recieved_packets.at(0);
 	((tcp_connection*)this)->recieved_packets.erase(0);
@@ -347,16 +345,16 @@ tcp_packet tcp_connection::recv() {
 void tcp_connection::close() {
 	if (TCP_VERBOSE_LOGGING)
 		printf("[TCP] %I:%i->%i: Sending FIN.\n", this->cli_ip, this->cli_port, this->cur_port);
-	tcp_transmit((tcp_connection*)this, { span<char>() }, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
+	tcp_transmit((tcp_connection*)this, { span<char>() },
+				 TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
 	this->state = TCP_STATE::FIN_SENT;
-	while (this->state != TCP_STATE::CLOSED)
-		net_process();
+	while (this->state != TCP_STATE::CLOSED) net_process();
 	return;
 }
 
 void tcp_destroy(tcp_connection* conn) {
 	for (int i = 0; i < conn->recieved_packets.size(); i++)
-		free(conn->recieved_packets.at(i).contents.begin());
+		kfree(conn->recieved_packets.at(i).contents.begin());
 	for (int i = 0; i < open_connections.size(); i++) {
 		if (open_connections[i] == conn) {
 			open_connections.erase(i);

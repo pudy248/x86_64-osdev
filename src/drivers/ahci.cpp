@@ -21,8 +21,7 @@ void ahci_init(pci_device ahci_pci) {
 
 	int port_idx = -1;
 	for (int i = 0; i < 32; i++) {
-		if (~ahci_mem->pi & (1 << i))
-			continue;
+		if (~ahci_mem->pi & (1 << i)) continue;
 		if (ports[i].ssts) {
 			port_idx = i;
 			break;
@@ -32,8 +31,7 @@ void ahci_init(pci_device ahci_pci) {
 
 	ports[port_idx].cmd &= 0xffffffee;
 	//printf("Waiting for FR/CR bits to clear. CMD:%08x\n", ports[port_idx].cmd);
-	while (*(volatile uint32_t*)(&ports[port_idx].cmd) & 0xc000)
-		;
+	while (*(volatile uint32_t*)(&ports[port_idx].cmd) & 0xc000);
 
 	//printf("Creating CLB and FB.\n");
 	ports[port_idx].clb = (uint64_t)cmd_list;
@@ -83,23 +81,21 @@ void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 	cmdfis->countl = sectors & 0xff;
 	cmdfis->counth = (sectors >> 8) & 0xff;
 	//print("2 ");
-	while (*(volatile uint32_t*)&dev.port->tfd & 0x84)
-		;
+	while (*(volatile uint32_t*)&dev.port->tfd & 0x84);
 	dev.port->ci |= 1;
 	//print("3\n");
-	while ((*(volatile uint32_t*)&dev.port->ci & 1) && !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
+	while ((*(volatile uint32_t*)&dev.port->ci & 1) &&
+		   !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
 		//printf("Write: %08x %08x\n", dev.port->cmd, dev.port->serr); //4017 800
 	}
-	if (dev.port->is & 0x40000000)
-		print("Disk read error!\n");
+	if (dev.port->is & 0x40000000) print("Disk read error!\n");
 }
 
 void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 	uint32_t slots = dev.port->sact | dev.port->ci;
 	int slot;
 	for (slot = 0; slot < 32; slot++)
-		if (((slots >> slot) & 1) == 0)
-			break;
+		if (((slots >> slot) & 1) == 0) break;
 	if (slot == 32) {
 		print("No available command slots!\n");
 		return;
@@ -125,11 +121,9 @@ void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 	cmdfis->lba5 = (LBA >> 40) & 0xff;
 	cmdfis->countl = sectors & 0xff;
 	cmdfis->counth = (sectors >> 8) & 0xff;
-	while (dev.port->tfd & 0x84)
-		;
+	while (dev.port->tfd & 0x84);
 	dev.port->ci = 1 << slot;
-	while ((dev.port->ci & (1 << slot)) && (dev.port->is & 0x40000000) == 0)
-		;
+	while ((dev.port->ci & (1 << slot)) && (dev.port->is & 0x40000000) == 0);
 	//if (dev.port->is & 0x40000000) console_printf("Disk write error!\n");
 }
 

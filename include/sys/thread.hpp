@@ -27,9 +27,7 @@ template <typename R> struct thread_context {
 	void* args;
 	register_file registers;
 	optional<R> return_val;
-	thread<R> handle() const {
-		return thread<R>{ id };
-	}
+	thread<R> handle() const { return thread<R>{ id }; }
 };
 
 struct thread_creation_opts {

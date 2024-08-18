@@ -1,17 +1,20 @@
-LLVM_VERSION:=18
+LLVM_VERSION:=19
 
 CC:=/usr/bin/clang-$(LLVM_VERSION)
 LD:=/usr/bin/ld.lld-$(LLVM_VERSION)
 CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
-CFLAGS_DBG:=-g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
+CFLAGS_DBG:=-DDEBUG -g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
+
+CFLAGS_OPT_TARGETS=-Rpass-missed=loop-vectorize
+
 CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--fno-finite-loops -felide-constructors -fno-exceptions -frelaxed-template-template-args \
+-fno-finite-loops -felide-constructors -fno-exceptions -fno-sized-deallocation \
 -Oz -ffast-math -Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
-$(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG)
+$(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
 LDFLAGS_INC:=--lto=thin --ignore-data-address-equality --ignore-function-address-equality
 LDFLAGS_FIN:=-gc-sections --lto=thin --icf=all --ignore-data-address-equality --ignore-function-address-equality
@@ -83,7 +86,7 @@ $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 tmp/obj.o : $(C_SRC) $(C_HDR)
 	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
-	$(CC) $(CFLAGS) -D KERNEL -o $@ -c tmp/all.cpp
+	$(CC) $(CFLAGS) -DKERNEL -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^

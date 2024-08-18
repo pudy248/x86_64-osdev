@@ -39,9 +39,7 @@ public:
 		qprintf<80>("Move-assigning with id %i at %p (from %p).\n", id, this, &other);
 		return *this;
 	}
-	~very_verbose_class() {
-		qprintf<80>("Destructing with id %i at %p.\n", id, this);
-	}
+	~very_verbose_class() { qprintf<80>("Destructing with id %i at %p.\n", id, this); }
 };
 
 struct debug_symbol {

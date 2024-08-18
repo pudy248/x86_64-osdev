@@ -16,9 +16,7 @@ static void ip_checksum(ip_header* ip) {
 		sum += *ip_payload++;
 		ip_len -= 2;
 	}
-	while (sum >> 16) {
-		sum = (sum & 0xffff) + (sum >> 16);
-	}
+	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
 	sum = ~sum;
 	ip->checksum = sum;
 }
@@ -31,8 +29,9 @@ void ipv4_process(ethernet_packet packet) {
 	uint16_t actual_size = packet.contents.size() - sizeof(ip_header);
 
 	if (expected_size > actual_size) {
-		qprintf<100>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip,
-					 expected_size, actual_size);
+		qprintf<100>(
+			"[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n",
+			ip->src_ip, expected_size, actual_size);
 		return;
 	}
 
@@ -40,7 +39,8 @@ void ipv4_process(ethernet_packet packet) {
 
 	arp_update(packet.src, ip->src_ip);
 
-	ip_packet new_packet = { packet, ip->protocol, ip->src_ip, ip->dst_ip, span<char>((char*)contents, expected_size) };
+	ip_packet new_packet = { packet, ip->protocol, ip->src_ip, ip->dst_ip,
+							 span<char>((char*)contents, expected_size) };
 
 	switch (ip->protocol) {
 	case IP_PROTOCOL_TCP:
@@ -53,7 +53,7 @@ void ipv4_process(ethernet_packet packet) {
 }
 
 int ipv4_send(ip_packet packet) {
-	void* buf = malloc(packet.contents.size() + sizeof(ip_header));
+	void* buf = kmalloc(packet.contents.size() + sizeof(ip_header));
 	ip_header* ip = (ip_header*)buf;
 	ip->ver_ihl = 0x45;
 	ip->dscp = 0;
@@ -67,7 +67,8 @@ int ipv4_send(ip_packet packet) {
 	ip->dst_ip = packet.dst;
 	ip_checksum(ip);
 
-	memcpy((void*)((uint64_t)buf + sizeof(ip_header)), packet.contents.begin(), packet.contents.size());
+	memcpy((void*)((uint64_t)buf + sizeof(ip_header)), packet.contents.begin(),
+		   packet.contents.size());
 	ethernet_packet eth;
 	eth.type = ETHERTYPE_IPv4;
 	eth.src = global_mac;
@@ -75,6 +76,6 @@ int ipv4_send(ip_packet packet) {
 	eth.contents = span<char>((char*)buf, packet.contents.size() + sizeof(ip_header));
 
 	int handle = ethernet_send(eth);
-	free(buf);
+	kfree(buf);
 	return handle;
 }

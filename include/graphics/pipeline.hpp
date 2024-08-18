@@ -40,7 +40,8 @@ struct RenderPipeline {
 
 	void (*vertexShader)(struct RenderPipeline* pipeline, void** params) = &_default_vertex_shader;
 	void (*rasterShader)(struct RenderPipeline* pipeline, void** params) = &_default_raster_shader;
-	void (*fragmentShader)(struct RenderPipeline* pipeline, void** params) = &_default_fragment_shader;
+	void (*fragmentShader)(struct RenderPipeline* pipeline,
+						   void** params) = &_default_fragment_shader;
 };
 
 extern Mat4x4 projectionMatrix;

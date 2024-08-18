@@ -114,46 +114,26 @@ public:
 	constexpr container_wrapper(C& other)
 		: _container(&other)
 		, _at((T & (*)(void*, int)) & C::static_at)
-		, _cat((const T& (*)(void*, int)) & C::static_cat)
+		, _cat((const T& (*)(void*, int))&C::static_cat)
 		, _begin((T * (*)(void*)) & C::static_begin)
-		, _cbegin((const T* (*)(void*)) & C::static_cbegin)
+		, _cbegin((const T* (*)(void*))&C::static_cbegin)
 		, _end((T * (*)(void*)) & C::static_end)
-		, _cend((const T* (*)(void*)) & C::static_cend)
-		, _reserve((void (*)(void*, int)) & C::static_reserve)
-		, _size((int (*)(void*)) & C::static_size) {
-	}
+		, _cend((const T* (*)(void*))&C::static_cend)
+		, _reserve((void (*)(void*, int))&C::static_reserve)
+		, _size((int (*)(void*))&C::static_size) {}
 
-	constexpr container_wrapper(T* begin, T* end) {
-		kassert(ALWAYS_ACTIVE, ERROR, false, "container_wrapper initialization with pointers not supported!");
+	constexpr container_wrapper(T*, T*) {
+		kassert(ALWAYS_ACTIVE, ERROR, false,
+				"container_wrapper initialization with pointers not supported!");
 	}
-	T& at(int idx) {
-		return _at(_container, idx);
-	}
-	const T& at(int idx) const {
-		return _cat(_container, idx);
-	}
-	T* begin() {
-		return _begin(_container);
-	}
-	const T* begin() const {
-		return _cbegin(_container);
-	}
-	const T* cbegin() {
-		return _cbegin(_container);
-	}
-	T* end() {
-		return _end(_container);
-	}
-	const T* end() const {
-		return _cend(_container);
-	}
-	const T* cend() {
-		return _cend(_container);
-	}
-	void reserve(int size) {
-		return _reserve(_container, size);
-	}
-	int size() const {
-		return _size(_container);
-	}
+	T& at(int idx) { return _at(_container, idx); }
+	const T& at(int idx) const { return _cat(_container, idx); }
+	T* begin() { return _begin(_container); }
+	const T* begin() const { return _cbegin(_container); }
+	const T* cbegin() { return _cbegin(_container); }
+	T* end() { return _end(_container); }
+	const T* end() const { return _cend(_container); }
+	const T* cend() { return _cend(_container); }
+	void reserve(int size) { return _reserve(_container, size); }
+	int size() const { return _size(_container); }
 };

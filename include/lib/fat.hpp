@@ -32,7 +32,7 @@ struct fat_file {
 	fat_file& operator=(fat_file&& other);
 	~fat_file();
 
-	vector<char>& data() const;
+	vector<uint8_t>& data() const;
 	vector<fat_file>& children() const;
 };
 
@@ -48,10 +48,10 @@ struct fat_inode {
 
 	uint16_t references[2];
 
-	union {
-		vector<char> data;
-		vector<fat_inode*> children;
-	};
+	vector<uint8_t> data;
+	fat_inode* _get_child(size_t index);
+	void _add_child(fat_inode* child);
+	size_t _num_children();
 
 	fat_inode* parent;
 	uint32_t start_cluster;

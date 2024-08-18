@@ -12,6 +12,7 @@
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/fat.hpp>
+#include <lib/profile.hpp>
 #include <net/http.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
@@ -26,9 +27,7 @@
 #include <sys/thread.hpp>
 #include <text/graphical_console.hpp>
 
-extern "C" int atexit(void (*)(void)) {
-	return 0;
-}
+extern "C" int atexit(void (*)(void)) { return 0; }
 
 static void http_main() {
 	stacktrace();
@@ -38,13 +37,9 @@ static void http_main() {
 		net_process();
 		{
 			tcp_connection* c = NULL;
-			if (!c)
-				c = tcp_accept(80);
-			if (!c)
-				c = tcp_accept(8080);
-			if (c) {
-				conns.append(c);
-			}
+			if (!c) c = tcp_accept(80);
+			if (!c) c = tcp_accept(8080);
+			if (c) { conns.append(c); }
 		}
 		for (int i = 0; i < conns.size(); i++) {
 			tcp_connection* conn = conns.at(i);
@@ -62,7 +57,7 @@ static void http_main() {
 					conns.erase(i);
 					i--;
 				}
-				free(p.contents.begin());
+				kfree((void*)p.contents.begin());
 			}
 		}
 	}
@@ -84,7 +79,7 @@ static void graphics_main() {
 	uint32_t vi = 0;
 	uint32_t ti = 0;
 	fat_file f = file_open("/cow.obj");
-	basic_istringstream obj(f.inode->data.begin(), f.inode->data.end());
+	istringstream obj(view(f.inode->data).reinterpret_as<char>());
 	while (obj.readable()) {
 		if (rostring(obj.begin(), obj.end()).starts_with("v "_RO)) {
 			obj.read_c();
@@ -95,7 +90,8 @@ static void graphics_main() {
 			obj.read_until_v(' ', false, true);
 			float z = obj.read_f();
 			obj.read_until_v(' ', true, true);
-			p.vertexBuffer[vi++] = (Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
+			p.vertexBuffer[vi++] =
+				(Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
 		} else if (rostring(obj.begin(), obj.end()).starts_with("f "_RO)) {
 			obj.read_c();
 			obj.read_until_v(' ', false, true);
@@ -180,40 +176,30 @@ static void set_freq() {
 
 static void console_init() {
 	graphics_text_init();
-	*globals->g_console =
-		console(&graphics_text_get_char, &graphics_text_set_char, &graphics_text_update, graphics_text_dimensions);
+	*globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char,
+								  &graphics_text_update, graphics_text_dimensions);
 }
 
 static int generator(int start) {
-	while (1)
-		thread_switch<int>({ 0 });
+	while (1) thread_switch<int>({ 0 });
 	//thread_co_yield(start++);
 }
 
-[[gnu::noinline]] static void isolated(uint64_t& t1, uint64_t& t2, thread<int>& t) {
-	t1 = rdtsc();
-	thread_switch(t);
-	thread_switch(t);
-	thread_switch(t);
-	thread_switch(t);
-	thread_switch(t);
-	t2 = rdtsc();
-}
-
 static void thread_main() {
+	kassert_trace(ALWAYS_ACTIVE, WARNING);
+	printf("%02i %02i %02x %f %.1f\n", 1, 456, 789, 123.456, 78.912);
+
 	threading_init();
 	thread<int> t = thread_create(&generator, 123);
-	double time1 = timepoint::pit_time().unix_seconds();
-	for (int i = 0; i < 50000000; i++) {
-		thread_switch(t);
-		//int retval = thread_co_await(t);
-	}
+	double time1, time2;
+	PROFILE_LOOP(thread_switch(t), time1 = timepoint::pit_time().unix_seconds();
+				 , time2 = timepoint::pit_time().unix_seconds();, 50000000)
 	uint64_t t1, t2;
-	isolated(t1, t2, t);
+	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
 	thread_kill(t);
-	double time2 = timepoint::pit_time().unix_seconds();
-	printf("Thread exited. Ran 100 million context swaps in %f sec.\n10 swaps took an average of %i cycles each.\n",
-		   (time2 - time1), (t2 - t1) / 10);
+	printf(
+		"Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
+		(time2 - time1), (t2 - t1) / 100);
 }
 
 extern "C" void kernel_main(void) {
@@ -236,24 +222,7 @@ extern "C" void kernel_main(void) {
 
 	//tag_dump();
 	print("Kernel reached end of execution.\n");
-	//int cnt = 0, cnt2 = 0;
-	//double lastTimepoint = timepoint::pit_time().unix_seconds();
-	while (1) {
-		timepoint t = timepoint::pit_time_imprecise();
-		//double curTimepoint = t.unix_seconds();
-		//if ((int)t.unix_seconds() > cnt) {
-		//    cnt++;
-		//    qprintf<64>("%i iters (%f ns), %f us\n", cnt2, 1000000000. / cnt2, (curTimepoint - lastTimepoint) * 1000000.);
-		//    cnt2 = 0;
-		//}
-		//lastTimepoint = curTimepoint;
-		//cnt2++;
-		array<char, 32> arr;
-		int x = globals->g_console->text_rect[2] - 1;
-		int l = formats(arr.begin(), "%02i:%02i:%02i.%03i", t.hour, t.minute, t.second, (int)(t.micros / 1000));
-		for (int i = l - 1; i >= 0; --i)
-			globals->g_console->set_char(x--, 3, arr[i]);
-	}
 	global_dtors();
+	do_pit_readout = true;
 	inf_wait();
 }

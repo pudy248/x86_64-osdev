@@ -12,7 +12,8 @@ template <std::size_t SS, std::size_t PS> class allocator_traits<slab_allocator<
 public:
 	using ptr_t = void*;
 };
-template <std::size_t SS, std::size_t PS> class [[gnu::packed]] slab_allocator : public default_allocator {
+template <std::size_t SS, std::size_t PS>
+class [[gnu::packed]] slab_allocator : public default_allocator {
 	static_assert(std::has_single_bit(SS), "MSS should be a power of two");
 
 public:
@@ -29,24 +30,19 @@ public:
 	} slabs[SLAB_COUNT];
 
 protected:
-	constexpr inline int index_of(ptr_t ptr) {
-		return ((uint64_t)ptr - (uint64_t)&slabs) / SS;
-	}
+	constexpr inline int index_of(ptr_t ptr) { return ((uint64_t)ptr - (uint64_t)&slabs) / SS; }
 
 public:
-	bool contains(ptr_t ptr) {
-		return ptr >= this && ptr < this + 1;
-	}
-	uint64_t mem_used() {
-		return SS * (num_allocs);
-	}
+	bool contains(ptr_t ptr) { return ptr >= this && ptr < this + 1; }
+	uint64_t mem_used() { return SS * (num_allocs); }
 
 	ptr_t alloc(uint64_t size) {
-		kassert(DEBUG_ONLY, ERROR, !size || size == SS, "Attempted to allocate slab of incorrect size.");
-		kassert(DEBUG_ONLY, ERROR, num_allocs < SS, "Attempted to allocate slab from full allocator.");
+		kassert(DEBUG_ONLY, ERROR, !size || size == SS,
+				"Attempted to allocate slab of incorrect size.");
+		kassert(DEBUG_ONLY, ERROR, num_allocs < SS,
+				"Attempted to allocate slab from full allocator.");
 		for (;; ring_index = (ring_index + 1) % SLAB_COUNT) {
-			if (!bits[ring_index])
-				break;
+			if (!bits[ring_index]) break;
 		}
 		bits.flip(ring_index);
 		num_allocs++;

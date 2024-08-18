@@ -5,12 +5,12 @@
 #include <stl/array.hpp>
 #include <sys/global.hpp>
 
-console::console(char (*g)(uint32_t, uint32_t), void (*s)(uint32_t, uint32_t, char), void (*r)(), int d[2])
+console::console(char (*g)(uint32_t, uint32_t), void (*s)(uint32_t, uint32_t, char), void (*r)(),
+				 int d[2])
 	: text_rect{ 0, 0, d[0], d[1] }
 	, get_char(g)
 	, set_char(s)
-	, refresh(r) {
-}
+	, refresh(r) {}
 void console::newline() {
 	cy++;
 	if (cy == text_rect[3]) {
@@ -21,9 +21,7 @@ void console::newline() {
 		}
 		cy--;
 	}
-	for (int x = text_rect[0]; x < text_rect[2]; x++) {
-		set_char(x, cy, 0);
-	}
+	for (int x = text_rect[0]; x < text_rect[2]; x++) { set_char(x, cy, 0); }
 	//Unix or Windows?
 	cx = 0;
 }
@@ -48,8 +46,7 @@ void console::putchar(char c) {
 	refresh();
 }
 void console::putstr(const char* s) {
-	for (int i = 0; s[i]; i++)
-		putchar(s[i]);
+	for (int i = 0; s[i]; i++) putchar(s[i]);
 	refresh();
 }
 
@@ -58,8 +55,7 @@ static void hexdump_impl(console& c, uint8_t* src, int size, bool reversed) {
 	for (int i = reversed ? size - 1 : 0; reversed ? i >= 0 : i < size; reversed ? i-- : i++) {
 		c.putchar(hextable[src[i] >> 4]);
 		c.putchar(hextable[src[i] & 0xf]);
-		if (!((i + !reversed) & 3))
-			c.putchar(' ');
+		if (!((i + !reversed) & 3)) c.putchar(' ');
 	}
 }
 
@@ -73,12 +69,9 @@ void console::hexdump_rev(void* src, uint32_t size, uint32_t swap_width) {
 	putstr("\n");
 }
 
-void print(const char* str) {
-	globals->g_console->putstr(str);
-}
+void print(const char* str) { globals->g_console->putstr(str); }
 void print(rostring str) {
-	for (int i = 0; str.size(); i++)
-		globals->g_console->putchar(str[i]);
+	for (int i = 0; str.size(); i++) globals->g_console->putchar(str[i]);
 }
 
 template <typename... Args> void printf(const char* fmt, Args... args) {

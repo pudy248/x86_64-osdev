@@ -54,8 +54,7 @@ void pic_init() {
 }
 
 extern "C" void pic_eoi(uint8_t irq) {
-	if (irq >= 8)
-		outb(PIC2_CMD, PIC_EOI);
+	if (irq >= 8) outb(PIC2_CMD, PIC_EOI);
 
 	outb(PIC1_CMD, PIC_EOI);
 }
@@ -70,11 +69,7 @@ static uint16_t __pic_get_irq_reg(uint8_t ocw3) {
 }
 
 /* Returns the combined value of the cascaded PICs irq request register */
-uint16_t pic_get_irr() {
-	return __pic_get_irq_reg(PIC_READ_IRR);
-}
+uint16_t pic_get_irr() { return __pic_get_irq_reg(PIC_READ_IRR); }
 
 /* Returns the combined value of the cascaded PICs in-service register */
-uint16_t pic_get_isr() {
-	return __pic_get_irq_reg(PIC_READ_ISR);
-}
+uint16_t pic_get_isr() { return __pic_get_irq_reg(PIC_READ_ISR); }

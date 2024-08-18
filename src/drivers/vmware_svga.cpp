@@ -32,8 +32,7 @@ static void svga_commit() {
 	uint32_t next = globals->svga->fifo[SVGA_FIFO::NEXT_CMD];
 	uint32_t bytes = globals->svga->fifo[SVGA_FIFO::RESERVED];
 	uint32_t nextnext = next + bytes;
-	if (nextnext > max)
-		nextnext = nextnext - max + min;
+	if (nextnext > max) nextnext = nextnext - max + min;
 	globals->svga->fifo[SVGA_FIFO::NEXT_CMD] = nextnext;
 	globals->svga->fifo[SVGA_FIFO::RESERVED] = 0;
 }
@@ -47,16 +46,17 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 	pci_enable_mem(svga_pci.address);
 
 	svga_write(SVGA_REG::ID, 2);
-	if (svga_read(SVGA_REG::ID) != 2)
-		svga_write(SVGA_REG::ID, 1);
+	if (svga_read(SVGA_REG::ID) != 2) svga_write(SVGA_REG::ID, 1);
 	kassert(ALWAYS_ACTIVE, ERROR, svga_read(SVGA_REG::ID), "VMware SVGA device too old!\n");
 
 	globals->svga->fb_size = svga_read(SVGA_REG::FB_SIZE);
 	globals->svga->fifo_size = svga_read(SVGA_REG::MEM_SIZE);
 	globals->svga->vram_size = svga_read(SVGA_REG::VRAM_SIZE);
 
-	mprotect((void*)globals->svga->fb, globals->svga->fb_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE);
-	mprotect((void*)globals->svga->fifo, globals->svga->fifo_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE);
+	mprotect((void*)globals->svga->fb, globals->svga->fb_size, PAGE_WT,
+			 MAP_PHYSICAL | MAP_INITIALIZE);
+	mprotect((void*)globals->svga->fifo, globals->svga->fifo_size, PAGE_WT,
+			 MAP_PHYSICAL | MAP_INITIALIZE);
 
 	globals->svga->fifo[SVGA_FIFO::MIN] = SVGA_FIFO::NUM_REGS * 4;
 	globals->svga->fifo[SVGA_FIFO::MAX] = globals->svga->fifo_size;
@@ -91,8 +91,7 @@ void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp) {
 }
 
 void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
-	if (!enabled)
-		return;
+	if (!enabled) return;
 	uint32_t* ptr = svga_reserve(20);
 	ptr[0] = SVGA_CMD::UPDATE;
 	ptr[1] = x;
@@ -101,9 +100,7 @@ void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 	ptr[4] = h;
 	svga_commit();
 }
-void svga_update() {
-	svga_update(0, 0, globals->svga->width, globals->svga->height);
-}
+void svga_update() { svga_update(0, 0, globals->svga->width, globals->svga->height); }
 
 void svga_set(uint32_t x, uint32_t y, uint32_t color) {
 	globals->svga->fb[y * globals->svga->width + x] = color;

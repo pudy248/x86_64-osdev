@@ -25,9 +25,7 @@ public:
 			*ptr &= ~(1 << offset);
 		return *this;
 	}
-	constexpr operator bool() const {
-		return (*ptr >> offset) & 1;
-	}
+	constexpr operator bool() const { return (*ptr >> offset) & 1; }
 };
 
 template <std::size_t N> class bitset;
@@ -42,12 +40,8 @@ class bitset_iterator : iterator_crtp<bitset_iterator> {
 public:
 	uint8_t* ptr;
 	uint8_t offset;
-	constexpr bitset_reference operator*() {
-		return { ptr, offset };
-	}
-	constexpr const bitset_reference operator*() const {
-		return { ptr, offset };
-	}
+	constexpr bitset_reference operator*() { return { ptr, offset }; }
+	constexpr const bitset_reference operator*() const { return { ptr, offset }; }
 	constexpr bitset_iterator& operator+=(idx_t v) {
 		ptr += v >> 3;
 		offset += v & 7;
@@ -80,12 +74,10 @@ protected:
 
 public:
 	constexpr bitset()
-		: m_arr() {
-	}
+		: m_arr() {}
 	template <typename I, typename S>
 	constexpr bitset(const I& begin, const S& end)
-		: bitset(view<I, S>(begin, end)) {
-	}
+		: bitset(view<I, S>(begin, end)) {}
 	template <typename I, typename S>
 		requires requires {
 			requires convertible_elem_I<I, bool>;
@@ -94,18 +86,16 @@ public:
 	constexpr bitset(const view<I, S>& v) {
 		if constexpr (std::same_as<std::iter_value_t<I>, uint8_t>) {
 			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
-				m_arr[i] = *iter;
+			for (idx_t i = 0; iter != v.end(); i++, iter++) m_arr[i] = *iter;
 		} else {
 			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
-				set(i, *iter);
+			for (idx_t i = 0; iter != v.end(); i++, iter++) set(i, *iter);
 		}
 	}
 
-	template <std::size_t N2> constexpr void copy(const bitset<N2>& other, idx_t start, idx_t count) {
-		for (idx_t i = 0; i < count; i++)
-			set(start + i, other.at(i));
+	template <std::size_t N2>
+	constexpr void copy(const bitset<N2>& other, idx_t start, idx_t count) {
+		for (idx_t i = 0; i < count; i++) set(start + i, other.at(i));
 	}
 	template <std::size_t N2> constexpr void copy(const bitset<N2>& other, idx_t start = 0) {
 		copy(other, start, other.size());
@@ -119,7 +109,8 @@ public:
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
 		return bitset_reference{ { .cptr = m_arr + (idx >> 3) }, (uint8_t)(idx & 7) };
 	}
-	template <typename Derived> constexpr const bitset_reference operator[](this Derived& self, idx_t idx) {
+	template <typename Derived>
+	constexpr const bitset_reference operator[](this Derived& self, idx_t idx) {
 		return self.at(idx);
 	}
 	constexpr void set(idx_t idx, bool value) {
@@ -135,8 +126,7 @@ public:
 	}
 	constexpr idx_t first_equal(bool value = false) const {
 		for (idx_t i = 0; i < size(); i++) {
-			if (m_arr[i] == value)
-				return i;
+			if (m_arr[i] == value) return i;
 		}
 		return -1;
 	}
@@ -145,8 +135,7 @@ public:
 		for (idx_t i = 0; i < size(); i++) {
 			if (m_arr[i] == value) {
 				counter++;
-				if (counter == how_many)
-					return i - counter + 1;
+				if (counter == how_many) return i - counter + 1;
 			} else
 				counter = 0;
 		}
@@ -159,7 +148,5 @@ public:
 	template <typename Derived> constexpr auto end(this Derived& self) {
 		return iterator(self.m_arr, self.size());
 	}
-	constexpr idx_t size() const {
-		return N;
-	}
+	constexpr idx_t size() const { return N; }
 };

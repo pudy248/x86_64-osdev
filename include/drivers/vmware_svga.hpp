@@ -3,8 +3,7 @@
 
 struct pci_device;
 
-namespace SVGA_REG
-{
+namespace SVGA_REG {
 enum SVGA_REG {
 	ID,
 	ENABLE,
@@ -43,8 +42,7 @@ enum SVGA_REG {
 };
 }
 
-namespace SVGA_FIFO
-{
+namespace SVGA_FIFO {
 enum SVGA_FIFO {
 	MIN,
 	MAX,
@@ -55,8 +53,7 @@ enum SVGA_FIFO {
 };
 }
 
-namespace SVGA_CMD
-{
+namespace SVGA_CMD {
 enum SVGA_CMD {
 	INVALID,
 	UPDATE,

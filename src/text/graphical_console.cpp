@@ -12,10 +12,10 @@ int graphics_text_dimensions[2] = { 120, 30 }; //{240, 60};
 static char* storage_buffer;
 
 static void render_char(uint32_t px, uint32_t py, char c, int scale) {
-	if (!c)
-		c = ' ';
+	if (!c) c = ' ';
 	for (int y = 0; y < fontDims[1]; y++) {
-		std::remove_reference_t<decltype(*fontBitmap)> row = fontBitmap[fontDims[1] * (c - fontStart) + y];
+		std::remove_reference_t<decltype(*fontBitmap)> row =
+			fontBitmap[fontDims[1] * (c - fontStart) + y];
 		for (int x = fontDims[0] - 1; x >= 0; x--) {
 			uint32_t c = row & 1 ? 0xffffffff : 0xff000000;
 			for (int x2 = 0; x2 < scale; x2++) {
@@ -37,8 +37,7 @@ void graphics_text_init() {
 	memset(storage_buffer, 0, graphics_text_dimensions[0] * graphics_text_dimensions[1]);
 
 	for (int y = 0; y < graphics_text_dimensions[1]; y++)
-		for (int x = 0; x < graphics_text_dimensions[0]; x++)
-			graphics_text_set_char(x, y, 0);
+		for (int x = 0; x < graphics_text_dimensions[0]; x++) graphics_text_set_char(x, y, 0);
 }
 char graphics_text_get_char(uint32_t x, uint32_t y) {
 	return storage_buffer[graphics_text_dimensions[0] * y + x];
@@ -47,6 +46,4 @@ void graphics_text_set_char(uint32_t x, uint32_t y, char c) {
 	storage_buffer[graphics_text_dimensions[0] * y + x] = c;
 	render_char(x * 8, y * 16, c, 1);
 }
-void graphics_text_update() {
-	svga_update();
-}
+void graphics_text_update() { svga_update(); }

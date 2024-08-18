@@ -49,18 +49,10 @@ static inline uint64_t read_cr4(void) {
 	return val;
 }
 
-static inline void write_cr0(uint64_t val) {
-	asmv("mov %0, %%cr0\n" : : "r"(val));
-}
-static inline void write_cr2(uint64_t val) {
-	asmv("mov %0, %%cr2\n" : : "r"(val));
-}
-static inline void write_cr3(uint64_t val) {
-	asmv("mov %0, %%cr3\n" : : "r"(val));
-}
-static inline void write_cr4(uint64_t val) {
-	asmv("mov %0, %%cr4\n" : : "r"(val));
-}
+static inline void write_cr0(uint64_t val) { asmv("mov %0, %%cr0\n" : : "r"(val)); }
+static inline void write_cr2(uint64_t val) { asmv("mov %0, %%cr2\n" : : "r"(val)); }
+static inline void write_cr3(uint64_t val) { asmv("mov %0, %%cr3\n" : : "r"(val)); }
+static inline void write_cr4(uint64_t val) { asmv("mov %0, %%cr4\n" : : "r"(val)); }
 
 static inline uint64_t rdtsc(void) {
 	uint32_t low, high;
@@ -76,26 +68,19 @@ static inline void wrmsr(uint32_t msr, uint64_t val) {
 	asmv("wrmsr\n" : : "c"(msr), "a"((uint32_t)val), "d"(val >> 32));
 }
 
-static inline void cpu_relax() {
-	asm("rep nop\n" : : : "memory");
-}
+static inline void cpu_relax() { asm("rep nop\n" : : : "memory"); }
 [[noreturn]] static inline void cpu_halt(void) {
 	asmv("cli\nhlt\nnop\n");
 	__builtin_unreachable();
 }
 [[noreturn]] static inline void inf_wait(void) {
-	cpu_halt();
+	for (;;);
+	//cpu_halt();
 }
 
 template <int N> static inline void invoke_interrupt(void) {
 	__asm__("int %0\n" : : "N"(N) : "cc", "memory");
 }
-static inline void int3(void) {
-	asmv("int3\n");
-}
-static inline void disable_interrupts() {
-	asmv("cli\n");
-}
-static inline void enable_interrupts() {
-	asmv("sti\n");
-}
+static inline void int3(void) { asmv("int3\n"); }
+static inline void disable_interrupts() { asmv("cli\n"); }
+static inline void enable_interrupts() { asmv("sti\n"); }

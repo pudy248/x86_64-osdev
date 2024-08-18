@@ -1,8 +1,7 @@
 #pragma once
 #include <cstdint>
 
-namespace PCI_CLASS
-{
+namespace PCI_CLASS {
 enum PCI_CLASS {
 	UNCLASSIFIED,
 	STORAGE,
@@ -20,8 +19,7 @@ enum PCI_CLASS {
 	WIRELESS,
 };
 }
-namespace PCI_SUBCLASS
-{
+namespace PCI_SUBCLASS {
 enum PCI_SUBCLASS {
 	STORAGE_SCSI = 0,
 	STORAGE_IDE,

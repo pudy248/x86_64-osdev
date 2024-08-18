@@ -17,8 +17,8 @@ static bool is_enabled = false;
 extern bool tag_allocations;
 
 void debug_init() {
-	new (&globals->heap_allocations)
-		vector<heap_tag, waterline_allocator>(0, waterline_allocator(mmap(0, 0x10000, 0, 0), 0x10000));
+	new (&globals->heap_allocations) vector<heap_tag, waterline_allocator>(
+		0, waterline_allocator(mmap(0, 0x10000, 0, 0), 0x10000));
 	//tag_allocations = true;
 	//new (&globals->waterline_allocations)
 	//	vector<heap_tag, waterline_allocator>(1000, waterline_allocator((void*)0x2800000, 0x800000));
@@ -27,9 +27,12 @@ void debug_init() {
 void load_debug_symbs(const char* filename) {
 	fat_file f = file_open(filename);
 	kassert(DEBUG_ONLY, WARNING, f.inode, "Failed to open file.");
-	if (!f.inode)
-		return;
-	istringstream str(rostring(f.inode->data));
+	if (!f.inode) return;
+
+	auto v1 = view(f.inode->data);
+	auto v2 = v1.reinterpret_as<char>();
+
+	istringstream str(v2);
 
 	symbol_table.reserve(f.inode->data.size() / 100);
 
@@ -39,7 +42,7 @@ void load_debug_symbs(const char* filename) {
 	str.read_c();
 	str.read_until_v('\n', true);
 
-	while (str.readable()) {
+	while (str.end() - str.begin() > 1) {
 		debug_symbol symb;
 		symb.addr = (void*)str.read_x();
 		array<char, 16> tmp2;
@@ -71,14 +74,12 @@ debug_symbol* nearest_symbol(void* address, bool* out_contains) {
 			bestIdx = i;
 			bestDistance = distance;
 			if ((uint64_t)address < (uint64_t)symbol_table[i].addr + symbol_table[i].size) {
-				if (out_contains)
-					*out_contains = false;
+				if (out_contains) *out_contains = false;
 				return &symbol_table[bestIdx];
 			}
 		}
 	}
-	if (out_contains)
-		*out_contains = false;
+	if (out_contains) *out_contains = false;
 	if (bestIdx == -1)
 		return NULL;
 	else
@@ -117,14 +118,13 @@ void stacktrace::print() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (int i = 0; i < num_ptrs; i++) {
 		debug_symbol* nearest = nearest_symbol(ptrs.at(i).ret);
-		qprintf<512>("% 3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret, ptrs.at(i).rbp, nearest ? nearest->name : "(none)");
+		qprintf<512>("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret, ptrs.at(i).rbp,
+					 nearest ? nearest->name : "(none)");
 	}
 	::print("\n");
 }
 
-void inline_stacktrace() {
-	stacktrace(stacktrace::trace(), 1).print();
-}
+void inline_stacktrace() { stacktrace(stacktrace::trace(), 1).print(); }
 
 void* tag_alloc(uint64_t size, void* ptr) {
 	for (int i = 0; i < globals->heap_allocations.size(); i++) {
