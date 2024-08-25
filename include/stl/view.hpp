@@ -7,6 +7,7 @@
 #include <type_traits>
 
 using idx_t = std::ptrdiff_t;
+using uidx_t = std::size_t;
 
 template <typename C, typename T>
 concept condition = requires(C comparator, T obj) {
@@ -130,23 +131,23 @@ public:
 	constexpr I begin() { return m_begin; }
 	constexpr const I begin() const { return m_begin; }
 	constexpr const I cbegin() const { return m_begin; }
-	constexpr I end() { return m_sentinel; }
-	constexpr const I end() const { return m_sentinel; }
-	constexpr const I cend() const { return m_sentinel; }
+	constexpr S end() { return m_sentinel; }
+	constexpr const S end() const { return m_sentinel; }
+	constexpr const S cend() const { return m_sentinel; }
 	constexpr idx_t size() const {
 		if (Infinite) return -1;
 		if constexpr (std::sized_sentinel_for<I, I>)
 			return end() - begin();
 		else {
 			idx_t v = 0;
-			for (I iter = m_begin; iter != m_sentinel; v++, iter++);
+			for (I iter = m_begin; iter != m_sentinel; ++v, ++iter);
 			return v;
 		}
 	}
 
 	template <comparable_iter_R<I> R> constexpr idx_t find(const R& elem) const {
 		I iter = begin();
-		for (idx_t i = 0; iter != end(); i++, iter++)
+		for (idx_t i = 0; iter != end(); ++i, ++iter)
 			if (*iter == elem) return i;
 		return -1;
 	}
@@ -156,7 +157,7 @@ public:
 		idx_t index = -1;
 		idx_t which = -1;
 		I2 iter2 = elems.begin();
-		for (idx_t i = 0; iter2 != elems.end(); i++, iter2++) {
+		for (idx_t i = 0; iter2 != elems.end(); ++i, ++iter2) {
 			idx_t index2 = find(*iter2);
 			if (index2 != -1 && (index2 < index || which == -1)) {
 				index = index2;
@@ -168,8 +169,8 @@ public:
 	template <comparable_iter_R<I> R> constexpr idx_t count(const R& elem) const {
 		I iter = begin();
 		idx_t ctr = 0;
-		for (idx_t i = 0; iter != end(); i++, iter++)
-			if (*iter == elem) ctr++;
+		for (idx_t i = 0; iter != end(); ++i, ++iter)
+			if (*iter == elem) ++ctr;
 		return ctr;
 	}
 	template <comparable_iter_I<I> I2, typename S2>
@@ -177,7 +178,7 @@ public:
 		if (view<I2, S2>::Infinite) return 0;
 		idx_t ctr = 0;
 		I2 iter2 = elems.begin();
-		for (idx_t i = 0; iter2 != elems.end(); i++, iter2++) ctr += count(*iter2);
+		for (idx_t i = 0; iter2 != elems.end(); ++i, ++iter2) ctr += count(*iter2);
 		return ctr;
 	}
 	template <comparable_iter_R<I> R> constexpr bool contains(const R& elem) const {
@@ -189,7 +190,7 @@ public:
 		idx_t index = -1;
 		idx_t which = -1;
 		I2 iter2 = elems.begin();
-		for (idx_t i = 0; iter2 != elems.end(); i++, iter2++) {
+		for (idx_t i = 0; iter2 != elems.end(); ++i, ++iter2) {
 			idx_t index2 = find(*iter2);
 			if (index2 != -1 && (index2 < index || which == -1)) {
 				index = index2;
@@ -202,7 +203,7 @@ public:
 	constexpr idx_t find_span(const view<I2, S2>& elems) const {
 		if (view<I2, S2>::Infinite) return -1;
 		I iter = begin();
-		for (idx_t i = 0; iter != end(); i++, iter++)
+		for (idx_t i = 0; iter != end(); ++i, ++iter)
 			if (span(iter, end()).starts_with(elems)) return i;
 		return -1;
 	}
@@ -216,7 +217,7 @@ public:
 	template <comparable_iter_R<I> R> constexpr bool ends_with(const R& elem) const {
 		if (Infinite) return false;
 		if constexpr (std::bidirectional_iterator<I>)
-			return begin() != end() && *(end()--) == elem;
+			return begin() != end() && *(--end()) == elem;
 		else
 			return begin() != end() && *from(size() - 1) == elem;
 	}
@@ -227,12 +228,16 @@ public:
 		I2 iter2 = other.begin();
 		while (iter2 != other.end()) {
 			if (iter1 == end() || *iter1 != *iter2) return false;
-			iter1++;
-			iter2++;
+			++iter1;
+			++iter2;
 		}
 		return true;
 	}
 	template <comparable_iter_I<I> I2, typename S2>
+		requires requires {
+			std::bidirectional_iterator<I>;
+			std::bidirectional_iterator<I2>;
+		}
 	constexpr bool ends_with(const view<I2, S2>& other) const {
 		if (view<I2, S2>::Infinite) return false;
 		if constexpr (std::bidirectional_iterator<I> && !Infinite) {
@@ -240,8 +245,8 @@ public:
 			I2 iter2 = other.end();
 			while (iter2 != other.begin()) {
 				if (iter1 == begin()) return false;
-				iter1--;
-				iter2--;
+				--iter1;
+				--iter2;
 				if (*iter1 != *iter2) return false;
 			}
 			return true;
@@ -257,8 +262,8 @@ public:
 		I2 iter2 = other.begin();
 		while (iter1 != end()) {
 			if (iter2 == other.end() || *iter1 != *iter2) return false;
-			iter1++;
-			iter2++;
+			++iter1;
+			++iter2;
 		}
 		return iter2 == other.end();
 	}
@@ -277,7 +282,7 @@ public:
 	constexpr void blit(const view<I2, S2>& other, idx_t index = 0) {
 		I iter1 = from(begin(), index);
 		I2 iter2 = other.begin();
-		for (; iter1 != end() && iter2 != other.end(); iter1++, iter2++) *iter1 = *iter2;
+		for (; iter1 != end() && iter2 != other.end(); ++iter1, ++iter2) *iter1 = *iter2;
 	}
 
 	template <typename T2>
@@ -298,6 +303,21 @@ public:
 	using value_type = const T;
 	using view<const T*, const T*>::view;
 };
+template <typename T> class ispan : public view<T*, std::unreachable_sentinel_t> {
+public:
+	using value_type = T;
+	using view<T*, std::unreachable_sentinel_t>::view;
+};
+template <typename T> class ispan<const T> : public view<const T*, std::unreachable_sentinel_t> {
+public:
+	using value_type = const T;
+	using view<const T*, std::unreachable_sentinel_t>::view;
+};
 
-template <container C> view(C& t) -> view<container_iterator_t<C>>;
-template <container C> view(const C& t) -> view<container_const_iterator_t<C>>;
+template <container C> view(C&) -> view<container_iterator_t<C>>;
+template <container C> view(const C&) -> view<container_const_iterator_t<C>>;
+template <typename T> view(T*) -> view<T*, std::unreachable_sentinel_t>;
+
+template <typename T> span(T*, T*) -> span<T>;
+template <typename T> span(T*, idx_t) -> span<T>;
+template <typename T> ispan(T*) -> ispan<T>;

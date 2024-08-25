@@ -29,6 +29,12 @@ void pci_write(pci_addr dev, uint8_t reg, uint32_t data) {
 	outl(0xCF8, address);
 	outl(0xCFC, data);
 }
+void pci_write(pci_addr dev, uint32_t offset, uint8_t size, uint32_t data) {
+	uint8_t reg = offset >> 2;
+	uint8_t reg_off = offset & 3;
+	uint32_t v = pci_read(dev, reg);
+	for (int i = 0; i < size; i++) ((uint8_t*)&v)[reg_off + i] = ((uint8_t*)&data)[i];
+}
 
 void pci_enable_mem(pci_addr dev) { pci_write(dev, 1, pci_read(dev, 1) | 7); }
 

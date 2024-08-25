@@ -1,9 +1,8 @@
 #include <asm.hpp>
 #include <cstdint>
 #include <drivers/keyboard.hpp>
+#include <sys/debug.hpp>
 #include <sys/global.hpp>
-
-struct register_file;
 
 KeyboardBuffer keyboardInput = { 0, 0, 0, 0, 0, 0, {} };
 
@@ -20,10 +19,11 @@ struct {
 	{ 0x39, 0x1, " ", " " },
 };
 
-void keyboard_irq(uint64_t, register_file*) {
+void keyboard_irq(uint64_t, struct register_file*) {
 	uint8_t status = inb(0x64);
 	if ((status & 1) == 0) return;
 	uint8_t key = inb(0x60);
+	if (key == 0x3b) tag_dump();
 	keyboardInput.loopqueue[keyboardInput.pushIdx] = key;
 	keyboardInput.pushIdx = (keyboardInput.pushIdx + 1) % 256;
 	globals->g_console->putchar(key_to_ascii(key));

@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <kstddefs.hpp>
+#include <net/net.hpp>
 
 struct pci_device;
 
@@ -140,15 +141,18 @@ struct e1000_handle {
 	e1000_rx_desc* rx_descs;
 	e1000_tx_desc* tx_descs;
 	uint16_t rx_cur;
-	uint16_t tx_cur;
+	uint16_t tx_tail;
+	uint16_t tx_head;
 	uint8_t eeprom;
 };
 
 extern e1000_handle* e1000_dev;
 
-void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uint16_t len),
+void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 				void (*link_callback)(void));
 void e1000_enable();
+void e1000_pause();
+void e1000_resume();
 void e1000_receive(void);
-int e1000_send_async(void* data, uint16_t len);
+int e1000_send_async(net_buffer_t);
 void net_await(int handle);

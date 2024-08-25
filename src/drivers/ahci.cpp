@@ -14,9 +14,9 @@ void ahci_init(pci_device ahci_pci) {
 	hba_cmd_tbl* ctbas = (hba_cmd_tbl*)mmap(0, 0x2000, 0, MAP_PHYSICAL | MAP_INITIALIZE);
 
 	volatile ahci_mmio* ahci_mem = (volatile ahci_mmio*)(uint64_t)(ahci_pci.bars[5] & 0xfffffff0);
-	mprotect((void*)ahci_mem, 0x10000, PAGE_WT, MAP_PHYSICAL);
+	mmap((void*)ahci_mem, 0x20000, PAGE_WT, MAP_PHYSICAL | MAP_PINNED);
 	pci_enable_mem(ahci_pci.address);
-	//printf("Using AHCI MMIO at %08x\n", ahci_pci.bars[5]);
+	printf("Using AHCI MMIO at %08x\n", ahci_pci.bars[5]);
 	volatile hba_port* ports = (volatile hba_port*)(uint64_t)(ahci_pci.bars[5] + 0x100);
 
 	int port_idx = -1;

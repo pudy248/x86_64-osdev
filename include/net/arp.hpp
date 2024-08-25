@@ -4,28 +4,30 @@
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 
-#define ARP_OP_REQUEST 0x0001
-#define ARP_OP_RESPONSE 0x0002
+namespace ARP {
+enum ARP_CONSTANTS {
+	OP_REQUEST = 1,
+	OP_RESPONSE,
+	TYPE_PROBE = 1,
+	TYPE_REPLY_PROBE,
+	TYPE_REQUEST,
+	TYPE_REPLY_REQUEST,
+	TYPE_GRATUITOUS,
+	HTYPE_ETH = 1,
+	PTYPE_IPv4 = 0x800
+};
+}
 
-#define ARP_TYPE_PROBE 0x01
-#define ARP_TYPE_REPLY_PROBE 0x02
-#define ARP_TYPE_REQUEST 0x03
-#define ARP_TYPE_REPLY_REQUEST 0x04
-#define ARP_TYPE_GRATUITOUS 0x05
-
-#define ARP_HTYPE_ETH 0x0001
-#define ARP_PTYPE_IPv4 0x0800
-
-template <typename T> struct [[gnu::packed]] arp_header {
+struct [[gnu::packed]] arp_header {
 	uint16_t htype;
 	uint16_t ptype;
 	uint8_t hlen;
 	uint8_t plen;
 	uint16_t op;
-	uint8_t selfMac[6];
-	T selfIP;
-	uint8_t targetMac[6];
-	T targetIP;
+	mac_bits_t selfMac;
+	ipv4_t selfIP;
+	mac_bits_t targetMac;
+	ipv4_t targetIP;
 };
 
 struct arp_entry {
@@ -39,8 +41,8 @@ struct arp_entry {
 
 extern vector<arp_entry> arp_table;
 
-void arp_process(ethernet_packet packet);
-int arp_send(uint16_t op, arp_entry self, arp_entry target);
+void arp_receive(ethernet_packet packet);
+net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target);
 void arp_announce(ipv4_t ip);
 
 void arp_update(mac_t mac, ipv4_t ip);

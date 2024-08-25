@@ -7,7 +7,8 @@
 struct fixed_global_data_t {
 	void* dynamic_globals;
 	void* frame_info_table;
-	uint64_t total_page_count;
+	volatile uint64_t total_page_count;
+	volatile uint64_t mapped_pages;
 	page_pml4* pml4;
 	void* idt;
 };

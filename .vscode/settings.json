@@ -48,5 +48,5 @@
         "--enable-config",
         "-header-insertion=never"
     ],
-    "clang-format.executable": "clang-format-18"
+    "clang-format.executable": "clang-format-19"
 }

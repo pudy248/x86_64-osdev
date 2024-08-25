@@ -6,13 +6,13 @@ CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignmen
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
 CFLAGS_DBG:=-DDEBUG -g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
 
-CFLAGS_OPT_TARGETS=-Rpass-missed=loop-vectorize
+CFLAGS_OPT_TARGETS=
 
 CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
--fno-finite-loops -felide-constructors -fno-exceptions -fno-sized-deallocation \
--Oz -ffast-math -Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
+-Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
+-Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
@@ -77,7 +77,7 @@ start-dbg: disk.img
 	lldb-$(LLVM_VERSION) -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
-	telnet $(LOCAL_IP) 5556
+	telnet $(LOCAL_IP) 5555
 
 tmp/diskflasher.img: diskflasher.asm
 	nasm $< -f bin -o $@
@@ -110,7 +110,7 @@ tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloa
 	llvm-objcopy-$(LLVM_VERSION) --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
 	
-#	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
 	llvm-objdump-$(LLVM_VERSION) --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 

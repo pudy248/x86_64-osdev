@@ -75,12 +75,13 @@ void print(rostring str) {
 }
 
 template <typename... Args> void printf(const char* fmt, Args... args) {
+	static_assert(sizeof...(Args), "You should be using print().");
 	string s = format(rostring(fmt).begin(), args...);
-	globals->g_console->putstr(s.c_str_this());
+	globals->g_console->putstr(s.c_str());
 }
 template <typename... Args> void printf(rostring fmt, Args... args) {
 	string s = format(fmt.begin(), args...);
-	globals->g_console->putstr(s.c_str_this());
+	globals->g_console->putstr(s.c_str());
 }
 template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args) {
 	array<char, N> buf;

@@ -14,27 +14,26 @@
 vector<debug_symbol> symbol_table;
 static bool is_enabled = false;
 
-extern bool tag_allocations;
-
+bool tags_enabled() { return globals->tag_allocs; }
 void debug_init() {
 	new (&globals->heap_allocations) vector<heap_tag, waterline_allocator>(
-		0, waterline_allocator(mmap(0, 0x10000, 0, 0), 0x10000));
-	//tag_allocations = true;
-	//new (&globals->waterline_allocations)
-	//	vector<heap_tag, waterline_allocator>(1000, waterline_allocator((void*)0x2800000, 0x800000));
+		1000, waterline_allocator(mmap(0, 0x100000, 0, 0), 0x100000));
+	//globals->tag_allocs = true;
 }
 
 void load_debug_symbs(const char* filename) {
+	bool old_tag = globals->tag_allocs;
+	globals->tag_allocs = false;
 	fat_file f = file_open(filename);
 	kassert(DEBUG_ONLY, WARNING, f.inode, "Failed to open file.");
 	if (!f.inode) return;
 
-	auto v1 = view(f.inode->data);
+	auto v1 = f.rodata();
 	auto v2 = v1.reinterpret_as<char>();
 
 	istringstream str(v2);
 
-	symbol_table.reserve(f.inode->data.size() / 100);
+	symbol_table.reserve(f.rodata().size() / 100);
 
 	// llvm-objdump --syms
 	str.read_c();
@@ -60,15 +59,14 @@ void load_debug_symbs(const char* filename) {
 		symbol_table.append(symb);
 		//qprintf<1024>("%08x %04x %10s\n", symb.addr, symb.size, symb.name);
 	}
-
-	//f.inode->close();
+	globals->tag_allocs = old_tag;
 	is_enabled = true;
 }
 
 debug_symbol* nearest_symbol(void* address, bool* out_contains) {
 	int bestIdx = -1;
 	uint64_t bestDistance = INT64_MAX;
-	for (int i = 0; i < symbol_table.size(); i++) {
+	for (std::size_t i = 0; i < symbol_table.size(); i++) {
 		uint64_t distance = (uint64_t)address - (uint64_t)symbol_table[i].addr - 5;
 		if (distance < bestDistance && distance >= 0) {
 			bestIdx = i;
@@ -88,22 +86,26 @@ debug_symbol* nearest_symbol(void* address, bool* out_contains) {
 
 void wait_until_kbhit() {
 	while (true) {
-		if (*(volatile uint8_t*)&keyboardInput.pushIdx == keyboardInput.popIdx)
-			continue;
-		else if (key_to_ascii(keyboardInput.loopqueue[keyboardInput.popIdx]) != 'c') {
-			keyboardInput.popIdx = keyboardInput.pushIdx;
-			continue;
-		} else
-			break;
+		while (!(inb(0x64) & 1)) cpu_relax();
+		if (!(inb(0x60) & 0x80)) break;
 	}
-	keyboardInput.popIdx = keyboardInput.pushIdx;
 }
 
 [[gnu::noinline]] stacktrace stacktrace::trace() {
 	stacktrace r = {};
 	uint64_t* rbp = (uint64_t*)__builtin_frame_address(0);
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = { (void*)rbp[1], (void*)rbp };
+		r.ptrs.at(r.num_ptrs++) = { (void*)rbp[1], (void*)rbp[0] };
+		rbp = (uint64_t*)*rbp;
+	}
+	return r;
+}
+
+[[gnu::noinline]] stacktrace stacktrace::trace(uint64_t* rbp, uint64_t return_addr) {
+	stacktrace r = {};
+	r.ptrs.at(r.num_ptrs++) = { (void*)return_addr, (void*)rbp };
+	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
+		r.ptrs.at(r.num_ptrs++) = { (void*)rbp[1], (void*)rbp[0] };
 		rbp = (uint64_t*)*rbp;
 	}
 	return r;
@@ -127,7 +129,7 @@ void stacktrace::print() const {
 void inline_stacktrace() { stacktrace(stacktrace::trace(), 1).print(); }
 
 void* tag_alloc(uint64_t size, void* ptr) {
-	for (int i = 0; i < globals->heap_allocations.size(); i++) {
+	for (std::size_t i = 0; i < globals->heap_allocations.size(); i++) {
 		if (globals->heap_allocations.at(i).ptr == ptr) {
 			print("Aliased malloc!");
 			kassert_trace(ALWAYS_ACTIVE, ERROR);
@@ -137,19 +139,19 @@ void* tag_alloc(uint64_t size, void* ptr) {
 	return ptr;
 }
 void tag_free(void* ptr) {
-	for (int i = 0; i < globals->heap_allocations.size(); i++) {
+	for (std::size_t i = 0; i < globals->heap_allocations.size(); i++) {
 		if (globals->heap_allocations.at(i).ptr == ptr) {
 			globals->heap_allocations.erase(i);
 			return;
 		}
 	}
-	print("Double free!");
-	kassert_trace(DEBUG_ONLY, ERROR);
+	//print("Double free!");
+	//kassert_trace(DEBUG_ONLY, ERROR);
 }
 void tag_dump() {
 	for (const heap_tag& tag : globals->heap_allocations) {
 		qprintf<64>("Allocation %p (%i bytes)\n", tag.ptr, tag.size);
 		tag.alloc_trace.print();
-		//wait_until_kbhit();
+		wait_until_kbhit();
 	}
 }

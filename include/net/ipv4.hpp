@@ -4,12 +4,16 @@
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 
-#define IP_PROTOCOL_ICMP 0x01
-#define IP_PROTOCOL_TCP 0x06
-#define IP_PROTOCOL_UDP 0x11
-#define IP_PROTOCOL_SMP 0x79
+namespace IPv4 {
+enum IPv4_CONSTANTS {
+	PROTOCOL_ICMP = 0x01,
+	PROTOCOL_TCP = 0x06,
+	PROTOCOL_UDP = 0x11,
+	PROTOCOL_SMP = 0x79,
+};
+}
 
-struct [[gnu::packed]] ip_header {
+struct [[gnu::packed]] ipv4_header {
 	uint8_t ver_ihl; // 4, 5
 	uint8_t dscp; // 0
 	uint16_t total_length; //20 + data
@@ -22,13 +26,14 @@ struct [[gnu::packed]] ip_header {
 	ipv4_t dst_ip;
 };
 
-struct ip_packet {
+struct ipv4_packet {
 	ethernet_packet ethernet;
 	uint8_t protocol;
 	ipv4_t src;
 	ipv4_t dst;
-	span<char> contents;
+	net_buffer_t buf;
 };
 
-void ipv4_process(ethernet_packet packet);
-int ipv4_send(ip_packet packet);
+net_buffer_t ipv4_new(std::size_t data_size);
+void ipv4_receive(ethernet_packet packet);
+[[nodiscard]] net_async_t ipv4_send(ipv4_packet packet);

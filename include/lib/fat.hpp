@@ -33,7 +33,9 @@ struct fat_file {
 	~fat_file();
 
 	vector<uint8_t>& data() const;
+	span<const uint8_t> rodata() const;
 	vector<fat_file>& children() const;
+	void destroy();
 };
 
 struct fat_inode {

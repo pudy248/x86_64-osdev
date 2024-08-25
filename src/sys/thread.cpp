@@ -115,7 +115,7 @@ template <typename R> R thread_join(thread<R> t) {
 	return val;
 }
 template <typename R> void thread_kill(thread<R> t) {
-	for (int i = 0; i < contexts.size(); i++) {
+	for (std::size_t i = 0; i < contexts.size(); i++) {
 		if (contexts[i]->id == t.id) contexts.erase(i);
 	}
 }

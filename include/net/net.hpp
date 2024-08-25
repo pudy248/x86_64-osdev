@@ -4,19 +4,30 @@
 #include <sys/ktime.hpp>
 
 typedef uint64_t mac_t;
+typedef uint8_t mac_bits_t[6];
 typedef uint32_t ipv4_t;
 typedef uint16_t ethertype_t;
 
-constexpr ethertype_t ETHERTYPE_ARP = 0x0806;
-constexpr ethertype_t ETHERTYPE_IPv4 = 0x0800;
-constexpr ethertype_t ETHERTYPE_IPv6 = 0x86DD;
+namespace ETHERTYPE {
+enum ETHERTYPE : uint16_t {
+	IPv4 = 0x0800,
+	ARP = 0x0806,
+	IPv6 = 0x86DD,
+};
+}
 
 extern mac_t global_mac;
 extern ipv4_t global_ip;
 
-struct [[gnu::packed]] etherframe_t {
-	uint8_t dst[6];
-	uint8_t src[6];
+struct net_buffer_t {
+	uint8_t* frame_begin;
+	uint8_t* data_begin;
+	std::size_t data_size;
+};
+
+struct [[gnu::packed]] ethernet_header {
+	mac_bits_t dst;
+	mac_bits_t src;
 	ethertype_t type;
 };
 
@@ -25,7 +36,7 @@ struct ethernet_packet {
 	mac_t src;
 	mac_t dst;
 	uint16_t type;
-	span<char> contents;
+	net_buffer_t buf;
 };
 
 constexpr ipv4_t new_ipv4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
@@ -57,8 +68,11 @@ constexpr uint64_t htonq(uint64_t s) {
 
 void net_init();
 
+using net_async_t = int;
+
 void ethernet_link();
-void ethernet_recieve(void* buf, uint16_t size);
 void net_process();
-int ethernet_send(ethernet_packet packet);
-void net_await(int handle);
+void ethernet_recieve(net_buffer_t buf);
+net_buffer_t ethernet_new(std::size_t data_size);
+[[nodiscard]] net_async_t ethernet_send(ethernet_packet packet);
+void net_await(net_async_t handle);

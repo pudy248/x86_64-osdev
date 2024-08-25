@@ -7,7 +7,7 @@
 #include <net/tcp.hpp>
 #include <stl/vector.hpp>
 
-static void ip_checksum(ip_header* ip) {
+static void ip_checksum(ipv4_header* ip) {
 	ip->checksum = 0;
 	uint64_t sum = 0;
 	uint16_t ip_len = (ip->ver_ihl & 0xf) << 2;
@@ -21,12 +21,18 @@ static void ip_checksum(ip_header* ip) {
 	ip->checksum = sum;
 }
 
-void ipv4_process(ethernet_packet packet) {
-	ip_header* ip = (ip_header*)packet.contents.begin();
+net_buffer_t ipv4_new(std::size_t data_size) {
+	net_buffer_t buf = ethernet_new(data_size + sizeof(ipv4_header));
+	return { buf.frame_begin, buf.data_begin + sizeof(ipv4_header), data_size };
+}
 
-	void* contents = (void*)((uint64_t)packet.contents.begin() + sizeof(ip_header));
-	uint16_t expected_size = htons(ip->total_length) - sizeof(ip_header);
-	uint16_t actual_size = packet.contents.size() - sizeof(ip_header);
+void ipv4_receive(ethernet_packet packet) {
+	ipv4_header* ip = (ipv4_header*)packet.buf.data_begin;
+	uint8_t* data = packet.buf.data_begin + sizeof(ipv4_header);
+	std::size_t size = packet.buf.data_size - sizeof(ipv4_header);
+
+	uint16_t expected_size = htons(ip->total_length) - sizeof(ipv4_header);
+	uint16_t actual_size = packet.buf.data_size - sizeof(ipv4_header);
 
 	if (expected_size > actual_size) {
 		qprintf<100>(
@@ -39,43 +45,36 @@ void ipv4_process(ethernet_packet packet) {
 
 	arp_update(packet.src, ip->src_ip);
 
-	ip_packet new_packet = { packet, ip->protocol, ip->src_ip, ip->dst_ip,
-							 span<char>((char*)contents, expected_size) };
+	ipv4_packet new_packet = {
+		packet, ip->protocol, ip->src_ip, ip->dst_ip, { packet.buf.frame_begin, data, size }
+	};
 
 	switch (ip->protocol) {
-	case IP_PROTOCOL_TCP:
-		tcp_process(new_packet);
-		break;
-		//case IP_PROTOCOL_UDP:
-		//    udp_receive(frame, *ip, data, dataSize);
-		//    break;
+	case IPv4::PROTOCOL_TCP: tcp_receive(new_packet); break;
+	//case IPv4::PROTOCOL_UDP: udp_receive(new_packet);  break;
+	default: kfree(new_packet.buf.frame_begin);
 	}
 }
 
-int ipv4_send(ip_packet packet) {
-	void* buf = kmalloc(packet.contents.size() + sizeof(ip_header));
-	ip_header* ip = (ip_header*)buf;
+int ipv4_send(ipv4_packet packet) {
+	ipv4_header* ip = (ipv4_header*)(packet.buf.data_begin - sizeof(ipv4_header));
 	ip->ver_ihl = 0x45;
 	ip->dscp = 0;
-	ip->total_length = htons(20 + packet.contents.size());
+	ip->total_length = htons(20 + packet.buf.data_size);
 	ip->ident = 0x100;
 	ip->frag_offset = 0;
 	ip->ttl = 64;
 	ip->protocol = packet.protocol;
-	ip->checksum = 0;
 	ip->src_ip = packet.src;
 	ip->dst_ip = packet.dst;
 	ip_checksum(ip);
 
-	memcpy((void*)((uint64_t)buf + sizeof(ip_header)), packet.contents.begin(),
-		   packet.contents.size());
 	ethernet_packet eth;
-	eth.type = ETHERTYPE_IPv4;
+	eth.type = ETHERTYPE::IPv4;
 	eth.src = global_mac;
 	eth.dst = arp_translate_ip(packet.dst);
-	eth.contents = span<char>((char*)buf, packet.contents.size() + sizeof(ip_header));
+	eth.buf = { packet.buf.frame_begin, packet.buf.data_begin - sizeof(ipv4_header),
+				packet.buf.data_size + sizeof(ipv4_header) };
 
-	int handle = ethernet_send(eth);
-	kfree(buf);
-	return handle;
+	return ethernet_send(eth);
 }

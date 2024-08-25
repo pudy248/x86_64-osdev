@@ -39,7 +39,7 @@ public:
 	ptr_t alloc(uint64_t size) {
 		kassert(DEBUG_ONLY, ERROR, !size || size == SS,
 				"Attempted to allocate slab of incorrect size.");
-		kassert(DEBUG_ONLY, ERROR, num_allocs < SS,
+		kassert(DEBUG_ONLY, ERROR, num_allocs < SLAB_COUNT,
 				"Attempted to allocate slab from full allocator.");
 		for (;; ring_index = (ring_index + 1) % SLAB_COUNT) {
 			if (!bits[ring_index]) break;

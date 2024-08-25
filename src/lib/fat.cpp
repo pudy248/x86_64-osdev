@@ -162,6 +162,7 @@ void fat_init() {
 		fat_file(new fat_inode(bpb->root_dir_entries * 32,
 							   FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
 							   NULL, bpb->root_cluster_num));
+	globals->fat_data.root_directory.inode->filename = "ROOT"_RO;
 	new (&globals->fat_data.working_directory) fat_file(globals->fat_data.root_directory);
 	delete bpb;
 }
@@ -180,14 +181,14 @@ fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent,
 }
 fat_inode::~fat_inode() { close(); }
 
-static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLFNs) {
+static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, std::size_t nLFNs) {
 	fat_file_entry* file = &entries[nLFNs].file;
 	fat_inode* inode = new fat_inode(file->file_size, file->attributes, parent,
 									 (uint32_t)file->cluster_high << 16 | file->cluster_low);
 	inode->filename.reserve(nLFNs * 13);
-	for (int lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
+	for (std::size_t lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
 		fat_file_lfn* lfn = &entries[lfnIdx].lfn;
-		int offset = ((lfn->position & 0x3f) - 1) * 13;
+		std::size_t offset = ((lfn->position & 0x3f) - 1) * 13;
 		bool br = false;
 		for (int i = 0; !br && i < 5; i++)
 			if (lfn->chars_1[i])
@@ -208,18 +209,19 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, int nLF
 	//qprintf<64>("name: %S\n", &inode->filename);
 	return inode;
 }
-static void* read_from_disk_layout(fat_inode* inode, int* out_sz) {
-	int cluster_idx = 0;
-	for (int i = 0; i < inode->disk_layout.size(); i++)
+static void* read_from_disk_layout(fat_inode* inode, std::size_t* out_sz) {
+	std::size_t cluster_idx = 0;
+	for (std::size_t i = 0; i < inode->disk_layout.size(); i++)
 		cluster_idx += inode->disk_layout.at(i).span_length;
-	int sz = cluster_idx * globals->fat_data.bytes_per_cluster;
+	std::size_t sz = cluster_idx * globals->fat_data.bytes_per_cluster;
 	if (out_sz) *out_sz = sz;
 	void* dat = kmalloc(sz);
 	cluster_idx = 0;
-	int cluster = inode->disk_layout.at(0).sector_start;
-	for (int i = 0; i < inode->disk_layout.size(); i++) {
-		int sectors = inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
-		int lba = cluster_lba(cluster);
+	std::size_t cluster = inode->disk_layout.at(0).sector_start;
+	for (std::size_t i = 0; i < inode->disk_layout.size(); i++) {
+		std::size_t sectors =
+			inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
+		std::size_t lba = cluster_lba(cluster);
 		read_disk((void*)((uint64_t)dat + cluster_idx * globals->fat_data.bytes_per_cluster), lba,
 				  sectors);
 		cluster_idx += inode->disk_layout.at(i).span_length;
@@ -240,20 +242,20 @@ size_t fat_inode::_num_children() { return data.size() / sizeof(fat_inode*); }
 void fat_inode::open() {
 	if (loaded) return;
 	disk_layout = read_file_layout(start_cluster);
-	int sz = 0;
+	std::size_t sz = 0;
 	void* dat = read_from_disk_layout(this, &sz);
 	if (attributes & FAT_ATTRIBS::DIRECTORY) {
 		fat_dir_ent* entries = (fat_dir_ent*)dat;
-		int idx = 0;
+		std::size_t idx = 0;
 		while (entries[idx].file.attributes) {
 			if ((entries[idx].file.attributes & FAT_ATTRIBS::VOL_ID) &&
 				entries[idx].file.attributes != FAT_ATTRIBS::LFN) {
 				idx++;
 				continue;
 			}
-			int sidx = idx;
+			std::size_t sidx = idx;
 			while (entries[idx].file.attributes == FAT_ATTRIBS::LFN) idx++;
-			int nLFNs = idx - sidx;
+			std::size_t nLFNs = idx - sidx;
 			_add_child(from_dir_ents(this, &entries[sidx], nLFNs));
 			idx++;
 		}
@@ -304,23 +306,28 @@ fat_file::fat_file(fat_file&& other)
 	other.inode = NULL;
 }
 fat_file& fat_file::operator=(const fat_file& other) {
-	this->~fat_file();
+	destroy();
 	inode = other.inode;
 	if (inode) inode->references[0]++;
 	return *this;
 }
 fat_file& fat_file::operator=(fat_file&& other) {
-	this->~fat_file();
+	destroy();
 	inode = other.inode;
 	other.inode = NULL;
 	return *this;
 }
-fat_file::~fat_file() {
+void fat_file::destroy() {
 	if (inode) {
 		inode->references[0]--;
 		if (!inode->references[0]) inode->close();
 	}
 	inode = NULL;
+}
+fat_file::~fat_file() { destroy(); }
+vector<uint8_t>& fat_file::data() const { return inode->data; }
+span<const uint8_t> fat_file::rodata() const {
+	return span<const uint8_t>(&*data().begin(), &*data().begin() + inode->filesize);
 }
 
 fat_file file_open(fat_file& directory, rostring filename) {
@@ -339,7 +346,7 @@ fat_file file_open(rostring absolute_path) {
 		file = globals->fat_data.root_directory;
 	else
 		file = globals->fat_data.working_directory;
-	for (int i = 0; i < parts.size(); i++) {
+	for (std::size_t i = 0; i < parts.size(); i++) {
 		if (!file.inode) return fat_file();
 		if (!parts[i].size()) {
 			kassert(DEBUG_ONLY, COMMENT, 0, "Empty path fragment.");

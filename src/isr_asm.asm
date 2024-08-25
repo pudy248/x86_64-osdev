@@ -1,6 +1,6 @@
 bits 64
 
-;%define KEEP_YMMS
+%define KEEP_YMMS
 
 extern handle_exception ; (uint64_t int_num, uregister_file* registers, int64_t err_code, bool is_fatal)
 extern pic_eoi
@@ -9,8 +9,8 @@ extern isr_fns
 global register_file_ptr
 global register_file_ptr_swap
 global swap_context
-register_file_ptr: dq 0x60000 
-register_file_ptr_swap: dq 0x61000
+register_file_ptr: dq 0
+register_file_ptr_swap: dq 0
 
 save_regs:
     mov qword [rsp-0x28], rdx

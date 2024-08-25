@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <lib/allocators/heap.hpp>
+#include <lib/allocators/mmap.hpp>
 #include <lib/allocators/slab_pagemap.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <lib/fat.hpp>
@@ -14,9 +15,11 @@ struct global_data_t {
 	class waterline_allocator global_waterline;
 	class heap_allocator global_heap;
 	class slab_pagemap<64, 64> global_pagemap;
+	class mmap_allocator global_mmap_alloc;
 	class vector<heap_tag, waterline_allocator> heap_allocations;
+	bool tag_allocs;
 
-	volatile uint64_t elapsedPITs;
+	volatile uint64_t elapsed_pits;
 
 	struct pci_devices* pci;
 	struct ahci_device* ahci;

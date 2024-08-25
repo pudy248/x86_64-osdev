@@ -2,8 +2,10 @@
 #include <asm.hpp>
 #include <kstdlib.hpp>
 
+void wait_until_kbhit();
 void inline_stacktrace();
 void print(const char*);
+void tag_dump();
 
 enum DEBUG_SEVERITY {
 	CATCH_FIRE,
@@ -22,8 +24,9 @@ enum DEBUG_LEVEL {
 };
 
 namespace assert {
-constexpr int DEFAULT_DEBUG_LEVEL = ALWAYS_ACTIVE;
+constexpr int DEFAULT_DEBUG_LEVEL = DEBUG_VERBOSE;
 constexpr int DEFAULT_DEBUG_HALT_SEVERITY = ERROR;
+constexpr int DEFAULT_DEBUG_PAUSE_SEVERITY = WARNING;
 constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = COMMENT;
 
 #ifndef NDEBUG_LEVEL
@@ -33,6 +36,10 @@ constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = COMMENT;
 
 #ifndef NDEBUG_HALT_SEVERITY
 #define NDEBUG_HALT_SEVERITY assert::DEFAULT_DEBUG_HALT_SEVERITY
+#endif
+
+#ifndef NDEBUG_PAUSE_SEVERITY
+#define NDEBUG_PAUSE_SEVERITY assert::DEFAULT_DEBUG_PAUSE_SEVERITY
 #endif
 
 #ifndef NDEBUG_IGNORE_SEVERITY
@@ -50,6 +57,11 @@ template <bool halt>
 	print(": ");
 	print(message);
 	inline_stacktrace();
+	for (int i = 0; i < 30000000; i++) cpu_relax();
+	tag_dump();
+	//if (severity <= NDEBUG_PAUSE_SEVERITY) {
+	//	wait_until_kbhit();
+	//}
 	if constexpr (halt) {
 		inf_wait();
 		__builtin_unreachable();

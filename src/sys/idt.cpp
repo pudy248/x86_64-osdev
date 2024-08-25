@@ -1,23 +1,24 @@
-#include "sys/fixed_global.hpp"
-#include "sys/memory/paging.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/debug.hpp>
+#include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
 #include <sys/idt.hpp>
+#include <sys/memory/paging.hpp>
 
 #define BETTER_EXCEPTION_PRINTING
 
 struct [[gnu::packed]] idt_entry {
 	uint16_t offset_low;
 	uint16_t selector;
-	uint8_t reserved_0;
-	uint8_t type;
+	uint8_t ist;
+	uint8_t flags : 4;
+	uint8_t reserved_1 : 4;
 	uint16_t offset_mid;
 	uint32_t offset_high;
-	uint32_t reserved_1;
+	uint32_t reserved_2;
 };
 struct idt_t {
 	idt_entry entries[256];
@@ -29,14 +30,10 @@ struct [[gnu::packed]] idt_ptr {
 
 isr_t isr_fns[48];
 
-void idt_set(uint8_t index, uint64_t base, uint8_t flags) {
-	((idt_t*)(fixed_globals->idt))->entries[index] = { (uint16_t)base,
-													   0x18,
-													   0,
-													   flags, // | 0x60,
-													   (uint16_t)(base >> 16U),
-													   (uint32_t)(base >> 32U),
-													   0 };
+void idt_set(uint8_t index, uint64_t base, uint8_t flags, uint8_t ist) {
+	((idt_t*)(fixed_globals->idt))->entries[index] =
+		idt_entry{ (uint16_t)base,			0x18, ist, flags, 0x8, (uint16_t)(base >> 16U),
+				   (uint32_t)(base >> 32U), 0 };
 }
 
 extern uint32_t isr_stub_table[48];
@@ -71,8 +68,17 @@ void isr_set(uint8_t index, isr_t fn) {
 	}
 }
 
+static int previous_interrupt = 0;
+static bool previous_interrupt_was_fatal = false;
 extern "C" void handle_exception(uint64_t int_num, register_file* registers, uint64_t err_code,
 								 bool is_fatal) {
+	if (previous_interrupt_was_fatal && is_fatal) {
+		const char* msg = "DOUBLE FATAL FAULT";
+		for (int i = 0; i < strlen(msg); i++) ((uint16_t*)0xb8000)[i] = 0x0c00 + msg[i];
+		cpu_halt();
+	}
+	previous_interrupt = int_num;
+	previous_interrupt_was_fatal = is_fatal;
 	qprintf<80>("\nException v=%02x e=%04x %s\n", int_num, err_code,
 				int_num >= 0x20 ? "IRQ" :
 				int_num >= 19	? "OUT OF RANGE" :
@@ -114,7 +120,7 @@ extern "C" void handle_exception(uint64_t int_num, register_file* registers, uin
 	qprintf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
 #endif
 
-	//inline_stacktrace();
+	stacktrace::trace((uint64_t*)registers->rbp, registers->rip).print();
 
 	if (is_fatal) {
 		print("Unrecoverable exception - halting...\n");
@@ -127,14 +133,19 @@ void idt_init() {
 	register_file_ptr = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
 	register_file_ptr_swap = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
 
+	idt_reinit();
+	//asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
+}
+
+void idt_reinit() {
+	disable_interrupts();
 	idt_pointer.limit = sizeof(((idt_t*)(fixed_globals->idt))->entries) - 1;
 	idt_pointer.base = (uint64_t)&((idt_t*)(fixed_globals->idt))->entries[0];
 	int i = 0;
-	for (; i < 30; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0x8e); }
-	for (; i < 32; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0x8e); }
-	for (; i < 48; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0x8e); }
-	for (; i < 256; i++) { idt_set((uint8_t)i, isr_stub_table[0], 0x8e); }
+	for (; i < 30; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0xe); }
+	for (; i < 32; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0xe); }
+	for (; i < 48; i++) { idt_set((uint8_t)i, isr_stub_table[i], 0xe); }
+	for (; i < 256; i++) { idt_set((uint8_t)i, isr_stub_table[0], 0xe); }
 	for (int i = 0; i < 48; i++) { isr_fns[i] = NULL; }
 	load_idt(&idt_pointer);
-	//asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
 }

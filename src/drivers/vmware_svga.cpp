@@ -54,9 +54,9 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 	globals->svga->vram_size = svga_read(SVGA_REG::VRAM_SIZE);
 
 	mprotect((void*)globals->svga->fb, globals->svga->fb_size, PAGE_WT,
-			 MAP_PHYSICAL | MAP_INITIALIZE);
+			 MAP_PHYSICAL | MAP_INITIALIZE | MAP_NEW);
 	mprotect((void*)globals->svga->fifo, globals->svga->fifo_size, PAGE_WT,
-			 MAP_PHYSICAL | MAP_INITIALIZE);
+			 MAP_PHYSICAL | MAP_INITIALIZE | MAP_NEW);
 
 	globals->svga->fifo[SVGA_FIFO::MIN] = SVGA_FIFO::NUM_REGS * 4;
 	globals->svga->fifo[SVGA_FIFO::MAX] = globals->svga->fifo_size;

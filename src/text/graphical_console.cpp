@@ -7,7 +7,7 @@
 #include <text/graphical_console.hpp>
 #include <type_traits>
 
-int graphics_text_dimensions[2] = { 120, 30 }; //{240, 60};
+int graphics_text_dimensions[2] = { 240, 60 };
 
 static char* storage_buffer;
 
@@ -31,7 +31,8 @@ static void render_char(uint32_t px, uint32_t py, char c, int scale) {
 void graphics_text_init() {
 	pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
 	kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, svga_pci, "No VGA display device detected!\r\n");
-	svga_init(*svga_pci, graphics_text_dimensions[0] * 8, graphics_text_dimensions[1] * 16);
+	svga_init(*svga_pci, graphics_text_dimensions[0] * fontDims[0],
+			  graphics_text_dimensions[1] * fontDims[1]);
 
 	storage_buffer = (char*)walloc(graphics_text_dimensions[0] * graphics_text_dimensions[1], 0x10);
 	memset(storage_buffer, 0, graphics_text_dimensions[0] * graphics_text_dimensions[1]);
@@ -44,6 +45,6 @@ char graphics_text_get_char(uint32_t x, uint32_t y) {
 }
 void graphics_text_set_char(uint32_t x, uint32_t y, char c) {
 	storage_buffer[graphics_text_dimensions[0] * y + x] = c;
-	render_char(x * 8, y * 16, c, 1);
+	render_char(x * fontDims[0], y * fontDims[1], c, 1);
 }
 void graphics_text_update() { svga_update(); }

@@ -44,7 +44,9 @@ extern uint64_t mem_free;
 [[gnu::returns_nonnull]] void* operator new(uint64_t size, std::align_val_t alignment);
 [[gnu::returns_nonnull]] void* operator new[](uint64_t size);
 void operator delete(void* ptr) noexcept;
+void operator delete(void* ptr, unsigned long) noexcept;
 void operator delete[](void* ptr) noexcept;
+void operator delete[](void* ptr, unsigned long) noexcept;
 template <typename T> static inline void destruct(T* ptr, int count) {
 	if constexpr (std::is_destructible_v<T>)
 		for (int i = 0; i < count; i++) ptr[i].~T();

@@ -55,8 +55,7 @@ using rostring = basic_string<char, cstr_t>;
 class string : public vector<char> {
 public:
 	using vector<char>::vector;
-	char* c_str_this();
-	char* c_str_new();
+	char* c_str();
 	bool operator==(const rostring& other);
 };
 
@@ -70,6 +69,7 @@ public:
 	constexpr void write(const CharT elem) { *(this->iter++) = elem; }
 	void write(cstr_t dat) { write(rostring(dat)); }
 	void write(const rostring& dat) {
+		kassert(DEBUG_VERBOSE, ERROR, dat.begin(), "Null string.");
 		for (CharT c : dat) write(c);
 	}
 	void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ',

@@ -1,6 +1,5 @@
 #include <cstddef>
 #include <cstdint>
-#include <drivers/keyboard.hpp>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
 #include <graphics/pipeline.hpp>
@@ -16,12 +15,9 @@
 #include <net/http.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <stl/array.hpp>
-#include <stl/container.hpp>
 #include <stl/vector.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
-#include <sys/idt.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/thread.hpp>
@@ -30,7 +26,6 @@
 extern "C" int atexit(void (*)(void)) { return 0; }
 
 static void http_main() {
-	stacktrace();
 	net_init();
 	vector<tcp_connection*> conns;
 	while (true) {
@@ -41,7 +36,7 @@ static void http_main() {
 			if (!c) c = tcp_accept(8080);
 			if (c) { conns.append(c); }
 		}
-		for (int i = 0; i < conns.size(); i++) {
+		for (std::size_t i = 0; i < conns.size(); i++) {
 			tcp_connection* conn = conns.at(i);
 			if (conn->state == TCP_STATE::CLOSED) {
 				tcp_destroy(conn);
@@ -50,14 +45,13 @@ static void http_main() {
 				continue;
 			}
 			if (conn->recieved_packets.size()) {
-				tcp_packet p = conn->recv();
+				tcp_fragment p = conn->recv();
 				if (http_process(conn, p)) {
 					conn->close();
 					tcp_destroy(conn);
 					conns.erase(i);
 					i--;
 				}
-				kfree((void*)p.contents.begin());
 			}
 		}
 	}
@@ -186,14 +180,11 @@ static int generator(int start) {
 }
 
 static void thread_main() {
-	kassert_trace(ALWAYS_ACTIVE, WARNING);
-	printf("%02i %02i %02x %f %.1f\n", 1, 456, 789, 123.456, 78.912);
-
 	threading_init();
 	thread<int> t = thread_create(&generator, 123);
 	double time1, time2;
-	PROFILE_LOOP(thread_switch(t), time1 = timepoint::pit_time().unix_seconds();
-				 , time2 = timepoint::pit_time().unix_seconds();, 50000000)
+	PROFILE_LOOP(thread_switch(t), time1 = timepoint::pit_time().unix_seconds(),
+				 time2 = timepoint::pit_time().unix_seconds(), 50000000)
 	uint64_t t1, t2;
 	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
 	thread_kill(t);
@@ -203,26 +194,18 @@ static void thread_main() {
 }
 
 extern "C" void kernel_main(void) {
-	idt_init();
-	global_ctors();
-	time_init();
-	isr_set(32, &inc_pit);
-	isr_set(33, &keyboard_irq);
-#ifdef DEBUG
-	load_debug_symbs("/symbols.txt");
-	load_debug_symbs("/symbols2.txt");
-#endif
-	//globals->fat_data.root_directory.inode->purge();
+	kernel_reinit();
+	globals->fat_data.root_directory.inode->purge();
+	do_pit_readout = true;
 
 	//graphics_main();
-	dealloc_fat();
-	//http_main();
-	//console_init();
-	thread_main();
+	//dealloc_fat();
+	console_init();
+	http_main();
+	//thread_main();
 
 	//tag_dump();
 	print("Kernel reached end of execution.\n");
 	global_dtors();
-	do_pit_readout = true;
 	inf_wait();
 }

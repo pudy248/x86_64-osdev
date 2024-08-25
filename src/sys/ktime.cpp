@@ -15,28 +15,38 @@ struct register_file;
 bool do_pit_readout = false;
 
 void inc_pit(uint64_t, register_file*) {
-	globals->elapsedPITs = globals->elapsedPITs + 1;
+	globals->elapsed_pits = globals->elapsed_pits + 1;
 	//Print diagnostics
 	if (do_pit_readout) {
-		int x, l;
-		array<char, 20> arr;
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    W %i", globals->global_waterline.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 0, arr[i]);
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    S %i", globals->global_pagemap.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 1, arr[i]);
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    H %i", globals->global_heap.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 2, arr[i]);
+		int x, l, y = 0;
+		array<char, 32> arr;
 
 		timepoint t = timepoint::pit_time_imprecise();
 		x = globals->g_console->text_rect[2] - 1;
 		l = formats(arr.begin(), "%02i:%02i:%02.3f", t.hour, t.minute,
 					t.second + t.micros / 1000000.);
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, 3, arr[i]);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
+		y++;
+
+		x = globals->g_console->text_rect[2] - 1;
+		l = formats(arr.begin(), "   PT %i", fixed_globals->mapped_pages);
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
+		y++;
+
+		x = globals->g_console->text_rect[2] - 1;
+		l = formats(arr.begin(), "    W %i", globals->global_waterline.mem_used());
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
+		y++;
+
+		x = globals->g_console->text_rect[2] - 1;
+		l = formats(arr.begin(), "    H %i", globals->global_heap.mem_used());
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
+		y++;
+
+		x = globals->g_console->text_rect[2] - 1;
+		l = formats(arr.begin(), "    S %i", globals->global_pagemap.mem_used());
+		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
+		y++;
 
 		globals->g_console->refresh();
 	}
@@ -51,7 +61,7 @@ static timepoint reference_timepoint;
 
 void time_init(void) {
 	reference_timepoint = timepoint::cmos_time();
-	globals->elapsedPITs = 0;
+	globals->elapsed_pits = 0;
 }
 
 timepoint timepoint::cmos_time() {
@@ -77,7 +87,7 @@ timepoint timepoint::cmos_time() {
 
 static timepoint pit_time_override(uint32_t subcnt) {
 	timepoint t;
-	uint64_t cnt = (uint64_t)((int64_t)globals->elapsedPITs * 65536 + subcnt);
+	uint64_t cnt = (uint64_t)((int64_t)globals->elapsed_pits * 65536 + subcnt);
 	uint64_t micros_total = cnt * 1000000LLU / 1193182LLU;
 
 	uint64_t newSecond = micros_total / 1000000LLU;

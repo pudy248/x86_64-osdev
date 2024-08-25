@@ -18,8 +18,9 @@ typedef void (*isr_t)(uint64_t, register_file*);
 extern void* register_file_ptr;
 extern void* register_file_ptr_swap;
 
-void idt_set(uint8_t index, uint64_t base, uint8_t flags);
+void idt_set(uint8_t index, uint64_t base, uint8_t flags, uint8_t ist = 0);
 void isr_set(uint8_t index, isr_t fn);
 void idt_init(void);
+void idt_reinit(void);
 extern "C" void* idtptr;
 extern "C" void load_idt(void* idtptr);

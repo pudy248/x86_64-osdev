@@ -6,8 +6,9 @@
 #include <net/tcp.hpp>
 #include <stl/vector.hpp>
 
-bool http_process(tcp_connection* conn, tcp_packet p) {
-	vector<rostring> lines = rostring(p.contents).split<vector>("\n");
+bool http_process(tcp_connection* conn, tcp_fragment p) {
+	vector<rostring> lines =
+		rostring((char*)p.data.begin()(), (char*)p.data.end()()).split<vector>("\n");
 	vector<rostring> args = lines[0].split<vector>(' ');
 
 	if (args[0] != "GET"_RO) {
@@ -21,25 +22,26 @@ bool http_process(tcp_connection* conn, tcp_packet p) {
 		return true;
 	}
 	if (file.inode->attributes & FAT_ATTRIBS::DIRECTORY) {
-		file = file_open(file, "index.html");
+		fat_file file2 = file_open("/index.html");
+		file = file2;
 		if (!file.inode) {
 			http_error(conn, "404 Not Found");
 			return true;
 		}
 	}
-	printf("%S\n", &file.inode->filename);
+	// printf("%S\n", &file.inode->filename);
 	if (view(file.inode->filename).ends_with(".png"_RO))
-		http_send(conn, "image/png"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "image/png"_RO, file.rodata().reinterpret_as<char>());
 	else if (view(file.inode->filename).ends_with(".webp"_RO))
-		http_send(conn, "image/webp"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "image/webp"_RO, file.rodata().reinterpret_as<char>());
 	else if (view(file.inode->filename).ends_with(".wasm"_RO))
-		http_send(conn, "application/wasm"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "application/wasm"_RO, file.rodata().reinterpret_as<char>());
 	else if (view(file.inode->filename).ends_with(".css"_RO))
-		http_send(conn, "text/css"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "text/css"_RO, file.rodata().reinterpret_as<char>());
 	else if (view(file.inode->filename).ends_with(".js"_RO))
-		http_send(conn, "text/javascript"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "text/javascript"_RO, file.rodata().reinterpret_as<char>());
 	else
-		http_send(conn, "text/html"_RO, view(file.inode->data).reinterpret_as<char>());
+		http_send(conn, "text/html"_RO, file.rodata().reinterpret_as<char>());
 
 	return false;
 }
@@ -53,7 +55,7 @@ void http_send(tcp_connection* conn, rostring type, rostring response) {
 				  "\r\n%S");
 
 	string fresponse = format(fstr, &type, response.size(), &response);
-	conn->send({ span<char>(fresponse.begin(), fresponse.end()) });
+	tcp_await(conn->send({ span((uint8_t*)fresponse.begin()(), (uint8_t*)fresponse.end()() - 1) }));
 }
 
 void http_error(tcp_connection* conn, rostring code) {
@@ -62,5 +64,5 @@ void http_error(tcp_connection* conn, rostring code) {
 				  "Content-Length: 0\r\n"
 				  "Connection: close\r\n\r\n");
 	string fresponse = format(fstr, &code);
-	conn->send({ span<char>(fresponse.begin(), fresponse.end()) });
+	tcp_await(conn->send({ span((uint8_t*)fresponse.begin()(), (uint8_t*)fresponse.end()() - 1) }));
 }

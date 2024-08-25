@@ -59,6 +59,7 @@ public:
 	stacktrace() = default;
 	stacktrace(const stacktrace& other, int start);
 	[[gnu::noinline]] static stacktrace trace();
+	static stacktrace trace(uint64_t* rbp, uint64_t return_addr);
 	void print() const;
 };
 
@@ -69,7 +70,6 @@ struct heap_tag {
 };
 
 extern vector<debug_symbol> symbol_table;
-extern vector<heap_tag, waterline_allocator>* heap_allocations;
 
 void debug_init();
 void load_debug_symbs(const char* filename);
@@ -78,6 +78,7 @@ void wait_until_kbhit();
 
 void inline_stacktrace();
 
+bool tags_enabled();
 void* tag_alloc(uint64_t size, void* ptr);
 void tag_free(void* ptr);
 void tag_dump();

@@ -5,11 +5,13 @@
 #include <kstddefs.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
+#include <net/net.hpp>
+#include <sys/global.hpp>
 #include <sys/idt.hpp>
 #include <sys/memory/paging.hpp>
 
 e1000_handle* e1000_dev;
-static void (*receive_fn)(void* packet, uint16_t len);
+static void (*receive_fn)(net_buffer_t);
 static void (*link_fn)(void);
 static void e1000_int_handler(uint64_t, register_file*);
 
@@ -42,7 +44,7 @@ static void e1000_link() {
 	link_fn();
 }
 
-void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uint16_t len),
+void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 				void (*link_callback)(void)) {
 	e1000_dev = waterline_new<e1000_handle>(0x10);
 	e1000_dev->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
@@ -53,9 +55,9 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	e1000_dev->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
 	e1000_dev->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
 
-	mprotect((void*)e1000_dev->mmio_base, 0x10000, PAGE_WT, MAP_PHYSICAL);
+	mprotect((void*)e1000_dev->mmio_base, 0x20000, PAGE_WT, MAP_PHYSICAL | MAP_PINNED | MAP_NEW);
 	pci_enable_mem(e1000_pci.address);
-	//printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);
+	printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);
 
 	//Clear and disable interrupts
 	e1000_write(E1000_REG::IMC, 0xFFFFFFFF);
@@ -64,7 +66,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	//Global reset
 	e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) & ~0x04000000);
 	outb(0x80, 0);
-	//e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) & ~0xC0000088);
+	e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) & ~0xC0000088);
 
 	//Detect eeprom
 	e1000_dev->eeprom = 0;
@@ -112,7 +114,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 
 	//Initialize RX
 	for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
-		e1000_dev->rx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
+		e1000_dev->rx_descs[i].addr =
+			(uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);
 		e1000_dev->rx_descs[i].status = 0;
 	}
 	e1000_write(E1000_REG::RXDESCLO, (uint64_t)e1000_dev->rx_descs);
@@ -129,7 +132,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-		e1000_dev->tx_descs[i].addr = (uint64_t)walloc(E1000_BUFSIZE, 0x10);
+		e1000_dev->tx_descs[i].addr = 0;
 		e1000_dev->tx_descs[i].cmd = 0;
 		e1000_dev->tx_descs[i].status = E1000_TSTA::DD;
 	}
@@ -138,30 +141,39 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(void* packet, uin
 	e1000_write(E1000_REG::TXDESCSZ, E1000_NUM_TX_DESC * 16);
 	e1000_write(E1000_REG::TXDESCHD, 0);
 	e1000_write(E1000_REG::TXDESCTL, 0);
-	e1000_dev->tx_cur = 0;
-	e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) |
-									  (64 << E1000_TCTL::CTCSHIFT) | E1000_TCTL::RTLC);
-	if (e1000_pci.device_id != 0x100E)
+	e1000_dev->tx_tail = 0;
+	e1000_dev->tx_head = 0;
+	if (e1000_pci.device_id == 0x100E)
+		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP |
+										  (15 << E1000_TCTL::CTSHIFT) |
+										  (64 << E1000_TCTL::CTCSHIFT) | E1000_TCTL::RTLC);
+	else
 		e1000_write(E1000_REG::TCTRL, 0b0110000000000111111000011111010);
 	e1000_write(E1000_REG::TIPG, 0x0060200A);
 
 	//Enable interrupts
-	//pci_write_register(e1000_pci.address, 15, 5);
-	//e1000_pci.interrupt_line = 5;
+	//pci_write_field(e1000_pci, interrupt_line, 5);
 
-	//printf("Using interrupt line %i\n", e1000_pci.interrupt_line);
+	printf("Using interrupt line %i\n", e1000_pci.interrupt_line);
 	isr_set(e1000_pci.interrupt_line + 32, &e1000_int_handler);
-	//e1000_write(E1000_REG::ITR, 0);
 	print("e1000e network card initialized.\n\n");
 }
 
 void e1000_enable() { e1000_write(E1000_REG::IMS, 0xFF & ~4); }
+void e1000_pause() { e1000_write(E1000_REG::IMC, 0x80); }
+void e1000_resume() { e1000_write(E1000_REG::IMS, 0x80); }
 
 static void e1000_int_handler(uint64_t, register_file*) {
 	e1000_write(E1000_REG::IMS, 0x1);
 	uint32_t status = e1000_read(E1000_REG::ICR);
 	//printf("%02x\n", status);
-	if (status & 0x02) {}
+	if (status & 0x02) {
+		int head = e1000_read(E1000_REG::TXDESCHD);
+		while (e1000_dev->tx_head != head) {
+			kfree((void*)e1000_dev->tx_descs[e1000_dev->tx_head].addr);
+			e1000_dev->tx_head = (e1000_dev->tx_head + 1) % E1000_NUM_TX_DESC;
+		}
+	}
 	if (status & 0x04) e1000_link();
 	if (status & 0x40) {
 		print("RXO\n");
@@ -186,31 +198,33 @@ void e1000_receive() {
 		//printf("Reading %i\n", e1000_dev->rx_cur);
 		uint8_t* buf = (uint8_t*)e1000_dev->rx_descs[e1000_dev->rx_cur].addr;
 		uint16_t len = e1000_dev->rx_descs[e1000_dev->rx_cur].length;
-		receive_fn(buf, len);
+		uint8_t* newBuf = new uint8_t[len];
+		memcpy(newBuf, buf, len);
 		//double t2 = timepoint().unix_seconds();
 		//printf("Done reading %i in %fms\n", e1000_dev->rx_cur, (t2 - t1) * 1000);
 		//t1 = t2;
 		e1000_dev->rx_descs[e1000_dev->rx_cur].status = 0;
 		old_cur = e1000_dev->rx_cur;
 		e1000_dev->rx_cur = (e1000_dev->rx_cur + 1) % E1000_NUM_RX_DESC;
+		receive_fn({ newBuf, newBuf, len });
 	}
 	e1000_write(E1000_REG::RXDESCTL, old_cur);
 }
 
-int e1000_send_async(void* data, uint16_t len) {
-	while (~e1000_dev->tx_descs[e1000_dev->tx_cur].status & 1) asmv("nop");
-	memcpy((void*)e1000_dev->tx_descs[e1000_dev->tx_cur].addr, data, len);
-	e1000_dev->tx_descs[e1000_dev->tx_cur].length = len;
-	e1000_dev->tx_descs[e1000_dev->tx_cur].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS |
-												 E1000_TCMD::RS;
-	e1000_dev->tx_descs[e1000_dev->tx_cur].status = 0;
-	uint8_t handle = e1000_dev->tx_cur;
-	e1000_dev->tx_cur = (e1000_dev->tx_cur + 1) % E1000_NUM_TX_DESC;
-	e1000_write(E1000_REG::TXDESCTL, e1000_dev->tx_cur);
-	//e1000_await(handle);
+int e1000_send_async(net_buffer_t buf) {
+	uint8_t handle = e1000_dev->tx_tail;
+	while (~e1000_dev->tx_descs[handle].status & 1) cpu_relax();
+	e1000_dev->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
+	// memcpy((void*)e1000_dev->tx_descs[handle].addr, buf.data_begin, buf.data_size);
+	e1000_dev->tx_descs[handle].length = buf.data_size;
+
+	e1000_dev->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
+	e1000_dev->tx_descs[handle].status = 0;
+	e1000_dev->tx_tail = (e1000_dev->tx_tail + 1) % E1000_NUM_TX_DESC;
+	e1000_write(E1000_REG::TXDESCTL, e1000_dev->tx_tail);
 	return handle;
 }
 
 void net_await(int handle) {
-	while (~e1000_dev->tx_descs[handle].status & 1) asmv("nop");
+	while (~e1000_dev->tx_descs[handle].status & 1) cpu_relax();
 }

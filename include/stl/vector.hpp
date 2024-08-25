@@ -28,8 +28,10 @@ public:
 		vector<T, A>* ptr;
 		const vector<T, A>* cptr;
 	};
-	idx_t offset;
+	std::size_t offset;
 
+	constexpr T* operator()() const { return &(*cptr)[offset]; }
+	constexpr operator T*() const { return (*this)(); }
 	constexpr T& operator*() { return ptr->at(offset); }
 	constexpr T& operator*() const { return (*cptr)[offset]; }
 	constexpr operator T*() { return &**this; }
@@ -48,11 +50,11 @@ public:
 
 template <typename T, allocator A> class vector {
 protected:
-	static constexpr int resize_ratio = 2;
+	static constexpr std::size_t resize_ratio = 2;
 	allocator_traits<A>::ptr_t m_arr;
-	idx_t m_size;
+	std::size_t m_size;
 	A alloc;
-	idx_t m_capacity;
+	std::size_t m_capacity;
 
 public:
 	using value_type = T;
@@ -63,7 +65,7 @@ public:
 		: m_arr(nullptr)
 		, m_size(0)
 		, m_capacity(0) {}
-	vector(idx_t size, A _alloc = A())
+	vector(std::size_t size, A _alloc = A())
 		: m_size(0)
 		, alloc(_alloc)
 		, m_capacity(size) {
@@ -78,7 +80,7 @@ public:
 		, m_capacity(v.size()) {
 		this->m_arr = (T*)alloc.alloc(sizeof(T) * m_capacity);
 		I iter = v.begin();
-		for (idx_t i = 0; i < size(); i++, iter++) { new (&m_at(i)) T(*iter); }
+		for (std::size_t i = 0; i < size(); i++, iter++) { new (&m_at(i)) T(*iter); }
 	}
 	template <convertible_iter_I<iterator_type> I, typename S>
 	constexpr vector(const I& begin, const S& end, const A& _alloc = A())
@@ -96,7 +98,7 @@ public:
 	vector(std::initializer_list<T> list)
 		: vector(list.begin(), list.end()) {}
 
-	template <allocator A2> vector& operator=(const vector<T, A2>& other) {
+	vector& operator=(const vector& other) {
 		if (&other == this) return *this;
 		this->~vector();
 		new (this) vector(other);
@@ -124,26 +126,26 @@ public:
 		this->m_size = 0;
 		m_capacity = 0;
 	}
-	constexpr void unsafe_set(allocator_traits<A>::ptr_t arr, int l, int c) {
+	constexpr void unsafe_set(allocator_traits<A>::ptr_t arr, std::size_t l, std::size_t c) {
 		this->m_arr = (T*)arr;
 		this->m_size = l;
 		this->m_capacity = c;
 	}
 
-	constexpr T& at(int idx) {
+	constexpr T& at(uidx_t idx) {
 		if (this->capacity() <= idx) {
-			int newCap = m_capacity < 1 ? 1 : m_capacity;
+			std::size_t newCap = m_capacity < 1 ? 1 : m_capacity;
 			while (newCap <= idx) newCap = newCap * resize_ratio;
 			reserve(newCap);
 		}
 		this->m_size = max(this->m_size, idx + 1);
 		return m_at(idx);
 	}
-	constexpr const T& at(int idx) const {
+	constexpr const T& at(idx_t idx) const {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in vector.at()\n");
 		return m_at(idx);
 	}
-	template <typename Derived> constexpr auto& operator[](this Derived& self, int idx) {
+	template <typename Derived> constexpr auto& operator[](this Derived& self, idx_t idx) {
 		return self.m_at(idx);
 	}
 	constexpr iterator_type begin() { return vector_iterator<T, A>{ {}, { this }, 0 }; }
@@ -155,16 +157,16 @@ public:
 		return vector_iterator<T, A>{ {}, { .cptr = this }, this->size() };
 	}
 
-	void reserve(int size) {
+	void reserve(std::size_t size) {
 		if (m_capacity >= size) return;
 		if (m_capacity)
 			m_arr = (T*)alloc.realloc(m_arr, sizeof(T) * m_capacity, sizeof(T) * size);
 		else
 			m_arr = (T*)alloc.alloc(sizeof(T) * size);
-		for (int i = m_capacity; i < size; i++) new (&m_at(i)) T();
+		for (std::size_t i = m_capacity; i < size; i++) new (&m_at(i)) T();
 		m_capacity = size;
 	}
-	void resize(int size) {
+	void resize(std::size_t size) {
 		reserve(size);
 		this->m_size = size;
 	}
@@ -176,23 +178,23 @@ public:
 	constexpr void append(const view<I, S>& other) {
 		reserve(size() + other.size());
 		I iter = other.begin();
-		for (idx_t i = 0; iter != other.end(); i++, iter++) append(*iter);
+		for (; iter != other.end(); iter++) append(*iter);
 	}
-	constexpr void append(const T* elems, idx_t count) {
+	constexpr void append(const T* elems, std::size_t count) {
 		append(view<T*, T*>(elems, elems + count));
 	}
 
-	constexpr void insert(T& elem, idx_t idx) {
+	constexpr void insert(T& elem, std::size_t idx) {
 		if (idx >= this->size())
 			this->at(idx) = elem;
 		else {
-			idx_t i = this->size();
+			std::size_t i = this->size();
 			this->at(i) = m_at(i - 1);
 			for (i--; i > idx; i--) m_at(i) = std::move(m_at(i - 1));
 			m_at(i) = std::forward<T>(elem);
 		}
 	}
-	constexpr void insert(T&& elem, idx_t idx) {
+	constexpr void insert(T&& elem, uidx_t idx) {
 		if (idx >= this->size())
 			this->at(idx) = elem;
 		else {
@@ -202,21 +204,23 @@ public:
 		}
 	}
 
-	void erase(idx_t idx) {
+	void erase(uidx_t idx) {
 		if (idx >= this->size()) return;
-		for (idx_t i = idx + 1; i < this->size(); i++) m_at(i - 1) = m_at(i);
+		for (std::size_t i = idx + 1; i < this->size(); i++) m_at(i - 1) = m_at(i);
 		this->m_size--;
 	}
-	void erase(idx_t idx, idx_t count) {
+	void erase(uidx_t idx, std::size_t count) {
 		if (idx >= this->size()) return;
-		for (idx_t i = 0; i < count; i++) erase(idx);
+		for (std::size_t i = 0; i < count; i++) erase(idx);
 	}
 
 	T* c_arr() const {
 		T* arr2 = new T[this->size()];
-		for (idx_t i = 0; i < this->size(); i++) arr2[i] = m_at(i);
+		for (std::size_t i = 0; i < this->size(); i++) arr2[i] = m_at(i);
 		return arr2;
 	}
-	constexpr idx_t size() const volatile { return m_size; }
-	constexpr idx_t capacity() const volatile { return m_capacity; }
+	constexpr std::size_t size() const volatile { return m_size; }
+	constexpr std::size_t capacity() const volatile { return m_capacity; }
 };
+
+template <typename T> vector(T*, std::size_t) -> vector<T>;

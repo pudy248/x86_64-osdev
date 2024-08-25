@@ -7,11 +7,7 @@
 #include <stl/vector.hpp>
 #include <stl/view.hpp>
 
-char* string::c_str_new() { return &*this->begin(); }
-char* string::c_str_this() {
-	if (!this->size() || *(this->end() - 1)) this->append(0);
-	return &*this->begin();
-}
+char* string::c_str() { return &*this->begin(); }
 
 template <typename CharT, iterator_of<CharT> I, std::sentinel_for<I> S>
 template <template <typename> typename C, comparable_iter_I<I> I2, typename S2>
@@ -20,9 +16,9 @@ template <template <typename> typename C, comparable_iter_I<I> I2, typename S2>
 		requires(!view<I2, S2>::Infinite);
 	}
 C<basic_string<CharT, I, S>> basic_string<CharT, I, S>::split(const view<I2, S2>& any) const {
-	idx_t sz = this->count(any) + 1;
+	std::size_t sz = this->count(any) + 1;
 	C<basic_string<CharT, I, S>> container{ sz };
-	idx_t i = 0;
+	std::size_t i = 0;
 	istringstream stream(*this);
 	while (i < sz) {
 		container.at(i++) = stream.read_until_v(any);
@@ -34,9 +30,9 @@ template <typename CharT, iterator_of<CharT> I, std::sentinel_for<I> S>
 template <template <typename...> typename C>
 	requires container_template<C>
 C<basic_string<CharT, I, S>> basic_string<CharT, I, S>::split(CharT c) const {
-	idx_t sz = this->count(c) + 1;
+	std::size_t sz = this->count(c) + 1;
 	C<basic_string<CharT, I, S>> container{ sz };
-	idx_t i = 0;
+	std::size_t i = 0;
 	istringstream stream(*this);
 	while (i < sz) {
 		container.at(i++) = stream.read_until_v(c);
@@ -67,9 +63,10 @@ template <iterator_of<char> I> int formats(const I& output, const rostring fmt, 
 		char c = fmts.read_c();
 		if (c == '%') {
 			istringstream fmtArg(fmts.read_until_v(fmtchars, true));
+			bool hasLeading = false;
+			bool hasDecimal = false;
 			int leadingChars = 1;
 			int decimals = 3;
-			bool hasDecimal = false;
 			char leadingChar = ' ';
 
 			while (fmtArg.readable()) {
@@ -81,12 +78,14 @@ template <iterator_of<char> I> int formats(const I& output, const rostring fmt, 
 				else if (front == 'n') {
 					fmtArg.read_c();
 					leadingChars = va_arg(l, uint64_t);
+					hasLeading = true;
 				} else if (front == '.') {
 					fmtArg.read_c();
 					hasDecimal = true;
 					decimals = fmtArg.read_i();
 				} else if (front >= '1' && front <= '9') {
 					leadingChars = fmtArg.read_i();
+					hasLeading = true;
 				} else {
 					leadingChar = fmtArg.read_c();
 				}
@@ -95,14 +94,14 @@ template <iterator_of<char> I> int formats(const I& output, const rostring fmt, 
 			if (c2 == 'i') {
 				ostr.writei(va_arg(l, int64_t), leadingChars, 10, leadingChar);
 			} else if (c2 == 'X') {
-				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, true);
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, hasLeading);
 			} else if (c2 == 'x') {
-				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, true,
+				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, hasLeading,
 							"0123456789abcdef");
 			} else if (c2 == 'p') {
 				ostr.write('0');
 				ostr.write('x');
-				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, true);
+				ostr.writei(va_arg(l, uint64_t), hasLeading ? leadingChars : 8, 16, '0', true);
 			} else if (c2 == 'b') {
 				ostr.writei(va_arg(l, uint64_t), leadingChars, 2, leadingChar);
 			} else if (c2 == 'f') {
@@ -131,6 +130,7 @@ template <iterator_of<char> I> int formats(const I& output, const rostring fmt, 
 		} else
 			ostr.write(c);
 	}
+	if (fmt.begin() + (fmt.size() - 1)) ostr.write((char)0);
 	va_end(l);
 
 	return ostr.begin() - output;

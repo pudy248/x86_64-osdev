@@ -4,13 +4,14 @@
 #include <net/arp.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
+#include <sys/global.hpp>
 
 constexpr mac_t MAC_BCAST = 0xffffffffffffULL;
 
 vector<arp_entry> arp_table;
 
 void arp_update(mac_t mac, ipv4_t ip) {
-	for (int i = 0; i < arp_table.size(); i++) {
+	for (std::size_t i = 0; i < arp_table.size(); i++) {
 		//if (mac == arp_table[i].mac) {
 		//    arp_table[i].ip = ip;
 		//    return;
@@ -24,32 +25,31 @@ void arp_update(mac_t mac, ipv4_t ip) {
 }
 
 ipv4_t arp_translate_mac(mac_t mac) {
-	for (int i = 0; i < arp_table.size(); i++) {
+	for (std::size_t i = 0; i < arp_table.size(); i++) {
 		if (mac == arp_table[i].mac) return arp_table[i].ip;
 	}
 	return 0;
 }
 mac_t arp_translate_ip(ipv4_t ip) {
-	for (int i = 0; i < arp_table.size(); i++) {
+	for (std::size_t i = 0; i < arp_table.size(); i++) {
 		if (ip == arp_table[i].ip) return arp_table[i].mac;
 	}
 	return 0;
 }
 
-void arp_process(ethernet_packet packet) {
-	arp_header<ipv4_t>* h = (arp_header<ipv4_t>*)packet.contents.begin();
-	ipv4_t selfIP, targetIP;
-	mac_t selfMac, targetMac;
-	selfMac = targetMac = 0;
+void arp_receive(ethernet_packet packet) {
+	arp_header* h = (arp_header*)packet.buf.data_begin;
+	ipv4_t selfIP = 0, targetIP = 0;
+	mac_t selfMac = 0, targetMac = 0;
 
 	memcpy(&selfIP, &h->selfIP, 4);
 	memcpy(&targetIP, &h->targetIP, 4);
 	memcpy(&selfMac, &h->selfMac, 6);
 	memcpy(&targetMac, &h->targetMac, 6);
-	char sMac = !!selfMac;
-	char sIp = !!selfIP;
-	char tMac = !!targetMac;
-	char tIp = !!targetIP;
+	bool sMac = !!selfMac;
+	bool sIp = !!selfIP;
+	bool tMac = !!targetMac;
+	bool tIp = !!targetIP;
 
 	if (sMac && sIp) arp_update(selfMac, selfIP);
 
@@ -86,18 +86,20 @@ void arp_process(ethernet_packet packet) {
 			   h->targetIP);
 		break;
 	}
+	kfree(packet.buf.frame_begin);
 }
 
-int arp_send(uint16_t op, arp_entry self, arp_entry target) {
+net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target) {
 	mac_t eth_dst;
 	if (!target.mac)
 		eth_dst = MAC_BCAST;
 	else
 		eth_dst = target.mac;
 
-	arp_header<ipv4_t>* h = new arp_header<ipv4_t>();
-	h->htype = htons(ARP_HTYPE_ETH);
-	h->ptype = htons(ARP_PTYPE_IPv4);
+	net_buffer_t buf = ethernet_new(sizeof(arp_header));
+	arp_header* h = (arp_header*)buf.data_begin;
+	h->htype = htons(ARP::HTYPE_ETH);
+	h->ptype = htons(ARP::PTYPE_IPv4);
 	h->hlen = 6;
 	h->plen = 4;
 	h->op = htons(op);
@@ -109,16 +111,14 @@ int arp_send(uint16_t op, arp_entry self, arp_entry target) {
 	ethernet_packet packet;
 	packet.dst = eth_dst;
 	packet.src = self.mac;
-	packet.type = ETHERTYPE_ARP;
-	packet.contents = span<char>((char*)h, sizeof(arp_header<ipv4_t>));
+	packet.type = ETHERTYPE::ARP;
+	packet.buf = buf;
 
-	int handle = ethernet_send(packet);
-	delete h;
-	return handle;
+	return ethernet_send(packet);
 }
 
 void arp_announce(ipv4_t ip) {
 	global_ip = ip;
 	printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac);
-	arp_send(ARP_OP_REQUEST, arp_entry(global_mac, global_ip), arp_entry(0, global_ip));
+	arp_send(ARP::OP_REQUEST, arp_entry(global_mac, global_ip), arp_entry(0, global_ip));
 }

@@ -70,6 +70,8 @@ public:
 	ptr_t alloc(uint64_t size, uint16_t alignment = 0x10) {
 		alignment = min(alignment, sizeof(heap_blk));
 		uint64_t adj_size = heap_alloc_size(size);
+		kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, (uint64_t)end - (uint64_t)begin - used > adj_size,
+				"Malloc out of space!");
 #ifdef HEAP_VERBOSE_LISTS
 		qprintf<64>("\nMALLOC HEAP DUMP: REQUESTED %08p BYTES\n", count);
 		heap_blk* dbg_block = (heap_blk*)begin;
