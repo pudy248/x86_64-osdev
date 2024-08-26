@@ -4,7 +4,6 @@
 #include <net/arp.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
-#include <sys/global.hpp>
 
 constexpr mac_t MAC_BCAST = 0xffffffffffffULL;
 

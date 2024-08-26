@@ -4,6 +4,7 @@
 #include <drivers/vmware_svga.hpp>
 #include <kassert.hpp>
 #include <kstdlib.hpp>
+#include <stl/view.hpp>
 #include <sys/global.hpp>
 #include <sys/memory/paging.hpp>
 
@@ -18,23 +19,20 @@ static void svga_write(uint32_t addr, uint32_t val) {
 	outl(globals->svga->pio_base + 1, val);
 }
 
-static uint32_t* svga_reserve(uint32_t size) {
-	//uint32_t min = globals->svga->fifo[SVGA_FIFO::MIN];
-	//uint32_t max = globals->svga->fifo[SVGA_FIFO::MAX];
-	uint32_t next = globals->svga->fifo[SVGA_FIFO::NEXT_CMD];
-
-	globals->svga->fifo[SVGA_FIFO::RESERVED] = size;
-	return (uint32_t*)((uint64_t)globals->svga->fifo + next);
-}
-static void svga_commit() {
+static void svga_fifo_write(span<uint32_t> arr) {
+	disable_interrupts();
+	globals->svga->fifo[SVGA_FIFO::RESERVED] = arr.size() << 2;
 	uint32_t min = globals->svga->fifo[SVGA_FIFO::MIN];
 	uint32_t max = globals->svga->fifo[SVGA_FIFO::MAX];
 	uint32_t next = globals->svga->fifo[SVGA_FIFO::NEXT_CMD];
-	uint32_t bytes = globals->svga->fifo[SVGA_FIFO::RESERVED];
-	uint32_t nextnext = next + bytes;
-	if (nextnext > max) nextnext = nextnext - max + min;
-	globals->svga->fifo[SVGA_FIFO::NEXT_CMD] = nextnext;
+	for (uint32_t w : arr) {
+		globals->svga->fifo[next >> 2] = w;
+		next += 4;
+		if (next == max) next = min;
+	}
+	globals->svga->fifo[SVGA_FIFO::NEXT_CMD] = next;
 	globals->svga->fifo[SVGA_FIFO::RESERVED] = 0;
+	enable_interrupts();
 }
 
 void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
@@ -92,13 +90,8 @@ void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp) {
 
 void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 	if (!enabled) return;
-	uint32_t* ptr = svga_reserve(20);
-	ptr[0] = SVGA_CMD::UPDATE;
-	ptr[1] = x;
-	ptr[2] = y;
-	ptr[3] = w;
-	ptr[4] = h;
-	svga_commit();
+	array<uint32_t, 5> arr({ (uint32_t)SVGA_CMD::UPDATE, x, y, w, h });
+	svga_fifo_write(arr);
 }
 void svga_update() { svga_update(0, 0, globals->svga->width, globals->svga->height); }
 

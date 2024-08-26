@@ -137,16 +137,14 @@ struct [[gnu::packed]] e1000_tx_desc {
 struct e1000_handle {
 	uint64_t mmio_base;
 	uint16_t pio_base;
-	uint8_t mac[6];
+	mac_t mac;
 	e1000_rx_desc* rx_descs;
 	e1000_tx_desc* tx_descs;
 	uint16_t rx_cur;
 	uint16_t tx_tail;
 	uint16_t tx_head;
-	uint8_t eeprom;
+	bool eeprom;
 };
-
-extern e1000_handle* e1000_dev;
 
 void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 				void (*link_callback)(void));

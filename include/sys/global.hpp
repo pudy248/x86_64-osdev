@@ -8,6 +8,7 @@
 #include <stl/allocator.hpp>
 #include <sys/fixed_global.hpp>
 #include <sys/idt.hpp>
+#include <sys/ktime.hpp>
 
 struct global_data_t {
 	class console* g_console;
@@ -20,10 +21,13 @@ struct global_data_t {
 	bool tag_allocs;
 
 	volatile uint64_t elapsed_pits;
+	double frequency;
+	timepoint reference_timepoint;
 
 	struct pci_devices* pci;
 	struct ahci_device* ahci;
 	struct svga_device* svga;
+	struct e1000_handle* e1000;
 	fat_sys_data fat_data;
 };
 

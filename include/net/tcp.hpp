@@ -2,7 +2,9 @@
 #include <cstdint>
 #include <kstddefs.hpp>
 #include <net/net.hpp>
+#include <stl/stream.hpp>
 #include <stl/vector.hpp>
+#include <stl/view.hpp>
 
 namespace TCP_STATE {
 enum TCP_STATE {
@@ -17,7 +19,7 @@ enum TCP_STATE {
 	FINACK_SENT,
 	CLOSED
 };
-constexpr bool valid(TCP_STATE s);
+constexpr bool valid(int s);
 }
 
 struct tcp_flags {
@@ -55,18 +57,9 @@ struct tcp_fragment_partial {
 	uint32_t end_seq = 0;
 	vector<uint8_t> contents;
 };
-struct tcp_fragment {
-	vector<uint8_t> data;
-};
+using tcp_fragment = vector<uint8_t>;
 
-struct tcp_iterator_r {
-	struct tcp_connection* conn;
-};
-struct tcp_iterator_w {
-	struct tcp_connection* conn;
-};
-
-using tcp_async_t = tcp_connection*;
+using tcp_async_t = struct tcp_connection*;
 
 struct tcp_connection {
 	ipv4_t cur_ip;
@@ -83,16 +76,52 @@ struct tcp_connection {
 	int state;
 
 	tcp_fragment_partial partial;
-	vector<tcp_fragment> recieved_packets;
+	std::size_t packet_offset;
+	vector<tcp_fragment> received_packets;
 
 	tcp_connection() = default;
 
 	void listen(uint16_t port);
 	void connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port);
 	tcp_async_t send(tcp_fragment&& p);
+	void await_packet(std::size_t target_count);
 	tcp_fragment recv();
 	void close();
 };
+
+template <> struct std::indirectly_readable_traits<struct tcp_input_iterator> {
+public:
+	using value_type = uint8_t;
+};
+
+struct tcp_input_iterator : iterator_crtp<tcp_input_iterator> {
+private:
+	bool in_bounds() const;
+	void get_packet() const;
+	tcp_fragment& cur_frag() const;
+
+public:
+	using value_type = uint8_t;
+	using difference_type = std::ptrdiff_t;
+
+	tcp_connection* conn;
+	std::size_t fragment_index;
+	std::size_t fragment_offset;
+
+	tcp_input_iterator() = default;
+	tcp_input_iterator(tcp_connection* conn);
+	tcp_input_iterator(tcp_connection* conn, std::size_t fragment_index,
+					   std::size_t fragment_offset);
+	uint8_t& operator*() const;
+	tcp_input_iterator& operator+=(int);
+	bool operator==(const tcp_input_iterator& other) const;
+	void flush();
+};
+struct tcp_sentinel {
+	tcp_connection* conn;
+	bool operator==(const tcp_input_iterator& other) const;
+};
+using tcp_istream = basic_istream<uint8_t, tcp_input_iterator, tcp_sentinel>;
 
 extern vector<tcp_connection*> open_connections;
 

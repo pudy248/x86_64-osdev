@@ -10,10 +10,10 @@ CFLAGS_OPT_TARGETS=
 
 CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
--nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
+-nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
 -Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
--Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wglobal-constructors \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
 LDFLAGS_INC:=--lto=thin --ignore-data-address-equality --ignore-function-address-equality

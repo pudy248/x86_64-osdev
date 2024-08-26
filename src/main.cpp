@@ -1,4 +1,4 @@
-#include <cstddef>
+﻿#include <cstddef>
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
@@ -6,9 +6,7 @@
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
 #include <kassert.hpp>
-#include <kstddefs.hpp>
 #include <kstdio.hpp>
-#include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/fat.hpp>
 #include <lib/profile.hpp>
@@ -16,7 +14,6 @@
 #include <net/net.hpp>
 #include <net/tcp.hpp>
 #include <stl/vector.hpp>
-#include <sys/debug.hpp>
 #include <sys/global.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
@@ -44,14 +41,20 @@ static void http_main() {
 				i--;
 				continue;
 			}
-			if (conn->recieved_packets.size()) {
-				tcp_fragment p = conn->recv();
-				if (http_process(conn, p)) {
+			if (conn->received_packets.size()) {
+				tcp_istream stream({ conn }, { conn });
+				vector<uint8_t> http_packet =
+					stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>(
+						"\r\n\r\n"_RO, true);
+				rostring s = view(http_packet).reinterpret_as<char>();
+				printf("%S\n", &s);
+				if (http_process(conn, s)) {
 					conn->close();
 					tcp_destroy(conn);
 					conns.erase(i);
 					i--;
 				}
+				stream.begin().flush();
 			}
 		}
 	}
@@ -158,14 +161,6 @@ static void dealloc_fat() {
 	tmp->purge();
 
 	delete tmp;
-}
-
-static double frequency = 0;
-static void set_freq() {
-	for (int i = 0; i < 3; i++) {
-		double freqi = clockspeed_MHz();
-		frequency = max(frequency, freqi);
-	}
 }
 
 static void console_init() {

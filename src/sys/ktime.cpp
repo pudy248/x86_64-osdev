@@ -1,12 +1,10 @@
+﻿#include <asm.hpp>
 #include <cstdint>
+#include <kstddefs.hpp>
 #include <kstdio.hpp>
-#include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <lib/allocators/heap.hpp>
-#include <lib/allocators/slab_pagemap.hpp>
-#include <lib/allocators/waterline.hpp>
 #include <stl/array.hpp>
-#include <stl/container.hpp>
+#include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
 
@@ -15,7 +13,7 @@ struct register_file;
 bool do_pit_readout = false;
 
 void inc_pit(uint64_t, register_file*) {
-	globals->elapsed_pits = globals->elapsed_pits + 1;
+	globals->elapsed_pits++;
 	//Print diagnostics
 	if (do_pit_readout) {
 		int x, l, y = 0;
@@ -57,10 +55,18 @@ static uint8_t get_cmos_register(uint8_t reg) {
 	return (uint8_t)inb(0x71);
 }
 
-static timepoint reference_timepoint;
+static void compute_clockspeed() {
+	globals->frequency = 0;
+	for (int i = 0; i < 5; i++) {
+		double freq = clockspeed_MHz();
+		if (freq > 20000) continue;
+		globals->frequency = max(globals->frequency, freq);
+	}
+}
 
 void time_init(void) {
-	reference_timepoint = timepoint::cmos_time();
+	globals->reference_timepoint = timepoint::cmos_time();
+	compute_clockspeed();
 	globals->elapsed_pits = 0;
 }
 
@@ -145,11 +151,11 @@ int clockspeed_MHz() {
 	uint64_t stsc = rdtsc();
 	tsc_delay(0x1000000LLU);
 	double t2 = timepoint::pit_time().unix_seconds();
-	long etsc = rdtsc();
+	uint64_t etsc = rdtsc();
 
 	double eSec = (t2 - t1);
 	double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-	printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc,
-		   (uint32_t)(eSec * 1000000));
+	printf("%iMHz (%li cycles in %ius) %.6f %.6f\n", (uint32_t)freqMHz, etsc - stsc,
+		   (uint32_t)(eSec * 1000000), t1, t2);
 	return freqMHz;
 }

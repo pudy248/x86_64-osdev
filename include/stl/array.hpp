@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <initializer_list>
 #include <kassert.hpp>
 #include <kstddefs.hpp>
 #include <stl/allocator.hpp>
@@ -23,12 +24,15 @@ public:
 	template <convertible_elem_I<T> I, typename S>
 	constexpr array(const I& begin, const S& end)
 		: array(view<I, S>(begin, end)) {}
+	template <std::convertible_to<T> R>
+	constexpr array(std::initializer_list<R> list)
+		: array(list.begin(), list.end()) {}
 
-	template <typename Derived> constexpr auto& at(this Derived& self, idx_t idx) {
+	template <typename Derived> constexpr auto& at(this Derived& self, uidx_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < self.size(), "OOB access in array.at()\n");
 		return self.m_arr[idx];
 	}
-	template <typename Derived> constexpr auto& operator[](this Derived& self, idx_t idx) {
+	template <typename Derived> constexpr auto& operator[](this Derived& self, uidx_t idx) {
 		return self.m_arr[idx];
 	}
 
@@ -38,5 +42,5 @@ public:
 		return self.m_arr + self.size();
 	}
 	constexpr auto cend() const { return m_arr + size(); }
-	constexpr idx_t size() const { return N; }
+	constexpr std::size_t size() const { return N; }
 };

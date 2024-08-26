@@ -15,8 +15,6 @@ struct register_file {
 };
 
 typedef void (*isr_t)(uint64_t, register_file*);
-extern void* register_file_ptr;
-extern void* register_file_ptr_swap;
 
 void idt_set(uint8_t index, uint64_t base, uint8_t flags, uint8_t ist = 0);
 void isr_set(uint8_t index, isr_t fn);

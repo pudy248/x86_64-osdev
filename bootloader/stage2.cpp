@@ -4,11 +4,9 @@
 #include <drivers/keyboard.hpp>
 #include <drivers/pci.hpp>
 #include <kassert.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/fat.hpp>
 #include <stl/vector.hpp>
-#include <sys/debug.hpp>
 #include <sys/idt.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
@@ -45,6 +43,7 @@ extern "C" void* stage2_main() {
 				  kernel.inode->data.size() + 8);
 	}
 
+	disable_interrupts();
 	global_dtors();
 	//kernel_main();
 	return (void*)kernel_main;

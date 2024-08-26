@@ -1,6 +1,8 @@
 #include <asm.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <kassert.hpp>
+#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/fixed_global.hpp>
 #include <sys/memory/paging.hpp>

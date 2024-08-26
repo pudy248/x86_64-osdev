@@ -6,9 +6,8 @@
 #include <net/tcp.hpp>
 #include <stl/vector.hpp>
 
-bool http_process(tcp_connection* conn, tcp_fragment p) {
-	vector<rostring> lines =
-		rostring((char*)p.data.begin()(), (char*)p.data.end()()).split<vector>("\n");
+bool http_process(tcp_connection* conn, rostring p) {
+	vector<rostring> lines = p.split<vector>("\n");
 	vector<rostring> args = lines[0].split<vector>(' ');
 
 	if (args[0] != "GET"_RO) {

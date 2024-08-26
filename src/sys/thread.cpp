@@ -1,11 +1,12 @@
+#include <asm.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <kassert.hpp>
-#include <kstdlib.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <stl/function.hpp>
 #include <stl/optional.hpp>
 #include <stl/vector.hpp>
-#include <sys/idt.hpp>
+#include <sys/fixed_global.hpp>
 #include <sys/memory/paging.hpp>
 #include <sys/thread.hpp>
 
@@ -44,7 +45,7 @@ void threading_init() {
 	contexts.append(context);
 
 	active_thread = (thread_context<int>*)context;
-	register_file_ptr = &active_thread->registers;
+	fixed_globals->register_file_ptr = &active_thread->registers;
 
 	allow_context_switching = true;
 }
@@ -83,7 +84,7 @@ template <typename R> void thread_switch(thread<R> t) {
 	//if (active_thread->state == THREAD_STATE::RUNNING)
 	//	active_thread->state = THREAD_STATE::SUSPENDED;
 	active_thread = (thread_context<int>*)context;
-	register_file_ptr_swap = &context->registers;
+	fixed_globals->register_file_ptr_swap = &context->registers;
 	// active_thread->state = THREAD_STATE::RUNNING;
 #ifdef INTERRUPT_SWAP
 	invoke_interrupt<30>();

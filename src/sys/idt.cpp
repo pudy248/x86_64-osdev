@@ -1,7 +1,8 @@
+#include <asm.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <kcstring.hpp>
 #include <kstdio.hpp>
-#include <kstdlib.hpp>
 #include <sys/debug.hpp>
 #include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
@@ -130,9 +131,8 @@ extern "C" void handle_exception(uint64_t int_num, register_file* registers, uin
 
 void idt_init() {
 	fixed_globals->idt = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
-	register_file_ptr = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
-	register_file_ptr_swap = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
-
+	fixed_globals->register_file_ptr = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
+	fixed_globals->register_file_ptr_swap = mmap(0, 0x1000, 0, MAP_INITIALIZE | MAP_PHYSICAL);
 	idt_reinit();
 	//asmv("xor %%ecx, %%ecx\n\t div %%ecx" : : : "eax", "ecx", "edx");
 }

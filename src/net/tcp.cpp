@@ -7,6 +7,8 @@
 #include <net/net.hpp>
 #include <net/tcp.hpp>
 #include <stl/vector.hpp>
+#include <stl/view.hpp>
+#include <utility>
 
 #define TCP_DATA_OFFSET(s) ((s + 5) << 4)
 #define TCP_FLAG_FIN (1 << 8)
@@ -51,7 +53,7 @@ static void tcp_checksum(const ipv4_header& ip, tcp_header* tcp) {
 	sum = ~sum;
 	tcp->checksum = sum;
 }
-constexpr bool TCP_STATE::valid(TCP_STATE s) { return s == ESTABLISHED; }
+constexpr bool TCP_STATE::valid(int s) { return s == ESTABLISHED; }
 tcp_flags::tcp_flags(uint16_t f) { *(uint16_t*)this = f; }
 
 net_buffer_t tcp_new(std::size_t data_size) {
@@ -163,6 +165,7 @@ void tcp_receive(ipv4_packet packet) {
 					printf("[TCP] %I:%i->%i: Handshake ACK recieved.\n", conn->cli_ip,
 						   conn->cli_port, conn->cur_port);
 				conn->cur_seq++;
+				conn->packet_offset = 0;
 				conn->state = TCP_STATE::ESTABLISHED;
 			}
 			goto cleanup;
@@ -217,19 +220,16 @@ void tcp_receive(ipv4_packet packet) {
 					conn->partial.contents.clear();
 					conn->partial.start_seq = conn->partial.end_seq = 0;
 
-					conn->recieved_packets.append({ vector(buf, size) });
+					conn->received_packets.append({ vector(buf, size) });
 				}
 			} else {
 				//tcp_send(conn, { span(contents, size) }, set_flags(TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK));
-				uint8_t* buf = (uint8_t*)kmalloc(size);
-				memcpy(buf, contents, size);
-				conn->recieved_packets.append({ span(buf, size) });
+				conn->received_packets.append({ contents, size });
 			}
 		} else if (tcp->flags.fin) {
 			conn->cur_ack = htonl(tcp->seq_num) + 1;
 			tcp_transmit(conn, { span<uint8_t>() },
 						 TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
-			conn->cur_seq++;
 			if (TCP_VERBOSE_LOGGING)
 				printf("[TCP] %I:%i->%i: FIN recieved.\n", conn->cli_ip, conn->cli_port,
 					   conn->cur_port);
@@ -297,59 +297,65 @@ tcp_connection* tcp_accept(uint16_t port) {
 		tcp_transmit((tcp_connection*)conn, { span((uint8_t*)&mss, 4) },
 					 TCP_DATA_OFFSET(1) | TCP_FLAG_SYN | TCP_FLAG_ACK);
 
-		while (conn->state != TCP_STATE::ESTABLISHED) net_process();
-		return conn;
+		while (conn->state != TCP_STATE::ESTABLISHED && conn->state != TCP_STATE::CLOSED)
+			net_process();
+		if (conn->state == TCP_STATE::CLOSED) {
+			tcp_destroy(conn);
+			return NULL;
+		} else
+			return conn;
 	}
 	return NULL;
 }
 
 void tcp_connection::listen(uint16_t port) {
-	this->cur_port = port;
-	this->state = TCP_STATE::LISTENING;
-	while (this->state != TCP_STATE::ESTABLISHED) net_process();
+	cur_port = port;
+	state = TCP_STATE::LISTENING;
+	while (state != TCP_STATE::ESTABLISHED) net_process();
 }
 tcp_async_t tcp_connection::send(tcp_fragment&& p) {
-	if (p.data.size() > TCP_CLI_MSS) {
-		if (TCP_VERBOSE_LOGGING) printf("[TCP] LARGE PACKET: %i bytes\n", p.data.size());
+	if (p.size() > TCP_CLI_MSS) {
+		if (TCP_VERBOSE_LOGGING) printf("[TCP] LARGE PACKET: %i bytes\n", p.size());
 		std::size_t offset = 0;
 		while (true) {
-			std::size_t size = min(p.data.size() - offset, TCP_CLI_MSS);
-			tcp_transmit((tcp_connection*)this, { span(p.data.begin()() + offset, size) },
+			std::size_t size = min(p.size() - offset, TCP_CLI_MSS);
+			tcp_transmit((tcp_connection*)this, { span(p.begin()() + offset, size) },
 						 TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
-			this->cur_seq += size;
+			cur_seq += size;
 			offset += size;
-			if (offset == p.data.size()) break;
+			if (offset == p.size()) break;
 		}
 		return this;
 	} else {
-		tcp_transmit((tcp_connection*)this, span<uint8_t>(p.data.begin()(), p.data.end()()),
+		tcp_transmit((tcp_connection*)this, span<uint8_t>(p.begin()(), p.end()()),
 					 TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
-		this->cur_seq += p.data.size();
+		cur_seq += p.size();
 		return this;
 	}
 }
-tcp_fragment tcp_connection::recv() {
-	while (!this->recieved_packets.size()) {
+void tcp_connection::await_packet(std::size_t target_count) {
+	while (received_packets.size() < target_count) {
 		net_process();
-		if (this->state == TCP_STATE::CLOSED) return {};
+		if (state == TCP_STATE::CLOSED) return;
 	}
-	tcp_fragment p = std::move(this->recieved_packets.at(0));
-	recieved_packets.erase(0);
+}
+tcp_fragment tcp_connection::recv() {
+	await_packet(1);
+	tcp_fragment p = std::move(received_packets.at(0));
+	received_packets.erase(0);
 	return p;
 }
 void tcp_connection::close() {
-	if (this->state == TCP_STATE::FINACK_SENT) {
+	if (state == TCP_STATE::FINACK_SENT) {
 		if (TCP_VERBOSE_LOGGING)
-			printf("[TCP] %I:%i->%i: Already closing.\n", this->cli_ip, this->cli_port,
-				   this->cur_port);
+			printf("[TCP] %I:%i->%i: Already closing.\n", cli_ip, cli_port, cur_port);
 	} else {
 		if (TCP_VERBOSE_LOGGING)
-			printf("[TCP] %I:%i->%i: Sending FIN.\n", this->cli_ip, this->cli_port, this->cur_port);
+			printf("[TCP] %I:%i->%i: Sending FIN.\n", cli_ip, cli_port, cur_port);
 		tcp_transmit((tcp_connection*)this, {}, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
-		this->cur_seq++;
-		this->state = TCP_STATE::FIN_SENT;
+		state = TCP_STATE::FIN_SENT;
 	}
-	while (this->state != TCP_STATE::CLOSED) net_process();
+	while (state != TCP_STATE::CLOSED) net_process();
 }
 
 void tcp_destroy(tcp_connection* conn) {
@@ -362,5 +368,63 @@ void tcp_destroy(tcp_connection* conn) {
 	delete conn;
 }
 void tcp_await(tcp_connection* conn) {
-	while (conn->cur_seq != conn->cli_ack) net_process();
+	while (conn->cur_seq != conn->cli_ack) { net_process(); }
+}
+
+tcp_input_iterator::tcp_input_iterator(tcp_connection* conn)
+	: conn(conn)
+	, fragment_index(conn->packet_offset)
+	, fragment_offset(0) {
+	get_packet();
+}
+tcp_input_iterator::tcp_input_iterator(tcp_connection* conn, std::size_t fragment_index,
+									   std::size_t fragment_offset)
+	: conn(conn)
+	, fragment_index(fragment_index)
+	, fragment_offset(fragment_offset) {}
+void tcp_input_iterator::get_packet() const {
+	conn->await_packet(fragment_index + 1 - conn->packet_offset);
+}
+bool tcp_input_iterator::in_bounds() const {
+	return fragment_index - conn->packet_offset < conn->received_packets.size();
+}
+tcp_fragment& tcp_input_iterator::cur_frag() const {
+	return conn->received_packets.at(fragment_index - conn->packet_offset);
+}
+void tcp_input_iterator::flush() {
+	conn->received_packets.erase(0, fragment_index);
+	conn->packet_offset += fragment_index;
+	fragment_index = 0;
+}
+uint8_t& tcp_input_iterator::operator*() const {
+	get_packet();
+	return cur_frag().at(fragment_offset);
+}
+//uint8_t* tcp_input_iterator::operator()() const {
+//	if (in_bounds() && fragment_offset < cur_frag().size())
+//		return &**this;
+//	else if (in_bounds())
+//		return tcp_input_iterator{ conn, fragment_index, 0 }() + fragment_offset;
+//	else if (fragment_index - conn->packet_offset == conn->received_packets.size())
+//		return tcp_input_iterator{ conn, fragment_index - 1, 0 }() +
+//			   conn->received_packets.at(conn->received_packets.size() - 1).size();
+//	else
+//		return NULL;
+//}
+//tcp_input_iterator::operator void*() const { return (void*)(*this)(); }
+tcp_input_iterator& tcp_input_iterator::operator+=(int n) {
+	fragment_offset += n;
+	while (fragment_offset >= cur_frag().size()) {
+		fragment_offset -= cur_frag().size();
+		fragment_index++;
+		if (!in_bounds()) break;
+	}
+	return *this;
+}
+bool tcp_input_iterator::operator==(const tcp_input_iterator& other) const {
+	return conn == other.conn && fragment_index == other.fragment_index &&
+		   fragment_offset == other.fragment_offset;
+}
+bool tcp_sentinel::operator==(const tcp_input_iterator& other) const {
+	return !TCP_STATE::valid(other.conn->state);
 }

@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
@@ -5,7 +6,6 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <stl/vector.hpp>
 
 static void ip_checksum(ipv4_header* ip) {
 	ip->checksum = 0;

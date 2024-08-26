@@ -1,4 +1,4 @@
-#include <cstddef>
+﻿#include <cstddef>
 #include <cstdint>
 #include <kstdio.hpp>
 #include <kstring.hpp>
@@ -46,7 +46,7 @@ void console::putchar(char c) {
 	refresh();
 }
 void console::putstr(const char* s) {
-	for (int i = 0; s[i]; i++) putchar(s[i]);
+	for (int i = 0; s[i]; i++) putchar_noupdate(s[i]);
 	refresh();
 }
 
@@ -76,7 +76,7 @@ void print(rostring str) {
 
 template <typename... Args> void printf(const char* fmt, Args... args) {
 	static_assert(sizeof...(Args), "You should be using print().");
-	string s = format(rostring(fmt).begin(), args...);
+	string s = format(fmt, args...);
 	globals->g_console->putstr(s.c_str());
 }
 template <typename... Args> void printf(rostring fmt, Args... args) {

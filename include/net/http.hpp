@@ -1,8 +1,7 @@
 #pragma once
 #include <kstring.hpp>
+#include <net/tcp.hpp>
 
-struct tcp_connection;
-
-bool http_process(tcp_connection* conn, struct tcp_fragment p);
+bool http_process(tcp_connection* conn, rostring p);
 void http_send(tcp_connection* conn, rostring type, rostring response);
 void http_error(tcp_connection* conn, rostring code);

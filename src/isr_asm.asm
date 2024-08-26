@@ -2,19 +2,18 @@ bits 64
 
 %define KEEP_YMMS
 
+%define REGISTER_FILE_PTR 0x60030
+%define REGISTER_FILE_PTR_SWAP 0x60038
+
 extern handle_exception ; (uint64_t int_num, uregister_file* registers, int64_t err_code, bool is_fatal)
 extern pic_eoi
 extern isr_fns
 
-global register_file_ptr
-global register_file_ptr_swap
 global swap_context
-register_file_ptr: dq 0
-register_file_ptr_swap: dq 0
 
 save_regs:
     mov qword [rsp-0x28], rdx
-    mov rdx, qword [register_file_ptr]
+    mov rdx, qword [REGISTER_FILE_PTR]
     mov qword [rdx], rax
     mov qword [rdx + 8], rbx
     mov qword [rdx + 16], rcx
@@ -64,7 +63,7 @@ save_regs:
     ret
 
 restore_regs:
-    mov rax, qword [register_file_ptr]
+    mov rax, qword [REGISTER_FILE_PTR]
     mov rdi, qword [rsp]
 
 %ifdef KEEP_YMMS
@@ -123,8 +122,10 @@ restore_regs:
 ; rsp+0x10: int num
 ; rsp+0x08: err num
 ; rsp+0x00: is_fatal
+;; rsp+0x08: virtual_ret_addr
+;; rsp+0x00: virtual_rbp
 handle_interrupt:
-    call save_regs
+    call save_regs ;rax := frame ptr
     sub rsp, 0x28
     mov rdi, qword [rsp + 0x18]
     mov rsi, rax
@@ -151,9 +152,9 @@ handle_interrupt:
 
 isr_stub_30:
     call save_regs
-    mov rax, qword [register_file_ptr]
-    xchg rax, qword [register_file_ptr_swap]
-    mov qword [register_file_ptr], rax
+    mov rax, qword [REGISTER_FILE_PTR]
+    xchg rax, qword [REGISTER_FILE_PTR_SWAP]
+    mov qword [REGISTER_FILE_PTR], rax
     call restore_regs
     iretq
 
@@ -161,7 +162,7 @@ isr_stub_31:
     iretq
 
 swap_context:
-    mov rax, qword [register_file_ptr]
+    mov rax, qword [REGISTER_FILE_PTR]
     mov qword [rax + 8], rbx
     mov qword [rax + 48], rbp
     mov qword [rax + 56], rsp
@@ -172,7 +173,7 @@ swap_context:
     mov rdx, qword [rsp]
     mov qword [rax + 128], rdx
 
-    xchg rax, qword [register_file_ptr_swap]
+    xchg rax, qword [REGISTER_FILE_PTR_SWAP]
     mov rbx, qword [rax + 8]
     mov rdi, qword [rax + 40]
     mov rbp, qword [rax + 48]
@@ -184,7 +185,7 @@ swap_context:
     mov rdx, qword [rax + 128]
     mov qword [rsp], rdx
 
-    mov qword [register_file_ptr], rax
+    mov qword [REGISTER_FILE_PTR], rax
     ret
 
 %macro isr_err_stub 1

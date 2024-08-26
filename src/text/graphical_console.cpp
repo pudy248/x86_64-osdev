@@ -44,7 +44,17 @@ char graphics_text_get_char(uint32_t x, uint32_t y) {
 	return storage_buffer[graphics_text_dimensions[0] * y + x];
 }
 void graphics_text_set_char(uint32_t x, uint32_t y, char c) {
-	storage_buffer[graphics_text_dimensions[0] * y + x] = c;
-	render_char(x * fontDims[0], y * fontDims[1], c, 1);
+	storage_buffer[graphics_text_dimensions[0] * y + x] = c | 0x80;
 }
-void graphics_text_update() { svga_update(); }
+void graphics_text_display_char(uint32_t x, uint32_t y) {
+	char& c = storage_buffer[graphics_text_dimensions[0] * y + x];
+	if (c & 0x80) {
+		c &= 0x7f;
+		render_char(x * fontDims[0], y * fontDims[1], c, 1);
+	}
+}
+void graphics_text_update() {
+	for (int y = 0; y < graphics_text_dimensions[1]; y++)
+		for (int x = 0; x < graphics_text_dimensions[0]; x++) graphics_text_display_char(x, y);
+	svga_update();
+}

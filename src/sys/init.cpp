@@ -1,10 +1,10 @@
-#include <asm.hpp>
 #include <cstdint>
 #include <drivers/keyboard.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
+#include <sys/idt.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/memory/paging.hpp>
@@ -52,4 +52,5 @@ void kernel_reinit() {
 	load_debug_symbs("/symbols.txt");
 	load_debug_symbs("/symbols2.txt");
 #endif
+	globals->tag_allocs = true;
 }

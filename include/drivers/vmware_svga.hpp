@@ -74,8 +74,6 @@ struct svga_device {
 	uint32_t pitch;
 };
 
-extern svga_device* svga_dev;
-
 void svga_init(pci_device svga_pci, uint32_t w, uint32_t h);
 void svga_disable();
 void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp);

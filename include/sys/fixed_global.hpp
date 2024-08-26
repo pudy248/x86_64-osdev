@@ -11,6 +11,8 @@ struct fixed_global_data_t {
 	volatile uint64_t mapped_pages;
 	page_pml4* pml4;
 	void* idt;
+	void* register_file_ptr;
+	void* register_file_ptr_swap;
 };
 
 #define fixed_globals ((fixed_global_data_t*)(0x60000))

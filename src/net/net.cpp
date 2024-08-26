@@ -1,3 +1,5 @@
+#include <asm.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <drivers/e1000.hpp>
 #include <drivers/pci.hpp>
@@ -7,6 +9,7 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
+#include <sys/global.hpp>
 #include <sys/ktime.hpp>
 
 mac_t global_mac;
@@ -25,7 +28,7 @@ void net_init() {
 	qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id,
 				e1000_pci->device_id);
 	e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
-	global_mac = new_mac(e1000_dev->mac);
+	global_mac = globals->e1000->mac;
 	e1000_enable();
 }
 

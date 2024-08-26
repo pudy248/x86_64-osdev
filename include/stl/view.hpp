@@ -20,20 +20,19 @@ concept comparator = requires(C comparator, T lhs, T rhs) {
 
 template <typename I, typename T>
 concept iterator_of =
-	std::forward_iterator<I> && std::same_as<std::remove_const_t<std::iter_value_t<I>>, T>;
+	std::input_iterator<I> && std::same_as<std::remove_const_t<std::iter_value_t<I>>, T>;
 
 template <typename I, typename R>
 concept comparable_elem_I =
-	std::forward_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
+	std::input_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
 template <typename R, typename I>
 concept comparable_iter_R =
-	std::forward_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
+	std::input_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
 template <typename I1, typename I2>
 concept comparable_iter_I = comparable_elem_I<I1, std::iter_value_t<I2>>;
 
 template <typename I, typename R>
-concept convertible_elem_I =
-	std::forward_iterator<I> && requires(std::iter_value_t<I> v) { R{ v }; };
+concept convertible_elem_I = std::input_iterator<I> && requires(std::iter_value_t<I> v) { R{ v }; };
 template <typename I1, typename I2>
 concept convertible_iter_I = convertible_elem_I<I1, std::iter_value_t<I2>>;
 
@@ -75,7 +74,7 @@ public:
 	}
 };
 
-template <std::forward_iterator I, std::sentinel_for<I> S = I> class view {
+template <std::input_iterator I, std::sentinel_for<I> S = I> class view {
 protected:
 	I m_begin;
 	S m_sentinel;
@@ -134,7 +133,7 @@ public:
 	constexpr S end() { return m_sentinel; }
 	constexpr const S end() const { return m_sentinel; }
 	constexpr const S cend() const { return m_sentinel; }
-	constexpr idx_t size() const {
+	constexpr std::size_t size() const {
 		if (Infinite) return -1;
 		if constexpr (std::sized_sentinel_for<I, I>)
 			return end() - begin();
@@ -273,7 +272,7 @@ public:
 	}
 
 	template <typename Derived> constexpr auto& operator[](this Derived self, idx_t index) {
-		kassert(DEBUG_ONLY, WARNING, Infinite || index < self.size(),
+		kassert(DEBUG_ONLY, WARNING, Infinite || index < (idx_t)self.size(),
 				"Out of bounds access to view.");
 		return *from(self.begin(), index);
 	}
@@ -284,12 +283,30 @@ public:
 		I2 iter2 = other.begin();
 		for (; iter1 != end() && iter2 != other.end(); ++iter1, ++iter2) *iter1 = *iter2;
 	}
-
+	template <convertible_iter_I<I> I2, typename S2>
+		requires requires {
+			requires !Infinite;
+			requires std::forward_iterator<I2>;
+		}
+	constexpr void fill(const view<I2, S2>& other) {
+		I iter1 = begin();
+		I2 iter2 = other.begin();
+		for (; iter1 != end(); ++iter1, ++iter2) {
+			if (iter2 == other.end()) iter2 = other.begin();
+			*iter1 = *iter2;
+		}
+	}
+	template <std::convertible_to<T> R> constexpr void fill(const R& val) {
+		if constexpr (std::same_as<std::make_unsigned_t<std::remove_cv_t<R>>, uint8_t>) {
+			memset(begin(), val, size());
+		} else
+			fill(view(&val, &val + 1));
+	}
 	template <typename T2>
 		requires(!Infinite &&
 				 (sizeof(T) == 1 || sizeof(T2) == 1)) // Type aliasing required to not be UB for now
 	constexpr view<T2*> reinterpret_as() const {
-		return view<T2*>((T2*)&*begin(), (T2*)&*end());
+		return view<T2*>((T2*)(void*)begin(), (T2*)(void*)end());
 	}
 };
 

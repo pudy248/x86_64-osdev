@@ -54,7 +54,7 @@ public:
 		void* ret;
 		void* rbp;
 	};
-	int num_ptrs;
+	uint32_t num_ptrs;
 	array<stack_frame, DEBUG_MAX_STACK_FRAMES> ptrs;
 	stacktrace() = default;
 	stacktrace(const stacktrace& other, int start);

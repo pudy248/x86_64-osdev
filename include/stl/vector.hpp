@@ -32,6 +32,7 @@ public:
 
 	constexpr T* operator()() const { return &(*cptr)[offset]; }
 	constexpr operator T*() const { return (*this)(); }
+	constexpr operator void*() const { return (*this)(); }
 	constexpr T& operator*() { return ptr->at(offset); }
 	constexpr T& operator*() const { return (*cptr)[offset]; }
 	constexpr operator T*() { return &**this; }

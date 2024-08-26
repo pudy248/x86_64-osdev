@@ -1,5 +1,6 @@
+#include <asm.hpp>
+#include <cstddef>
 #include <cstdint>
-#include <drivers/keyboard.hpp>
 #include <kassert.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
@@ -8,8 +9,10 @@
 #include <lib/fat.hpp>
 #include <stl/array.hpp>
 #include <stl/vector.hpp>
+#include <stl/view.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
+#include <sys/memory/paging.hpp>
 
 vector<debug_symbol> symbol_table;
 static bool is_enabled = false;

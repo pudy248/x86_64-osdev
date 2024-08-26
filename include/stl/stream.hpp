@@ -14,9 +14,9 @@ public:
 
 	constexpr operator view<I, std::unreachable_sentinel_t>() const { return view(begin(), {}); }
 
-	constexpr void write(const T& elem) { *(iter++) = elem; }
+	constexpr void write(const T& elem) { *(++iter) = elem; }
 	template <convertible_iter_I<I> I2, typename S> constexpr void write(const view<I2, S>& elems) {
-		for (I2 iter = elems.begin(); iter != elems.end(); iter++) write(*iter);
+		for (I2 iter = elems.begin(); iter != elems.end(); ++iter) write(*iter);
 	}
 };
 
@@ -37,27 +37,27 @@ public:
 	template <typename Derived> constexpr auto end(this Derived& self) { return self.sentinel; }
 	constexpr operator view<I, S>() const { return view(begin(), end()); }
 
-	constexpr bool readable() const { return sentinel - iter > 0; }
+	constexpr bool readable() const { return sentinel != iter; }
 	constexpr const T& read() { return *(iter++); }
 	constexpr operator bool() const { return readable(); }
 	constexpr T& operator*() { return *iter; }
-	constexpr basic_istream& operator++() {
-		iter++;
+	constexpr basic_istream& operator++(int) {
+		++iter;
 		return *this;
 	}
-	template <container_of<T> C = span<const T>, condition<const I&> B>
+	template <typename C = span<const T>, condition<const I&> B>
 	constexpr C read_until(B cond, bool inclusive = false, bool invert = false) {
 		I begin = iter;
-		while (cond(iter) ^ !invert && readable()) iter++;
-		if (inclusive && readable()) iter++;
+		while (cond(iter) ^ !invert && readable()) ++iter;
+		if (inclusive && readable()) ++iter;
 		return C(begin, iter);
 	}
-	template <container_of<T> C = span<const T>, typename R>
+	template <typename C = span<const T>, typename R>
 		requires requires(R val, I iter) { val == *iter; }
 	constexpr C read_until_v(const R& val, bool inclusive = false, bool invert = false) {
 		return read_until([&val](const I& iter) { return *iter == val; }, inclusive, invert);
 	}
-	template <container_of<T> C = span<const T>, comparable_iter_I<I> I2, typename S2>
+	template <typename C = span<const T>, comparable_iter_I<I> I2, typename S2>
 		requires(!view<I2, S2>::Infinite)
 	constexpr C read_until_v(const view<I2, S2>& vals, bool inclusive = false,
 							 bool invert = false) {
@@ -69,10 +69,21 @@ public:
 			},
 			inclusive, invert);
 	}
-	template <container_of<T> C = span<const T>> constexpr C read_n(idx_t size) {
-		idx_t counter = 0;
+	template <typename C, comparable_iter_I<I> I2, typename S2>
+		requires(!view<I2, S2>::Infinite)
+	constexpr C read_until_cv(const view<I2, S2>& consecutive, bool inclusive = false) {
+		I begin = iter;
+		while (!view(iter, sentinel).starts_with(consecutive) && readable()) ++iter;
+		if (inclusive) {
+			for (I2 iter2 = consecutive.begin(); iter2 != consecutive.end() && readable();
+				 ++iter, ++iter2);
+		}
+		return C(begin, iter);
+	}
+	template <typename C = span<const T>> constexpr C read_n(std::size_t size) {
+		std::size_t counter = 0;
 		return read_until([&counter, &size](const I&) {
-			counter++;
+			++counter;
 			return counter == size;
 		});
 	}
