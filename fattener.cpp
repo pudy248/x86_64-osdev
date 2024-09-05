@@ -4,7 +4,53 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "__old/fat.hpp"
+#define FAT_ATTRIB_RO           0x01
+#define FAT_ATTRIB_HIDDEN       0x02
+#define FAT_ATTRIB_SYSTEM       0x04
+#define FAT_ATTRIB_VOL_ID       0x08
+#define FAT_ATTRIB_DIR          0x10
+#define FAT_ATTRIB_ARCHIVE      0x20
+#define FAT_ATTRIB_LFN          0x0f
+
+#define FAT_TABLE_CHAIN_STOP    0x0ffffff8
+
+typedef struct fat_date {
+    uint16_t    day:5;
+    uint16_t    month:4;
+    uint16_t    year:7; //since 1980
+} fat_date;
+typedef struct fat_time {
+    uint16_t    dseconds:5; //double-seconds, 1-30
+    uint16_t    minute:6;
+    uint16_t    hour:5;
+} fat_time;
+
+typedef struct fat_disk_entry {
+    char        filename[8];
+    char        extension[3];
+    uint8_t     flags;
+    uint8_t     reserved;
+    uint8_t     creation_tenths;
+    fat_time    creation_time;
+    fat_date    creation_date;
+    fat_date    accessed_date;
+    uint16_t    cluster_high;
+    fat_time    modified_time;
+    fat_date    modified_date;
+    uint16_t    cluster_low;  
+    uint32_t    file_size;
+} __attribute__((packed)) fat_disk_entry;
+
+typedef struct fat_disk_lfn {
+    uint8_t position; //Last entry masked with 0x40
+    uint16_t chars_1[5];
+    uint8_t flags; //Always 0x0f
+    uint8_t entry_type; //Always 0
+    uint8_t checksum;
+    uint16_t chars_2[6];
+    uint16_t reserved2;
+    uint16_t chars_3[2];
+} __attribute__((packed)) fat_disk_lfn;
 
 uint64_t fsize(char* file) {
 	FILE* f = fopen(file, "rb");

@@ -114,13 +114,13 @@ public:
 	constexpr container_wrapper(C& other)
 		: _container(&other)
 		, _at((T & (*)(void*, int)) & C::static_at)
-		, _cat((const T& (*)(void*, int))&C::static_cat)
+		, _cat((const T& (*)(void*, int)) & C::static_cat)
 		, _begin((T * (*)(void*)) & C::static_begin)
-		, _cbegin((const T* (*)(void*))&C::static_cbegin)
+		, _cbegin((const T* (*)(void*)) & C::static_cbegin)
 		, _end((T * (*)(void*)) & C::static_end)
-		, _cend((const T* (*)(void*))&C::static_cend)
-		, _reserve((void (*)(void*, int))&C::static_reserve)
-		, _size((int (*)(void*))&C::static_size) {}
+		, _cend((const T* (*)(void*)) & C::static_cend)
+		, _reserve((void (*)(void*, int)) & C::static_reserve)
+		, _size((int (*)(void*)) & C::static_size) {}
 
 	constexpr container_wrapper(T*, T*) {
 		kassert(ALWAYS_ACTIVE, ERROR, false,

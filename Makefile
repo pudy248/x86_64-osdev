@@ -1,7 +1,9 @@
-LLVM_VERSION:=20
+LLVM_VERSION:=18
 
 CC:=clang-$(LLVM_VERSION)
-LD:=ld.lld
+LD:=ld.lld-$(LLVM_VERSION)
+LLVM_TOOLS_SUFFIX=-$(LLVM_VERSION)
+
 CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
 CFLAGS_DBG:=-g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
@@ -12,7 +14,7 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
--Iinclude -Iinclude/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
+-Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -frelaxed-template-template-args \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wglobal-constructors \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
@@ -22,16 +24,16 @@ LDFLAGS_FIN:=-gc-sections --lto=thin --icf=all --ignore-data-address-equality --
 ASM:=nasm
 ASMFLAGS:=-f elf64
 
-IWYUFLAGS:=-std=c++26 -Iinclude -Iinclude/std -I/usr/lib/llvm-$(LLVM_VERSION)/lib/clang/$(LLVM_VERSION)/include
+IWYUFLAGS:=-std=c++26 -Isrc -Isrc/std -I/usr/lib/llvm-$(LLVM_VERSION)/lib/clang/$(LLVM_VERSION)/include
 CLANG_TIDY_CHECKS_EXTRA:=*,-llvmlibc-callee-namespace,$(CLANG_TIDY_CHECKS)
 CLANG_TIDY_CHECKS:=-bugprone-suspicious-include,-clang-analyzer-valist.Uninitialized
 CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS) -header-filter=.*
-CLANG_TIDY_CC_FLAGS:=-std=c++26 -Iinclude -Iinclude/std
+CLANG_TIDY_CC_FLAGS:=-std=c++26 -Isrc -Isrc/std
 
 OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source
 
 ASM_SRC:=$(shell find ./src -name "*.asm" | sed -e "s/^\.\///g")
-C_HDR:=$(shell find ./include -name "*.hpp" | sed -e "s/^\.\///g")
+C_HDR:=$(shell find ./src -name "*.hpp" | sed -e "s/^\.\///g")
 C_SRC:=$(shell find ./src -name "*.cpp" | sed -e "s/^\.\///g")
 ASM_OBJ:=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRC))
 DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
@@ -96,9 +98,9 @@ tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	llvm-objdump $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
-	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
-	llvm-objcopy -O binary $< $@
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle $^ > tmp/symbols.txt
+	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -O binary $< $@
 
 $(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
@@ -106,19 +108,19 @@ $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
-#	llvm-objcopy -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
-	llvm-objcopy --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
+#	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
+	llvm-objcopy$(LLVM_TOOLS_SUFFIX) --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
 	
-	llvm-objdump $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
-	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
 format:
-	clang-format -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
+	clang-format$(LLVM_TOOLS_SUFFIX) -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 
 tidy: tmp/obj.o
-	clang-tidy $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
+	clang-tidy$(LLVM_TOOLS_SUFFIX) $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
 
 iwyu: $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 	for file in $^; do \
