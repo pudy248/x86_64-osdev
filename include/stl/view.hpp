@@ -302,6 +302,13 @@ public:
 		} else
 			fill(view(&val, &val + 1));
 	}
+
+	template <typename F, typename R> R fold(const F& f, const R& r) {
+		R tmp = r;
+		for (auto& elem : *this) { tmp = f(tmp, elem); }
+		return tmp;
+	}
+
 	template <typename T2>
 		requires(!Infinite &&
 				 (sizeof(T) == 1 || sizeof(T2) == 1)) // Type aliasing required to not be UB for now

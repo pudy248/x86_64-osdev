@@ -129,7 +129,7 @@ void* virt2phys(void* virt) {
 }
 void* phys2virt(void* phys) { return phys; }
 
-static void map_page(void* physical_addr, int page_flags) {
+static void map_page(void* physical_addr, int page_flags, bool counter) {
 	page_resolution pr = resolve_page(physical_addr, 1);
 	while (pr.layer > 1) {
 		void* page_addr = find_contiguous_frame(0, 1);
@@ -141,8 +141,10 @@ static void map_page(void* physical_addr, int page_flags) {
 		pr = resolve_page(physical_addr, 1);
 	}
 	*pr.ptr = page_t(physical_addr, page_flags);
-	if (page_flags & MAP_NEW) fixed_globals->mapped_pages = fixed_globals->mapped_pages + 1;
-	if (page_flags & MAP_UNMAP) fixed_globals->mapped_pages = fixed_globals->mapped_pages - 1;
+	if (counter) {
+		if (page_flags & MAP_NEW) fixed_globals->mapped_pages = fixed_globals->mapped_pages + 1;
+		if (page_flags & MAP_UNMAP) fixed_globals->mapped_pages = fixed_globals->mapped_pages - 1;
+	}
 	invlpg(physical_addr);
 }
 
@@ -179,7 +181,8 @@ void mprotect(void* addr, size_t size, uint16_t flags, int map) {
 	}
 	if (~map & MAP_INFO_ONLY)
 		for (size_t i = 0; i < page_count; i++)
-			map_page((void*)((uint64_t)addr + (i << 12)), (flags ^ DEFAULT_FLAGS) | PAGE_RW);
+			map_page((void*)((uint64_t)addr + (i << 12)), (flags ^ DEFAULT_FLAGS) | PAGE_RW,
+					 !(map & MAP_NONEXISTENT));
 
 	if (map & MAP_INITIALIZE) bzero<4096>(addr, size);
 }
@@ -199,13 +202,12 @@ void paging_init() {
 	fixed_globals->mapped_pages = 0;
 	bzero<4096>(fixed_globals->frame_info_table, 0x1000);
 
-	mprotect(0, 0x20000, 0, MAP_INFO_ONLY | MAP_PHYSICAL | MAP_NEW);
-	mprotect(0, 0x20000, 0, MAP_PHYSICAL | MAP_PINNED);
-	mprotect((void*)0x60000, 0x5000, 0, MAP_RESERVED | MAP_NEW);
+	mprotect(0, 0x20000, 0, MAP_INFO_ONLY | MAP_PHYSICAL | MAP_NEW | MAP_NONEXISTENT);
+	mprotect(0, 0x20000, 0, MAP_RESERVED);
+	mprotect((void*)0x60000, 0x5000, 0, MAP_KERNEL | MAP_NEW);
 	mprotect((void*)0x65000, 0x1000, 0, MAP_PHYSICAL | MAP_NEW);
 	mprotect((void*)0xA0000, 0x70000, 0, MAP_RESERVED | MAP_NEW);
-	mprotect((void*)0x1C0000, 0x40000, 0, MAP_RESERVED | MAP_NEW);
-	mprotect((void*)0x200000, 0x100000, 0, MAP_RESERVED | MAP_NEW);
+	mprotect((void*)0x1F0000, 0x10000, 0, MAP_KERNEL | MAP_NEW);
 
 	write_cr3((uint64_t)fixed_globals->pml4);
 	fixed_globals->dynamic_globals = mmap(0, 0x1000, 0, MAP_INITIALIZE);

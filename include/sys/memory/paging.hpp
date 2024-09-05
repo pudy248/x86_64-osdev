@@ -26,8 +26,10 @@ enum MMAP_FLAGS {
 	MAP_PINNED = 0x0040, // Cannot be moved or swapped.
 	MAP_INFO_ONLY = 0x0080, // Do not write to the page table.
 	MAP_ALLOC = 0x0100,
+	MAP_NONEXISTENT = 0x0200, // Doesn't increment the used page counter
 
-	MAP_RESERVED = MAP_PHYSICAL | MAP_PERMANENT | MAP_PINNED
+	MAP_KERNEL = MAP_PHYSICAL | MAP_PERMANENT | MAP_PINNED,
+	MAP_RESERVED = MAP_KERNEL | MAP_NONEXISTENT,
 };
 
 struct [[gnu::packed]] page_t {

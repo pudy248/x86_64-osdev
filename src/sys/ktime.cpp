@@ -117,7 +117,7 @@ timepoint timepoint::pit_time() {
 
 timepoint timepoint::pit_time_imprecise() { return pit_time_override(0); }
 
-double timepoint::unix_seconds() {
+constexpr double timepoint::unix_seconds() const {
 	double unixsecs = micros / 1000000.0 + second + minute * 60 + hour * 3600 + hour * 24 * 3600;
 	return unixsecs;
 }

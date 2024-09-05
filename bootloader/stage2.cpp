@@ -10,6 +10,7 @@
 #include <sys/idt.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
+#include <sys/memory/paging.hpp>
 #include <sys/pic.hpp>
 
 #ifdef KERNEL
@@ -38,9 +39,11 @@ extern "C" void* stage2_main() {
 
 		kassert(UNMASKABLE, CATCH_FIRE, kernel.inode, "Kernel image not found!\n");
 		uint64_t kernel_link_loc = ((uint64_t*)&*kernel.inode->data.begin())[0];
-		kernel_main = ((uint64_t*)&*kernel.inode->data.begin())[1];
-		memcpy<8>((void*)kernel_link_loc, kernel.inode->data.begin(),
-				  kernel.inode->data.size() + 8);
+		uint64_t kernel_mem_end = ((uint64_t*)&*kernel.inode->data.begin())[1];
+		kernel_main = ((uint64_t*)&*kernel.inode->data.begin())[2];
+		printf("%i %i\n", kernel_mem_end - kernel_link_loc, kernel.inode->data.size());
+		mmap((void*)kernel_link_loc, kernel_mem_end - kernel_link_loc, 0, MAP_KERNEL);
+		memcpy<8>((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->filesize);
 	}
 
 	disable_interrupts();

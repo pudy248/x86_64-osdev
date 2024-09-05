@@ -192,11 +192,12 @@ extern "C" void kernel_main(void) {
 	kernel_reinit();
 	globals->fat_data.root_directory.inode->purge();
 	do_pit_readout = true;
+	//inf_wait();
 
 	//graphics_main();
-	//dealloc_fat();
-	console_init();
-	http_main();
+	dealloc_fat();
+	//console_init();
+	//http_main();
 	//thread_main();
 
 	//tag_dump();

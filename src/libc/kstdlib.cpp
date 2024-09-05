@@ -23,9 +23,9 @@ void memset(void* dest, uint8_t src, uint64_t size) {
 }
 
 void mem_init() {
-	new (&globals->global_waterline) waterline_allocator(mmap(0, 0x100000, 0, 0), 0x100000);
-	new (&globals->global_heap) heap_allocator(mmap(0, 0x20000, 0, 0), 0x20000);
-	new (&globals->global_pagemap) slab_pagemap<16, 64>(mmap(0, 0x10000, 0, 0));
+	new (&globals->global_waterline) waterline_allocator(mmap(0, 0x10000, 0, 0), 0x10000);
+	new (&globals->global_heap) heap_allocator(mmap(0, 0x10000, 0, 0), 0x10000);
+	new (&globals->global_pagemap) slab_pagemap<16, 64>(mmap(0, 0x8000, 0, 0));
 	new (&globals->global_mmap_alloc) mmap_allocator();
 }
 

@@ -1,10 +1,10 @@
-LLVM_VERSION:=19
+LLVM_VERSION:=20
 
-CC:=/usr/bin/clang-$(LLVM_VERSION)
-LD:=/usr/bin/ld.lld-$(LLVM_VERSION)
+CC:=clang-$(LLVM_VERSION)
+LD:=ld.lld
 CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
-CFLAGS_DBG:=-DDEBUG -g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
+CFLAGS_DBG:=-g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
 
 CFLAGS_OPT_TARGETS=
 
@@ -74,7 +74,7 @@ start-trace-2: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 start-dbg: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null 2> /dev/null &
-	lldb-$(LLVM_VERSION) -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
+	lldb -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5555
@@ -90,15 +90,15 @@ tmp/obj.o : $(C_SRC) $(C_HDR)
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
-#	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) $@ > tmp/base.S
+#	llvm-objdump $(OBJDUMP_FLAGS) $@ > tmp/base.S
 
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
-	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
-	llvm-objdump-$(LLVM_VERSION) --syms --demangle $^ > tmp/symbols.txt
-	llvm-objcopy-$(LLVM_VERSION) -O binary $< $@
+	llvm-objdump $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
+	llvm-objdump --syms --demangle $^ > tmp/symbols.txt
+	llvm-objcopy -O binary $< $@
 
 $(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
@@ -107,18 +107,18 @@ $(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
 
 tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
 #	llvm-objcopy -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
-	llvm-objcopy-$(LLVM_VERSION) --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
+	llvm-objcopy --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
 	
-	llvm-objdump-$(LLVM_VERSION) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
-	llvm-objdump-$(LLVM_VERSION) --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
+	llvm-objdump $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
+	llvm-objdump --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
 	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
 
 format:
-	clang-format-$(LLVM_VERSION) -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
+	clang-format -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 
 tidy: tmp/obj.o
-	clang-tidy-$(LLVM_VERSION) $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
+	clang-tidy $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
 
 iwyu: $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 	for file in $^; do \

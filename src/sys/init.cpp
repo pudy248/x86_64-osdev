@@ -51,6 +51,6 @@ void kernel_reinit() {
 #ifdef DEBUG
 	load_debug_symbs("/symbols.txt");
 	load_debug_symbs("/symbols2.txt");
-#endif
 	globals->tag_allocs = true;
+#endif
 }
