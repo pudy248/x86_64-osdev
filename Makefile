@@ -1,12 +1,12 @@
-LLVM_VERSION:=18
+LLVM_VERSION:=20
 
 CC:=clang-$(LLVM_VERSION)
-LD:=ld.lld-$(LLVM_VERSION)
-LLVM_TOOLS_SUFFIX=-$(LLVM_VERSION)
+LLVM_TOOLS_SUFFIX=
+LD:=ld.lld$(LLVM_TOOLS_SUFFIX)
 
 CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
-CFLAGS_DBG:=-g -fno-omit-frame-pointer $(CFLAGS_CC_SPECIFIC_DBG)
+CFLAGS_DBG:=-g -fno-omit-frame-pointer -DDEBUG $(CFLAGS_CC_SPECIFIC_DBG)
 
 CFLAGS_OPT_TARGETS=
 
@@ -14,7 +14,7 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
--Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -frelaxed-template-template-args \
+-Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wglobal-constructors \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
@@ -27,7 +27,7 @@ ASMFLAGS:=-f elf64
 IWYUFLAGS:=-std=c++26 -Isrc -Isrc/std -I/usr/lib/llvm-$(LLVM_VERSION)/lib/clang/$(LLVM_VERSION)/include
 CLANG_TIDY_CHECKS_EXTRA:=*,-llvmlibc-callee-namespace,$(CLANG_TIDY_CHECKS)
 CLANG_TIDY_CHECKS:=-bugprone-suspicious-include,-clang-analyzer-valist.Uninitialized
-CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS) -header-filter=.*
+CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS_EXTRA) -header-filter=.*
 CLANG_TIDY_CC_FLAGS:=-std=c++26 -Isrc -Isrc/std
 
 OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source
@@ -51,8 +51,8 @@ QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-LOCAL_IP:=192.168.56.1
-#LOCAL_IP:=172.29.244.210
+#LOCAL_IP:=192.168.56.1
+LOCAL_IP:=172.29.246.143
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img

@@ -21,6 +21,11 @@ enum TCP_STATE {
 };
 constexpr bool valid(int s);
 }
+namespace TCP_OPTS {
+enum TCP_OPTS {
+	MSS = 0x02,
+};
+}
 
 struct tcp_flags {
 	uint16_t reserved : 4;
@@ -89,6 +94,8 @@ struct tcp_connection {
 	void close();
 };
 
+using tcp_conn_t = tcp_connection*;
+
 template <> struct std::indirectly_readable_traits<struct tcp_input_iterator> {
 public:
 	using value_type = uint8_t;
@@ -104,13 +111,13 @@ public:
 	using value_type = uint8_t;
 	using difference_type = std::ptrdiff_t;
 
-	tcp_connection* conn;
+	tcp_conn_t conn;
 	std::size_t fragment_index;
 	std::size_t fragment_offset;
 
 	tcp_input_iterator() = default;
-	tcp_input_iterator(tcp_connection* conn);
-	tcp_input_iterator(tcp_connection* conn, std::size_t fragment_index,
+	tcp_input_iterator(tcp_conn_t conn);
+	tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index,
 					   std::size_t fragment_offset);
 	uint8_t& operator*() const;
 	tcp_input_iterator& operator+=(int);
@@ -118,19 +125,19 @@ public:
 	void flush();
 };
 struct tcp_sentinel {
-	tcp_connection* conn;
+	tcp_conn_t conn;
 	bool operator==(const tcp_input_iterator& other) const;
 };
 using tcp_istream = basic_istream<uint8_t, tcp_input_iterator, tcp_sentinel>;
 
-extern vector<tcp_connection*> open_connections;
+extern vector<tcp_conn_t> open_connections;
 
 net_buffer_t tcp_new(std::size_t data_size);
 void tcp_receive(struct ipv4_packet packet);
-net_async_t tcp_transmit(tcp_connection* conn, tcp_packet packet);
+net_async_t tcp_transmit(tcp_conn_t conn, tcp_packet packet);
 
-tcp_connection* tcp_create();
-tcp_connection* tcp_accept(uint16_t port);
-void tcp_destroy(tcp_connection* conn);
+tcp_conn_t tcp_create();
+tcp_conn_t tcp_accept(uint16_t port);
+void tcp_destroy(tcp_conn_t conn);
 
 void tcp_await(tcp_async_t);

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <inttypes.h>
 
 #define FAT_ATTRIB_RO           0x01
 #define FAT_ATTRIB_HIDDEN       0x02
@@ -52,7 +53,7 @@ typedef struct fat_disk_lfn {
     uint16_t chars_3[2];
 } __attribute__((packed)) fat_disk_lfn;
 
-uint64_t fsize(char* file) {
+uint64_t fsize(const char* file) {
 	FILE* f = fopen(file, "rb");
 	fseek(f, 0, SEEK_END);
 	uint64_t sz = ftell(f);
@@ -204,7 +205,7 @@ int main(int argc, char** argv) {
 		free(names);
 		rootDir[rootCtr++] = f;
 
-		printf("; %i\n", fileSizes[2 * i]);
+		printf("; %" PRIu64 "\n", fileSizes[2 * i]);
 	}
 	FILE* output = fopen("disk.img", "wb");
 

@@ -14,6 +14,8 @@ extern uint64_t start_ctors;
 extern uint64_t end_ctors;
 extern uint64_t start_dtors;
 extern uint64_t end_dtors;
+extern uint64_t start_bss;
+extern uint64_t end_bss;
 
 void global_ctors() {
 	void (**i)() = (void (**)())&start_ctors;
@@ -27,6 +29,7 @@ void global_dtors() {
 }
 
 void init_libcpp() {
+	bzero<8>(&start_bss, (&end_bss - &start_bss) * sizeof(uint64_t));
 	paging_init();
 	vga_text_init();
 	mem_init();
@@ -37,6 +40,7 @@ void init_libcpp() {
 }
 
 void kernel_reinit() {
+	bzero<8>(&start_bss, (&end_bss - &start_bss) * sizeof(uint64_t));
 	int cx = globals->g_console->cx, cy = globals->g_console->cy;
 	*globals->g_console =
 		console(&vga_text_get_char, &vga_text_set_char, &vga_text_update, vga_text_dimensions);
@@ -45,9 +49,9 @@ void kernel_reinit() {
 
 	idt_reinit();
 	global_ctors();
-	time_init();
 	isr_set(32, &inc_pit);
 	isr_set(33, &keyboard_irq);
+	time_init();
 #ifdef DEBUG
 	load_debug_symbs("/symbols.txt");
 	load_debug_symbs("/symbols2.txt");

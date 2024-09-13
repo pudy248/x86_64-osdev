@@ -78,7 +78,10 @@ struct timepoint {
 	uint8_t month;
 	uint8_t year;
 
-	constexpr double unix_seconds() const;
+	constexpr double unix_seconds() const {
+		double unixsecs = micros / 1000000.0 + second + minute * 60 + hour * 3600 + hour * 24 * 3600;
+		return unixsecs;
+	}
 
 	// Mean error: 0.5sec
 	static timepoint cmos_time();
@@ -88,6 +91,8 @@ struct timepoint {
 	static timepoint pit_time();
 	// Mean error: 0.3ns
 	static timepoint tsc_time();
+
+	static timepoint now();
 
 	constexpr operator double() const;
 

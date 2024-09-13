@@ -6,6 +6,7 @@
 #include <stl/vector.hpp>
 
 constexpr mac_t MAC_BCAST = 0xffffffffffffULL;
+constexpr mac_t MAC_IPV4_BCAST = 0xfaff7f5e0001ULL;
 
 vector<arp_entry> arp_table;
 
@@ -30,6 +31,7 @@ ipv4_t arp_translate_mac(mac_t mac) {
 	return 0;
 }
 mac_t arp_translate_ip(ipv4_t ip) {
+	if (ip == 0xffffffffU) return MAC_BCAST;
 	for (std::size_t i = 0; i < arp_table.size(); i++) {
 		if (ip == arp_table[i].ip) return arp_table[i].mac;
 	}
@@ -97,7 +99,7 @@ net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target) {
 
 	net_buffer_t buf = ethernet_new(sizeof(arp_header));
 	arp_header* h = (arp_header*)buf.data_begin;
-	h->htype = htons(ARP::HTYPE_ETH);
+	h->htype = htons(HTYPE::ETH);
 	h->ptype = htons(ARP::PTYPE_IPv4);
 	h->hlen = 6;
 	h->plen = 4;

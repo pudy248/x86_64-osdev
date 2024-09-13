@@ -13,6 +13,8 @@ static void (*receive_fn)(net_buffer_t);
 static void (*link_fn)(void);
 static void e1000_int_handler(uint64_t, register_file*);
 
+constexpr bool copy_tx = true;
+
 static void e1000_write(uint16_t addr, uint32_t val) {
 	((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2] = val;
 }
@@ -133,7 +135,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-		globals->e1000->tx_descs[i].addr = 0;
+		globals->e1000->tx_descs[i].addr = (uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);;
 		globals->e1000->tx_descs[i].cmd = 0;
 		globals->e1000->tx_descs[i].status = E1000_TSTA::DD;
 	}
@@ -149,7 +151,9 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 										  (15 << E1000_TCTL::CTSHIFT) |
 										  (64 << E1000_TCTL::CTCSHIFT) | E1000_TCTL::RTLC);
 	else
-		e1000_write(E1000_REG::TCTRL, 0b0110000000000111111000011111010);
+		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP |
+										  (15 << E1000_TCTL::CTSHIFT) | 63 << E1000_TCTL::CTCSHIFT | 3 << 28);
+	e1000_write(E1000_REG::TXDCTL, 1 << 24);
 	e1000_write(E1000_REG::TIPG, 0x0060200A);
 
 	//Enable interrupts
@@ -167,11 +171,13 @@ void e1000_resume() { e1000_write(E1000_REG::IMS, 0x80); }
 static void e1000_int_handler(uint64_t, register_file*) {
 	e1000_write(E1000_REG::IMS, 0x1);
 	uint32_t status = e1000_read(E1000_REG::ICR);
-	//printf("%02x\n", status);
-	if (status & 0x02) {
+	// printf("ICR %02x\n", status);
+	if ((status & 0x01) || (status & 0x02)) {
 		int head = e1000_read(E1000_REG::TXDESCHD);
+		//qprintf<32>("%i\n", head);
 		while (globals->e1000->tx_head != head) {
-			kfree((void*)globals->e1000->tx_descs[globals->e1000->tx_head].addr);
+			//qprintf<32>("freeing %i\n", globals->e1000->tx_head);
+			if constexpr (!copy_tx) kfree((void*)globals->e1000->tx_descs[globals->e1000->tx_head].addr);
 			globals->e1000->tx_head = (globals->e1000->tx_head + 1) % E1000_NUM_TX_DESC;
 		}
 	}
@@ -189,9 +195,6 @@ static void e1000_int_handler(uint64_t, register_file*) {
 
 void e1000_receive() {
 	int tail = e1000_read(E1000_REG::RXDESCTL);
-	//int head = e1000_read(E1000_REG::RXDESCHD);
-	//if (head < tail)
-	//	head += E1000_NUM_RX_DESC;
 	//printf("%02i:%02i\n", tail, head);
 	uint16_t old_cur = tail;
 	//double t1 = timepoint().unix_seconds();
@@ -215,8 +218,11 @@ void e1000_receive() {
 int e1000_send_async(net_buffer_t buf) {
 	uint8_t handle = globals->e1000->tx_tail;
 	while (~globals->e1000->tx_descs[handle].status & 1) cpu_relax();
-	globals->e1000->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
-	// memcpy((void*)globals->e1000->tx_descs[handle].addr, buf.data_begin, buf.data_size);
+	if constexpr (copy_tx) {
+		memcpy((void*)globals->e1000->tx_descs[handle].addr, buf.data_begin, buf.data_size);
+		kfree(buf.frame_begin);
+	}
+	else globals->e1000->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
 	globals->e1000->tx_descs[handle].length = buf.data_size;
 
 	globals->e1000->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;

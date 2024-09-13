@@ -121,7 +121,7 @@ stacktrace::stacktrace(const stacktrace& other, int start)
 
 void stacktrace::print() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
-	for (int i = 0; i < num_ptrs; i++) {
+	for (uint32_t i = 0; i < num_ptrs; i++) {
 		debug_symbol* nearest = nearest_symbol(ptrs.at(i).ret);
 		qprintf<512>("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret, ptrs.at(i).rbp,
 					 nearest ? nearest->name : "(none)");

@@ -6,20 +6,7 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-
-static void ip_checksum(ipv4_header* ip) {
-	ip->checksum = 0;
-	uint64_t sum = 0;
-	uint16_t ip_len = (ip->ver_ihl & 0xf) << 2;
-	uint16_t* ip_payload = (uint16_t*)ip;
-	while (ip_len > 1) {
-		sum += *ip_payload++;
-		ip_len -= 2;
-	}
-	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
-	sum = ~sum;
-	ip->checksum = sum;
-}
+#include <net/udp.hpp>
 
 net_buffer_t ipv4_new(std::size_t data_size) {
 	net_buffer_t buf = ethernet_new(data_size + sizeof(ipv4_header));
@@ -41,7 +28,7 @@ void ipv4_receive(ethernet_packet packet) {
 		return;
 	}
 
-	//printf("[IPv4] %I -> %I (%i/%i bytes)\n", ip->src_ip, ip->dst_ip, expected_size, actual_size);
+	// printf("[IPv4] %I -> %I (%i/%i bytes)\n", ip->src_ip, ip->dst_ip, expected_size, actual_size);
 
 	arp_update(packet.src, ip->src_ip);
 
@@ -51,7 +38,7 @@ void ipv4_receive(ethernet_packet packet) {
 
 	switch (ip->protocol) {
 	case IPv4::PROTOCOL_TCP: tcp_receive(new_packet); break;
-	//case IPv4::PROTOCOL_UDP: udp_receive(new_packet);  break;
+	case IPv4::PROTOCOL_UDP: udp_receive(new_packet);  break;
 	default: kfree(new_packet.buf.frame_begin);
 	}
 }
@@ -67,7 +54,8 @@ int ipv4_send(ipv4_packet packet) {
 	ip->protocol = packet.protocol;
 	ip->src_ip = packet.src;
 	ip->dst_ip = packet.dst;
-	ip_checksum(ip);
+	ip->checksum = 0;
+	ip->checksum = net_checksum(ip, (ip->ver_ihl & 0xf) << 2);
 
 	ethernet_packet eth;
 	eth.type = ETHERTYPE::IPv4;

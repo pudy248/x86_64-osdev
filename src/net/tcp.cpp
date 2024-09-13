@@ -20,7 +20,7 @@
 #define TCP_FLAG_ECE (1 << 14)
 #define TCP_FLAG_CWR (1 << 15)
 
-vector<tcp_connection*> open_connections;
+vector<tcp_conn_t> open_connections;
 
 #define TCP_MSS 8000UL
 #define TCP_CLI_MSS 8000UL
@@ -32,27 +32,6 @@ struct tcp_mss {
 	uint8_t len = 0x04;
 	uint16_t mss;
 };
-static void tcp_checksum(const ipv4_header& ip, tcp_header* tcp) {
-	unsigned long sum = 0;
-	unsigned short tcp_len = htons(ip.total_length) - ((ip.ver_ihl & 0xf) << 2);
-	sum += (ip.src_ip >> 16) & 0xFFFF;
-	sum += (ip.src_ip) & 0xFFFF;
-	sum += (ip.dst_ip >> 16) & 0xFFFF;
-	sum += (ip.dst_ip) & 0xFFFF;
-	sum += htons(6);
-	sum += htons(tcp_len);
-
-	tcp->checksum = 0;
-	uint16_t* ip_payload = (uint16_t*)tcp;
-	while (tcp_len > 1) {
-		sum += *ip_payload++;
-		tcp_len -= 2;
-	}
-	if (tcp_len > 0) { sum += ((*ip_payload) & htons(0xFF00)); }
-	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
-	sum = ~sum;
-	tcp->checksum = sum;
-}
 constexpr bool TCP_STATE::valid(int s) { return s == ESTABLISHED; }
 tcp_flags::tcp_flags(uint16_t f) { *(uint16_t*)this = f; }
 
@@ -60,7 +39,7 @@ net_buffer_t tcp_new(std::size_t data_size) {
 	net_buffer_t buf = ipv4_new(data_size + sizeof(tcp_header));
 	return { buf.frame_begin, buf.data_begin + sizeof(tcp_header), data_size };
 }
-net_async_t tcp_transmit(tcp_connection* conn, tcp_packet packet) {
+net_async_t tcp_transmit(tcp_conn_t conn, tcp_packet packet) {
 	tcp_header* tcp = (tcp_header*)(packet.buf.data_begin - sizeof(tcp_header));
 	tcp->src_port = htons(conn->cur_port);
 	tcp->dst_port = htons(conn->cli_port);
@@ -71,22 +50,21 @@ net_async_t tcp_transmit(tcp_connection* conn, tcp_packet packet) {
 	tcp->checksum = 0;
 	tcp->urgent = 0;
 
-	ipv4_header ip;
-	ip.ver_ihl = 0x45;
-	ip.total_length = htons(20 + packet.buf.data_size + sizeof(tcp_header));
-	ip.src_ip = conn->cur_ip;
-	ip.dst_ip = conn->cli_ip;
-	tcp_checksum(ip, tcp);
+	ipv4_pseudo_header h{conn->cur_ip, conn->cli_ip, 0, IPv4::PROTOCOL_TCP, htons(packet.buf.data_size)};
+	tcp->checksum = htons(net_checksum(
+		net_partial_checksum(&h, sizeof(h)) +
+		net_partial_checksum(tcp, packet.buf.data_size + sizeof(tcp_header))
+	));
 
 	ipv4_packet p_ip;
-	p_ip.src = ip.src_ip;
-	p_ip.dst = ip.dst_ip;
+	p_ip.src = conn->cur_ip;
+	p_ip.dst = conn->cli_ip;
 	p_ip.protocol = IPv4::PROTOCOL_TCP;
 	p_ip.buf = { packet.buf.frame_begin, packet.buf.data_begin - sizeof(tcp_header),
 				 packet.buf.data_size + sizeof(tcp_header) };
 	return ipv4_send(p_ip);
 }
-static net_async_t tcp_transmit(tcp_connection* conn, span<uint8_t> data, uint16_t flags) {
+static net_async_t tcp_transmit(tcp_conn_t conn, span<uint8_t> data, uint16_t flags) {
 	net_buffer_t buf = tcp_new(data.size());
 	ispan(buf.data_begin).blit(data);
 	return tcp_transmit(conn, { flags, buf });
@@ -100,7 +78,7 @@ void tcp_receive(ipv4_packet packet) {
 	uint8_t* contents = packet.buf.data_begin + header_size;
 
 	for (std::size_t i = 0; i < open_connections.size(); i++) {
-		tcp_connection* conn = open_connections.at(i);
+		tcp_conn_t conn = open_connections.at(i);
 
 		if (conn->state == TCP_STATE::LISTENING) {
 			if ((!conn->cur_port || conn->cur_port == htons(tcp->dst_port)) && tcp->flags.syn &&
@@ -252,7 +230,7 @@ void tcp_receive(ipv4_packet packet) {
 	}
 
 	if (tcp->flags.syn) {
-		tcp_connection* conn = (tcp_connection*)tcp_create();
+		tcp_conn_t conn = (tcp_conn_t)tcp_create();
 		conn->cli_ip = packet.src;
 		conn->cur_ip = packet.dst;
 		conn->cli_port = htons(tcp->src_port);
@@ -271,16 +249,16 @@ cleanup:
 	kfree(packet.buf.frame_begin);
 }
 
-tcp_connection* tcp_create() {
-	tcp_connection* conn = new tcp_connection();
+tcp_conn_t tcp_create() {
+	tcp_conn_t conn = new tcp_connection();
 	conn->state = TCP_STATE::UNINITIALIZED;
-	open_connections.append((tcp_connection*)conn);
+	open_connections.append((tcp_conn_t)conn);
 	return conn;
 }
 
-tcp_connection* tcp_accept(uint16_t port) {
+tcp_conn_t tcp_accept(uint16_t port) {
 	for (std::size_t i = 0; i < open_connections.size(); i++) {
-		tcp_connection* conn = (tcp_connection*)open_connections.at(i);
+		tcp_conn_t conn = (tcp_conn_t)open_connections.at(i);
 		if (conn->state != TCP_STATE::WAITING) continue;
 		if (port && conn->cur_port != port) continue;
 
@@ -294,7 +272,7 @@ tcp_connection* tcp_accept(uint16_t port) {
 			printf("[TCP] %I:%i->%i: Accepting SYN.\n", conn->cli_ip, conn->cli_port,
 				   conn->cur_port);
 		tcp_mss mss = { 0x02, 0x04, htons(TCP_MSS) };
-		tcp_transmit((tcp_connection*)conn, { span((uint8_t*)&mss, 4) },
+		tcp_transmit((tcp_conn_t)conn, { span((uint8_t*)&mss, 4) },
 					 TCP_DATA_OFFSET(1) | TCP_FLAG_SYN | TCP_FLAG_ACK);
 
 		while (conn->state != TCP_STATE::ESTABLISHED && conn->state != TCP_STATE::CLOSED)
@@ -319,7 +297,7 @@ tcp_async_t tcp_connection::send(tcp_fragment&& p) {
 		std::size_t offset = 0;
 		while (true) {
 			std::size_t size = min(p.size() - offset, TCP_CLI_MSS);
-			tcp_transmit((tcp_connection*)this, { span(p.begin()() + offset, size) },
+			tcp_transmit((tcp_conn_t)this, { span(p.begin()() + offset, size) },
 						 TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
 			cur_seq += size;
 			offset += size;
@@ -327,7 +305,7 @@ tcp_async_t tcp_connection::send(tcp_fragment&& p) {
 		}
 		return this;
 	} else {
-		tcp_transmit((tcp_connection*)this, span<uint8_t>(p.begin()(), p.end()()),
+		tcp_transmit((tcp_conn_t)this, span<uint8_t>(p.begin()(), p.end()()),
 					 TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK);
 		cur_seq += p.size();
 		return this;
@@ -352,13 +330,13 @@ void tcp_connection::close() {
 	} else {
 		if (TCP_VERBOSE_LOGGING)
 			printf("[TCP] %I:%i->%i: Sending FIN.\n", cli_ip, cli_port, cur_port);
-		tcp_transmit((tcp_connection*)this, {}, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
+		tcp_transmit((tcp_conn_t)this, {}, TCP_DATA_OFFSET(0) | TCP_FLAG_FIN | TCP_FLAG_ACK);
 		state = TCP_STATE::FIN_SENT;
 	}
 	while (state != TCP_STATE::CLOSED) net_process();
 }
 
-void tcp_destroy(tcp_connection* conn) {
+void tcp_destroy(tcp_conn_t conn) {
 	for (std::size_t i = 0; i < open_connections.size(); i++) {
 		if (open_connections[i] == conn) {
 			open_connections.erase(i);
@@ -367,17 +345,17 @@ void tcp_destroy(tcp_connection* conn) {
 	}
 	delete conn;
 }
-void tcp_await(tcp_connection* conn) {
+void tcp_await(tcp_conn_t conn) {
 	while (conn->cur_seq != conn->cli_ack) { net_process(); }
 }
 
-tcp_input_iterator::tcp_input_iterator(tcp_connection* conn)
+tcp_input_iterator::tcp_input_iterator(tcp_conn_t conn)
 	: conn(conn)
 	, fragment_index(conn->packet_offset)
 	, fragment_offset(0) {
 	get_packet();
 }
-tcp_input_iterator::tcp_input_iterator(tcp_connection* conn, std::size_t fragment_index,
+tcp_input_iterator::tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index,
 									   std::size_t fragment_offset)
 	: conn(conn)
 	, fragment_index(fragment_index)

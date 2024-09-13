@@ -23,9 +23,12 @@ SECTIONS
         *(.data*);
         *(.rodata*);
     }
+    . = ALIGN(8);
+    start_bss = .;
     .bss : {
         *(.bss*);
     }
+    . = ALIGN(8);
     end_bss = .;
 
     /DISCARD/ : {

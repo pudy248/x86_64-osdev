@@ -19,7 +19,11 @@ SECTIONS
         *(.text*);
         *(.data*);
         *(.rodata*);
+        . = ALIGN(8);
+        start_bss = .;
         *(.bss*);
+        . = ALIGN(8);
+        end_bss = .;
     }
 
     .fat 0x7C00 + 0x200 * 128: AT(0x200 * 128) {
@@ -27,7 +31,6 @@ SECTIONS
     }
 
     /DISCARD/ : {
-        *(.init_array*);
         *(.eh_frame)
         *(.comment)
     }

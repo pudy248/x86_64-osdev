@@ -13,7 +13,7 @@ enum IPv4_CONSTANTS {
 };
 }
 
-struct [[gnu::packed]] ipv4_header {
+struct ipv4_header {
 	uint8_t ver_ihl; // 4, 5
 	uint8_t dscp; // 0
 	uint16_t total_length; //20 + data
@@ -24,6 +24,13 @@ struct [[gnu::packed]] ipv4_header {
 	uint16_t checksum;
 	ipv4_t src_ip;
 	ipv4_t dst_ip;
+};
+struct ipv4_pseudo_header {
+	ipv4_t src_ip;
+	ipv4_t dst_ip;
+	uint8_t zeroes;
+	uint8_t protocol;
+	uint16_t transport_length;
 };
 
 struct ipv4_packet {

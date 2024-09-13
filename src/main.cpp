@@ -10,9 +10,11 @@
 #include <kstring.hpp>
 #include <lib/fat.hpp>
 #include <lib/profile.hpp>
-#include <net/http.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
+#include <net/udp.hpp>
+#include <net/dhcp.hpp>
+#include <net/http.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/init.hpp>
@@ -24,17 +26,16 @@ extern "C" int atexit(void (*)(void)) { return 0; }
 
 static void http_main() {
 	net_init();
-	vector<tcp_connection*> conns;
+	vector<tcp_conn_t> conns;
 	while (true) {
 		net_process();
 		{
-			tcp_connection* c = NULL;
-			if (!c) c = tcp_accept(80);
+			tcp_conn_t c = tcp_accept(80);
 			if (!c) c = tcp_accept(8080);
 			if (c) { conns.append(c); }
 		}
 		for (std::size_t i = 0; i < conns.size(); i++) {
-			tcp_connection* conn = conns.at(i);
+			tcp_conn_t conn = conns.at(i);
 			if (conn->state == TCP_STATE::CLOSED) {
 				tcp_destroy(conn);
 				conns.erase(i);
@@ -57,6 +58,16 @@ static void http_main() {
 				stream.begin().flush();
 			}
 		}
+	}
+}
+static void dhcp_main() {
+	net_init();
+	udp_conn_t conn = udp_accept(DHCP_CLIENT_PORT);
+	uint32_t xid = rdtsc();
+	while (1) {
+		dhcp_discover(conn, xid);
+		double t1 = timepoint::now().unix_seconds();
+		while (timepoint::now().unix_seconds() - t1 < 5.) net_process();
 	}
 }
 
@@ -195,9 +206,10 @@ extern "C" void kernel_main(void) {
 	//inf_wait();
 
 	//graphics_main();
-	dealloc_fat();
+	//dealloc_fat();
 	//console_init();
 	//http_main();
+	dhcp_main();
 	//thread_main();
 
 	//tag_dump();

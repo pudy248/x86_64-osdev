@@ -66,8 +66,8 @@ static void compute_clockspeed() {
 
 void time_init(void) {
 	globals->reference_timepoint = timepoint::cmos_time();
-	compute_clockspeed();
 	globals->elapsed_pits = 0;
+	compute_clockspeed();
 }
 
 timepoint timepoint::cmos_time() {
@@ -91,9 +91,9 @@ timepoint timepoint::cmos_time() {
 	return t;
 }
 
-static timepoint pit_time_override(uint32_t subcnt) {
+static timepoint pit_time_override(uint32_t subcnt, int64_t pitcnt) {
 	timepoint t;
-	uint64_t cnt = (uint64_t)((int64_t)globals->elapsed_pits * 65536 + subcnt);
+	uint64_t cnt = (uint64_t)(pitcnt * 65536 + subcnt);
 	uint64_t micros_total = cnt * 1000000LLU / 1193182LLU;
 
 	uint64_t newSecond = micros_total / 1000000LLU;
@@ -112,15 +112,11 @@ timepoint timepoint::pit_time() {
 	uint32_t subcnt = inb(0x40);
 	subcnt |= ((uint32_t)inb(0x40)) << 8;
 	subcnt = 65536 - subcnt;
-	return pit_time_override(subcnt);
+	return pit_time_override(subcnt, globals->elapsed_pits);
 }
 
-timepoint timepoint::pit_time_imprecise() { return pit_time_override(0); }
-
-constexpr double timepoint::unix_seconds() const {
-	double unixsecs = micros / 1000000.0 + second + minute * 60 + hour * 3600 + hour * 24 * 3600;
-	return unixsecs;
-}
+timepoint timepoint::pit_time_imprecise() { return pit_time_override(0, globals->elapsed_pits); }
+timepoint timepoint::now() { return timepoint::pit_time_imprecise(); };
 
 void tsc_delay(uint64_t cycles) {
 	uint64_t start = rdtsc();
@@ -155,7 +151,7 @@ int clockspeed_MHz() {
 
 	double eSec = (t2 - t1);
 	double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-	printf("%iMHz (%li cycles in %ius) %.6f %.6f\n", (uint32_t)freqMHz, etsc - stsc,
-		   (uint32_t)(eSec * 1000000), t1, t2);
+	printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc,
+		   (uint32_t)(eSec * 1000000));
 	return freqMHz;
 }

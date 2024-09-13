@@ -15,6 +15,8 @@
 mac_t global_mac;
 ipv4_t global_ip;
 
+volatile bool initialized;
+
 static vector<ethernet_packet> packet_queue_front;
 static vector<ethernet_packet> packet_queue_back;
 
@@ -35,7 +37,9 @@ void net_init() {
 void ethernet_link() {
 	arp_announce(new_ipv4(192, 168, 1, 69));
 	arp_announce(new_ipv4(169, 254, 1, 69));
+	arp_announce(new_ipv4(172, 29, 244, 123));
 	print("ARP init completed.\n");
+	initialized = true;
 }
 
 net_buffer_t ethernet_new(std::size_t data_size) {
@@ -54,6 +58,8 @@ void ethernet_recieve(net_buffer_t buf) {
 	memcpy(&packet.src, &frame->src, 6);
 	memcpy(&packet.dst, &frame->dst, 6);
 
+	qprintf<64>("R %M -> %M (%i bytes)\n", packet.src, packet.dst, buf.data_size);
+
 	packet_queue_back.append(packet);
 }
 
@@ -62,6 +68,8 @@ net_async_t ethernet_send(ethernet_packet packet) {
 	memcpy(&frame->dst, &packet.dst, 6);
 	memcpy(&frame->src, &packet.src, 6);
 	frame->type = htons(packet.type);
+	
+	qprintf<64>("S %M -> %M (%i bytes)\n", packet.src, packet.dst, packet.buf.data_size + sizeof(ethernet_header));
 
 	return e1000_send_async({ packet.buf.frame_begin, packet.buf.frame_begin,
 							  packet.buf.data_size + sizeof(ethernet_header) });
@@ -75,6 +83,7 @@ void net_process() {
 	enable_interrupts();
 	//e1000_resume();
 
+
 	for (ethernet_packet p : packet_queue_front) {
 		switch (p.type) {
 		case ETHERTYPE::ARP: arp_receive(p); break;
@@ -83,4 +92,42 @@ void net_process() {
 		}
 	}
 	packet_queue_front.clear();
+}
+
+uint64_t net_partial_checksum(void* data, uint16_t len) {
+	uint64_t sum = 0;
+	uint16_t* buf = (uint16_t*)data;
+	while (len > 1) {
+		sum += *buf++;
+		len -= 2;
+	}
+	if (len) sum += *buf & 0xff;
+	return sum;
+}
+uint16_t net_checksum(uint64_t sum) {
+	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
+	sum = ~sum;
+	return sum;
+}
+uint16_t net_checksum(void* data, uint16_t len) {
+	return net_checksum(net_partial_checksum(data, len));
+}
+
+void write_bufoff(void* obj, std::size_t sz, uint8_t* buf, std::size_t& off) {
+	for(std::size_t i = 0; i < sz; i++)
+		buf[off++] = ((uint8_t*)obj)[i];
+}
+
+template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(uint8_t* buf, std::size_t& off) {
+	tlv_option_t<T, FL> opt;
+	opt.opt = *(T*)&buf[off += sizeof(T)];
+	T len = *(T*)&buf[off += sizeof(T)];
+	opt.value = span<uint8_t>(buf + off, buf + off + len - FL * 2 * sizeof(T));
+	off += len - FL * 2 * sizeof(T);
+	return opt;
+}
+template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, uint8_t* buf, std::size_t& off) {
+	*(T*)&buf[off += sizeof(T)] = opt.opt;
+	*(T*)&buf[off += sizeof(T)] = opt.value.size() + FL * 2 * sizeof(T);
+	for (uint8_t n : opt.value) buf[off++] = n;
 }

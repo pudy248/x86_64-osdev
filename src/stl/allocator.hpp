@@ -47,12 +47,12 @@ public:
 
 template <allocator T> class allocator_reference : public default_allocator {
 public:
-	T* ref;
+	T& ref;
 	allocator_reference() = delete;
-	allocator_reference(T* ref)
+	allocator_reference(T& ref)
 		: ref(ref) {}
-	allocator_traits<T>::ptr_t alloc(uint64_t size) { return ref->alloc(size); }
-	void dealloc(allocator_traits<T>::ptr_t ptr) { ref->dealloc(ptr); }
+	allocator_traits<T>::ptr_t alloc(uint64_t size) { return ref.alloc(size); }
+	void dealloc(allocator_traits<T>::ptr_t ptr) { ref.dealloc(ptr); }
 };
 template <allocator T> class allocator_traits<allocator_reference<T>> {
 public:

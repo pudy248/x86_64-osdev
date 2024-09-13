@@ -5,3 +5,4 @@ disk_2.img
 fattener
 .cache/*
 .vscode/*
+.clangd

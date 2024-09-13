@@ -14,9 +14,8 @@ void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	void* asrc = __builtin_assume_aligned(src, A);
 	__builtin_assume(size % A == 0);
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((uint8_t* __restrict)adest)[i] = ((uint8_t* __restrict)asrc)[i];
-	}
 }
 
 template <std::size_t A = 1> void memset(void* __restrict dest, uint8_t src, uint64_t size) {

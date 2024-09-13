@@ -15,6 +15,11 @@ enum ETHERTYPE : uint16_t {
 	IPv6 = 0x86DD,
 };
 }
+namespace HTYPE {
+enum HTYPE : uint8_t {
+	ETH = 0x01,
+};
+}
 
 extern mac_t global_mac;
 extern ipv4_t global_ip;
@@ -23,6 +28,11 @@ struct net_buffer_t {
 	uint8_t* frame_begin;
 	uint8_t* data_begin;
 	std::size_t data_size;
+};
+template <typename T, bool FL>
+struct tlv_option_t {
+	T opt;
+	span<const uint8_t> value;
 };
 
 struct [[gnu::packed]] ethernet_header {
@@ -76,3 +86,9 @@ void ethernet_recieve(net_buffer_t buf);
 net_buffer_t ethernet_new(std::size_t data_size);
 [[nodiscard]] net_async_t ethernet_send(ethernet_packet packet);
 void net_await(net_async_t handle);
+uint64_t net_partial_checksum(void* data, uint16_t len);
+uint16_t net_checksum(void* data, uint16_t len);
+uint16_t net_checksum(uint64_t partial);
+void write_bufoff(void* obj, std::size_t sz, uint8_t* buf, std::size_t& off);
+template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(uint8_t* buf, std::size_t& off);
+template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, uint8_t* buf, std::size_t& off);

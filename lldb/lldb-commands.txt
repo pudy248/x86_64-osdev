@@ -1,5 +1,5 @@
 target modules add tmp/kernel.img.elf
-target modules load -f tmp/kernel.img.elf .text 0x200000
+target modules load -f tmp/kernel.img.elf .text 0x1000000
 target modules add tmp/bootloader.img.elf
 target modules load -f tmp/bootloader.img.elf .bootloader 0x7c00
 
