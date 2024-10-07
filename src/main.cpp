@@ -1,4 +1,4 @@
-﻿#include <cstddef>
+#include <cstddef>
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
@@ -10,25 +10,28 @@
 #include <kstring.hpp>
 #include <lib/fat.hpp>
 #include <lib/profile.hpp>
+#include <net/arp.hpp>
+#include <net/dhcp.hpp>
+#include <net/dns.hpp>
+#include <net/http.hpp>
+#include <net/icmp.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
 #include <net/udp.hpp>
-#include <net/dhcp.hpp>
-#include <net/http.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/thread.hpp>
-#include <text/graphical_console.hpp>
+#include <text/console.hpp>
+#include <text/gfx_terminal.hpp>
 
 extern "C" int atexit(void (*)(void)) { return 0; }
 
 static void http_main() {
-	net_init();
 	vector<tcp_conn_t> conns;
 	while (true) {
-		net_process();
+		net_fwdall();
 		{
 			tcp_conn_t c = tcp_accept(80);
 			if (!c) c = tcp_accept(8080);
@@ -45,9 +48,8 @@ static void http_main() {
 			if (conn->received_packets.size()) {
 				tcp_istream stream({ conn }, { conn });
 				vector<uint8_t> http_packet =
-					stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>(
-						"\r\n\r\n"_RO, true);
-				rostring s = view(http_packet).reinterpret_as<char>();
+					stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>("\r\n\r\n"_RO, true);
+				rostring s = span(http_packet).reinterpret_as<char>();
 				printf("%S\n", &s);
 				if (http_process(conn, s)) {
 					conn->close();
@@ -62,13 +64,16 @@ static void http_main() {
 }
 static void dhcp_main() {
 	net_init();
-	udp_conn_t conn = udp_accept(DHCP_CLIENT_PORT);
-	uint32_t xid = rdtsc();
-	while (1) {
-		dhcp_discover(conn, xid);
-		double t1 = timepoint::now().unix_seconds();
-		while (timepoint::now().unix_seconds() - t1 < 5.) net_process();
-	}
+	dhcp_set_active(dhcp_query());
+	// ping(new_ipv4(8, 8, 8, 8));
+	// ping("www.google.com");
+	rostring s = "www.google.com";
+	ipv4_t ip = dns_query(s);
+	tcp_conn_t conn = tcp_connect(ip, 54321, HTTP_PORT);
+	http_response r = http_req_get(conn, s);
+	conn->close();
+	printf("[HTTP] GET / from %S returned code %i and %i bytes.\n", &s, r.code, r.content.size());
+	while (1) net_fwdall();
 }
 
 static void graphics_main() {
@@ -87,7 +92,7 @@ static void graphics_main() {
 	uint32_t vi = 0;
 	uint32_t ti = 0;
 	fat_file f = file_open("/cow.obj");
-	istringstream obj(view(f.inode->data).reinterpret_as<char>());
+	istringstream obj(span(f.inode->data).reinterpret_as<char>());
 	while (obj.readable()) {
 		if (rostring(obj.begin(), obj.end()).starts_with("v "_RO)) {
 			obj.read_c();
@@ -98,8 +103,7 @@ static void graphics_main() {
 			obj.read_until_v(' ', false, true);
 			float z = obj.read_f();
 			obj.read_until_v(' ', true, true);
-			p.vertexBuffer[vi++] =
-				(Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
+			p.vertexBuffer[vi++] = (Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
 		} else if (rostring(obj.begin(), obj.end()).starts_with("f "_RO)) {
 			obj.read_c();
 			obj.read_until_v(' ', false, true);
@@ -176,8 +180,7 @@ static void dealloc_fat() {
 
 static void console_init() {
 	graphics_text_init();
-	*globals->g_console = console(&graphics_text_get_char, &graphics_text_set_char,
-								  &graphics_text_update, graphics_text_dimensions);
+	replace_console(console(&graphics_text_set_char, &graphics_text_update, graphics_text_dimensions));
 }
 
 static int generator(int start) {
@@ -188,15 +191,13 @@ static int generator(int start) {
 static void thread_main() {
 	threading_init();
 	thread<int> t = thread_create(&generator, 123);
-	double time1, time2;
-	PROFILE_LOOP(thread_switch(t), time1 = timepoint::pit_time().unix_seconds(),
-				 time2 = timepoint::pit_time().unix_seconds(), 50000000)
+	timepoint time1, time2;
+	PROFILE_LOOP(thread_switch(t), time1 = timepoint::now(), time2 = timepoint::now(), 50000000)
 	uint64_t t1, t2;
 	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
 	thread_kill(t);
-	printf(
-		"Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
-		(time2 - time1), (t2 - t1) / 100);
+	printf("Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
+		   units::seconds(time2 - time1).rep, (t2 - t1) / 100);
 }
 
 extern "C" void kernel_main(void) {
@@ -206,7 +207,7 @@ extern "C" void kernel_main(void) {
 	//inf_wait();
 
 	//graphics_main();
-	//dealloc_fat();
+	dealloc_fat();
 	//console_init();
 	//http_main();
 	dhcp_main();

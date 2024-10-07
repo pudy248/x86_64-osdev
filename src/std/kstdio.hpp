@@ -1,32 +1,27 @@
 #pragma once
 #include <cstddef>
-#include <cstdint>
 #include <stl/view.hpp>
 
-class console {
-private:
-	void putchar_noupdate(char c);
-	void newline();
+void refresh_tty();
 
-public:
-	int cx = 0;
-	int cy = 0;
-	int text_rect[4];
-	char (*get_char)(uint32_t, uint32_t);
-	void (*set_char)(uint32_t, uint32_t, char);
-	void (*refresh)();
+void putchar(char c, bool refresh = true);
+void print(const char* str, bool refresh = true);
+void print(span<const char> str, bool refresh = true);
 
-	console(char (*)(uint32_t, uint32_t), void (*)(uint32_t, uint32_t, char), void (*)(), int[2]);
-	void clear();
-	void putchar(char c);
-	void putstr(const char* s);
+template <typename... Args>
+	requires(!!sizeof...(Args))
+void printf(const char* fmt, Args... args);
+template <typename... Args>
+	requires(!!sizeof...(Args))
+void printf(span<const char> fmt, Args... args);
+template <std::size_t N, typename... Args>
+	requires(!!sizeof...(Args))
+void qprintf(const char* fmt, Args... args);
 
-	void hexdump(void* ptr, uint32_t bytes);
-	void hexdump_rev(void* ptr, uint32_t bytes, uint32_t swap_width);
-};
+void hexdump(const void* ptr, uint32_t bytes, uint32_t block_width = 4, uint32_t num_columns = 8, bool reversed = false,
+			 bool refresh = true);
 
-void print(const char* str);
-void print(view<const char*, const char*> str);
-template <typename... Args> void printf(const char* fmt, Args... args);
-template <typename... Args> void printf(view<const char*, const char*> fmt, Args... args);
-template <std::size_t N, typename... Args> void qprintf(const char* fmt, Args... args);
+class console& default_console();
+class text_layer& default_output();
+
+void replace_console(console&& con);

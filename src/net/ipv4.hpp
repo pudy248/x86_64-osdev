@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 
@@ -33,14 +33,17 @@ struct ipv4_pseudo_header {
 	uint16_t transport_length;
 };
 
-struct ipv4_packet {
-	ethernet_packet ethernet;
+struct ipv4_info : eth_info {
 	uint8_t protocol;
-	ipv4_t src;
-	ipv4_t dst;
-	net_buffer_t buf;
+	ipv4_t src_ip;
+	ipv4_t dst_ip;
+	uint8_t ttl;
 };
+using ipv4_packet = packet<ipv4_info>;
 
+bool ipv4_get(ipv4_packet& out);
+ipv4_packet ipv4_process(eth_packet packet);
 net_buffer_t ipv4_new(std::size_t data_size);
-void ipv4_receive(ethernet_packet packet);
-[[nodiscard]] net_async_t ipv4_send(ipv4_packet packet);
+net_async_t ipv4_send(ipv4_packet packet);
+
+void ipv4_forward(ipv4_packet packet);

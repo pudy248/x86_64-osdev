@@ -12,17 +12,19 @@
 
 struct global_data_t {
 	class console* g_console;
+	class text_layer* g_stdout;
 
-	class waterline_allocator global_waterline;
-	class heap_allocator global_heap;
-	class slab_pagemap<64, 64> global_pagemap;
-	class mmap_allocator global_mmap_alloc;
-	class vector<heap_tag, waterline_allocator> heap_allocations;
+	waterline_allocator global_waterline;
+	heap_allocator global_heap;
+	slab_pagemap<64, 64> global_pagemap;
+	mmap_allocator global_mmap_alloc;
+	vector<heap_tag, waterline_allocator> heap_allocations;
 	bool tag_allocs;
 
-	volatile uint64_t elapsed_pits;
+	uint64_t elapsed_pits;
 	double frequency;
-	timepoint reference_timepoint;
+	uint64_t reference_tsc;
+	htimepoint reference_timepoint;
 
 	struct pci_devices* pci;
 	struct ahci_device* ahci;

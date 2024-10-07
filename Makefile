@@ -17,6 +17,7 @@ CFLAGS:=\
 -Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wglobal-constructors \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
+CFLAGS_KERNEL:=-DKERNEL
 
 LDFLAGS_INC:=--lto=thin --ignore-data-address-equality --ignore-function-address-equality
 LDFLAGS_FIN:=-gc-sections --lto=thin --icf=all --ignore-data-address-equality --ignore-function-address-equality
@@ -51,18 +52,17 @@ QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-#LOCAL_IP:=192.168.56.1
-LOCAL_IP:=172.29.246.143
+LOCAL_IP:=192.168.1.2
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img
 clean:
-	@rm -f disk.img disk_2.img dump.pcap fattener
+	@rm -f disk.img disk_2.img
 	@rm -rf tmp/*
 
 disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp tmp/diskflasher.img
-	$(CC) fattener.cpp -o fattener
-	./fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
+	$(CC) fattener.cpp -o tmp/fattener
+	./tmp/fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
 	@truncate -s 64M disk.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
 
@@ -88,7 +88,7 @@ $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 tmp/obj.o : $(C_SRC) $(C_HDR)
 	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
-	$(CC) $(CFLAGS) -DKERNEL -o $@ -c tmp/all.cpp
+	$(CC) $(CFLAGS) $(CFLAGS_KERNEL) -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^

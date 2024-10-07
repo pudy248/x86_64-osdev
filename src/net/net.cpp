@@ -6,19 +6,23 @@
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <net/arp.hpp>
+#include <net/config.hpp>
+#include <net/dhcp.hpp>
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
+#include <stl/queue.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
+#include <text/text_display.hpp>
 
 mac_t global_mac;
 ipv4_t global_ip;
 
-volatile bool initialized;
+bool eth_connected;
 
-static vector<ethernet_packet> packet_queue_front;
-static vector<ethernet_packet> packet_queue_back;
+static queue<eth_packet> packet_queue_front;
+static queue<eth_packet> packet_queue_back;
 
 void net_init() {
 	pci_device* e1000_pci = pci_match(PCI_CLASS::NETWORK, PCI_SUBCLASS::NETWORK_ETHERNET);
@@ -27,74 +31,101 @@ void net_init() {
 		pci_print();
 		inf_wait();
 	}
-	qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id,
-				e1000_pci->device_id);
+	qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
 	e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
 	global_mac = globals->e1000->mac;
 	e1000_enable();
+	if (e1000_pci->device_id == 0x100E)
+		ethernet_link();
+	else
+		while (!eth_connected) cpu_relax();
 }
 
 void ethernet_link() {
-	arp_announce(new_ipv4(192, 168, 1, 69));
-	arp_announce(new_ipv4(169, 254, 1, 69));
-	arp_announce(new_ipv4(172, 29, 244, 123));
-	print("ARP init completed.\n");
-	initialized = true;
+	print("Link status changed.\n");
+	eth_connected = true;
 }
 
-net_buffer_t ethernet_new(std::size_t data_size) {
-	uint8_t* buf = (uint8_t*)kmalloc(data_size + sizeof(ethernet_header));
-	return { buf, buf + sizeof(ethernet_header), data_size };
+void net_update_ip(ipv4_t ip) {
+	global_ip = ip;
+	arp_update(global_mac, global_ip);
 }
 
 void ethernet_recieve(net_buffer_t buf) {
-	ethernet_header* frame = (ethernet_header*)buf.data_begin;
-
-	uint16_t size = buf.data_size - sizeof(ethernet_header);
-	uint8_t* contents = buf.frame_begin + sizeof(ethernet_header);
-	ethernet_packet packet = {
-		timepoint(), 0, 0, htons(frame->type), { buf.frame_begin, contents, size }
-	};
-	memcpy(&packet.src, &frame->src, 6);
-	memcpy(&packet.dst, &frame->dst, 6);
-
-	qprintf<64>("R %M -> %M (%i bytes)\n", packet.src, packet.dst, buf.data_size);
-
-	packet_queue_back.append(packet);
+	eth_packet p = eth_process(buf);
+	if (!PROMISCUOUS && p.i.dst_mac != global_mac && p.i.dst_mac != MAC_BCAST) return;
+	if (PACKET_LOG) qprintf<64>("R %M -> %M (%i bytes)\n", p.i.src_mac, p.i.dst_mac, buf.data_size);
+	packet_queue_back.enqueue(p);
 }
 
-net_async_t ethernet_send(ethernet_packet packet) {
-	ethernet_header* frame = (ethernet_header*)(packet.buf.data_begin - sizeof(ethernet_header));
-	memcpy(&frame->dst, &packet.dst, 6);
-	memcpy(&frame->src, &packet.src, 6);
-	frame->type = htons(packet.type);
-	
-	qprintf<64>("S %M -> %M (%i bytes)\n", packet.src, packet.dst, packet.buf.data_size + sizeof(ethernet_header));
-
-	return e1000_send_async({ packet.buf.frame_begin, packet.buf.frame_begin,
-							  packet.buf.data_size + sizeof(ethernet_header) });
-}
-
-void net_process() {
+static void net_touch() {
 	disable_interrupts();
 	//e1000_pause();
-	for (ethernet_packet& p : packet_queue_back) { packet_queue_front.append(p); }
-	packet_queue_back.clear();
+	while (packet_queue_back.size()) packet_queue_front.enqueue(packet_queue_back.dequeue());
 	enable_interrupts();
 	//e1000_resume();
 
-
-	for (ethernet_packet p : packet_queue_front) {
-		switch (p.type) {
-		case ETHERTYPE::ARP: arp_receive(p); break;
-		case ETHERTYPE::IPv4: ipv4_receive(p); break;
-		default: kfree(p.buf.frame_begin); break;
-		}
+	if (DHCP_AUTORENEW && active_lease.duration.rep &&
+		active_lease.established + active_lease.duration < timepoint::now()) {
+		active_lease.duration.rep = 0;
+		dhcp_set_active(dhcp_query(active_lease.yiaddr));
 	}
-	packet_queue_front.clear();
 }
 
-uint64_t net_partial_checksum(void* data, uint16_t len) {
+bool eth_get(eth_packet& out) {
+	net_touch();
+	if (packet_queue_front.size()) {
+		out = packet_queue_front.dequeue();
+		return true;
+	}
+	return false;
+}
+
+eth_packet eth_process(net_buffer_t raw) {
+	ethernet_header* frame = (ethernet_header*)raw.data_begin;
+	mac_t src, dst;
+	memcpy(&src, &frame->src, 6);
+	memcpy(&dst, &frame->dst, 6);
+
+	uint8_t* newBuf = (uint8_t*)kmalloc(raw.data_size);
+	memcpy(newBuf, raw.frame_begin, raw.data_size);
+	uint16_t size = raw.data_size - sizeof(ethernet_header);
+	uint8_t* contents = newBuf + sizeof(ethernet_header);
+	eth_packet packet = { { timepoint::now(), src, dst, htons(frame->ethertype) }, { newBuf, contents, size } };
+	return packet;
+}
+
+net_buffer_t eth_new(std::size_t data_size) {
+	uint8_t* buf = (uint8_t*)kcalloc(data_size + sizeof(ethernet_header));
+	return { buf, buf + sizeof(ethernet_header), data_size };
+}
+
+net_async_t eth_send(eth_packet p) {
+	ethernet_header* frame = (ethernet_header*)(p.b.data_begin - sizeof(ethernet_header));
+	memcpy(&frame->dst, &p.i.dst_mac, 6);
+	memcpy(&frame->src, &p.i.src_mac, 6);
+	frame->ethertype = htons(p.i.ethertype);
+
+	if (PACKET_LOG)
+		qprintf<64>("S %M -> %M (%i bytes)\n", p.i.src_mac, p.i.dst_mac, p.b.data_size + sizeof(ethernet_header));
+
+	return e1000_send_async({ p.b.frame_begin, p.b.frame_begin, p.b.data_size + sizeof(ethernet_header) });
+}
+
+void net_forward(eth_packet p) {
+	switch (p.i.ethertype) {
+	case ETHERTYPE::ARP: arp_process(p); break;
+	case ETHERTYPE::IPv4: ipv4_forward(ipv4_process(p)); break;
+	default: kfree(p.b.frame_begin); break;
+	}
+}
+
+void net_fwdall() {
+	net_touch();
+	while (packet_queue_front.size()) { net_forward(packet_queue_front.dequeue()); }
+}
+
+uint64_t net_partial_checksum(const void* data, uint16_t len) {
 	uint64_t sum = 0;
 	uint16_t* buf = (uint16_t*)data;
 	while (len > 1) {
@@ -109,25 +140,17 @@ uint16_t net_checksum(uint64_t sum) {
 	sum = ~sum;
 	return sum;
 }
-uint16_t net_checksum(void* data, uint16_t len) {
-	return net_checksum(net_partial_checksum(data, len));
-}
+uint16_t net_checksum(const void* data, uint16_t len) { return net_checksum(net_partial_checksum(data, len)); }
 
-void write_bufoff(void* obj, std::size_t sz, uint8_t* buf, std::size_t& off) {
-	for(std::size_t i = 0; i < sz; i++)
-		buf[off++] = ((uint8_t*)obj)[i];
-}
-
-template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(uint8_t* buf, std::size_t& off) {
+template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {
 	tlv_option_t<T, FL> opt;
-	opt.opt = *(T*)&buf[off += sizeof(T)];
-	T len = *(T*)&buf[off += sizeof(T)];
-	opt.value = span<uint8_t>(buf + off, buf + off + len - FL * 2 * sizeof(T));
-	off += len - FL * 2 * sizeof(T);
+	opt.opt = s.read_b<T>();
+	T len = s.read_b<T>();
+	opt.value = s.read_n(len - FL * 2 * sizeof(T));
 	return opt;
 }
-template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, uint8_t* buf, std::size_t& off) {
-	*(T*)&buf[off += sizeof(T)] = opt.opt;
-	*(T*)&buf[off += sizeof(T)] = opt.value.size() + FL * 2 * sizeof(T);
-	for (uint8_t n : opt.value) buf[off++] = n;
+template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, obinstream<>& s) {
+	s.write_b<T>(opt.opt);
+	s.write_b<T>(opt.value.size() + FL * 2 * sizeof(T));
+	s.write(opt.value);
 }

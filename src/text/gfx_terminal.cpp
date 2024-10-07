@@ -4,12 +4,10 @@
 #include <kassert.hpp>
 #include <kstdlib.hpp>
 #include <resources/ms_gothic_small.hpp>
-#include <text/graphical_console.hpp>
+#include <text/gfx_terminal.hpp>
 #include <type_traits>
 
 int graphics_text_dimensions[2] = { 240, 60 };
-
-static char* storage_buffer;
 
 static void render_char(uint32_t px, uint32_t py, char c, int scale) {
 	if (!c) c = ' ';
@@ -34,27 +32,10 @@ void graphics_text_init() {
 	svga_init(*svga_pci, graphics_text_dimensions[0] * fontDims[0],
 			  graphics_text_dimensions[1] * fontDims[1]);
 
-	storage_buffer = (char*)walloc(graphics_text_dimensions[0] * graphics_text_dimensions[1], 0x10);
-	memset(storage_buffer, 0, graphics_text_dimensions[0] * graphics_text_dimensions[1]);
-
 	for (int y = 0; y < graphics_text_dimensions[1]; y++)
 		for (int x = 0; x < graphics_text_dimensions[0]; x++) graphics_text_set_char(x, y, 0);
 }
-char graphics_text_get_char(uint32_t x, uint32_t y) {
-	return storage_buffer[graphics_text_dimensions[0] * y + x];
-}
 void graphics_text_set_char(uint32_t x, uint32_t y, char c) {
-	storage_buffer[graphics_text_dimensions[0] * y + x] = c | 0x80;
+	render_char(x * fontDims[0], y * fontDims[1], c, 1);
 }
-void graphics_text_display_char(uint32_t x, uint32_t y) {
-	char& c = storage_buffer[graphics_text_dimensions[0] * y + x];
-	if (c & 0x80) {
-		c &= 0x7f;
-		render_char(x * fontDims[0], y * fontDims[1], c, 1);
-	}
-}
-void graphics_text_update() {
-	for (int y = 0; y < graphics_text_dimensions[1]; y++)
-		for (int x = 0; x < graphics_text_dimensions[0]; x++) graphics_text_display_char(x, y);
-	svga_update();
-}
+void graphics_text_update() { svga_update(); }

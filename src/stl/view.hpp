@@ -4,10 +4,8 @@
 #include <iterator>
 #include <kassert.hpp>
 #include <stl/container.hpp>
+#include <stl/iterator.hpp>
 #include <type_traits>
-
-using idx_t = std::ptrdiff_t;
-using uidx_t = std::size_t;
 
 template <typename C, typename T>
 concept condition = requires(C comparator, T obj) {
@@ -16,62 +14,6 @@ concept condition = requires(C comparator, T obj) {
 template <typename C, typename T>
 concept comparator = requires(C comparator, T lhs, T rhs) {
 	{ comparator(lhs, rhs) } -> std::convertible_to<int>;
-};
-
-template <typename I, typename T>
-concept iterator_of =
-	std::input_iterator<I> && std::same_as<std::remove_const_t<std::iter_value_t<I>>, T>;
-
-template <typename I, typename R>
-concept comparable_elem_I =
-	std::input_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
-template <typename R, typename I>
-concept comparable_iter_R =
-	std::input_iterator<I> && requires(std::iter_value_t<I> v1, R v2) { v1 == v2; };
-template <typename I1, typename I2>
-concept comparable_iter_I = comparable_elem_I<I1, std::iter_value_t<I2>>;
-
-template <typename I, typename R>
-concept convertible_elem_I = std::input_iterator<I> && requires(std::iter_value_t<I> v) { R{ v }; };
-template <typename I1, typename I2>
-concept convertible_iter_I = convertible_elem_I<I1, std::iter_value_t<I2>>;
-
-template <typename CRTP> class iterator_crtp {
-public:
-	using T = typename std::indirectly_readable_traits<CRTP>::value_type;
-
-	template <typename Derived> constexpr auto& operator[](this Derived& self, idx_t v) {
-		return *(self + v);
-	}
-	template <typename Derived> constexpr Derived& operator-=(this Derived& self, idx_t v) {
-		return self += -v;
-	}
-	template <typename Derived> constexpr Derived operator+(this Derived self, idx_t v) {
-		Derived other = self;
-		other += v;
-		return other;
-	}
-	template <typename Derived> constexpr Derived operator-(this Derived self, idx_t v) {
-		Derived other = self;
-		other -= v;
-		return other;
-	}
-	template <typename Derived> constexpr Derived& operator++(this Derived& self) {
-		return self += 1;
-	}
-	template <typename Derived> constexpr Derived operator++(this Derived& self, int) {
-		Derived s = self;
-		++self;
-		return s;
-	}
-	template <typename Derived> constexpr Derived& operator--(this Derived& self) {
-		return self -= 1;
-	}
-	template <typename Derived> constexpr Derived operator--(this Derived& self, int) {
-		Derived s = self;
-		--self;
-		return s;
-	}
 };
 
 template <std::input_iterator I, std::sentinel_for<I> S = I> class view {
@@ -84,7 +26,7 @@ protected:
 			return start + index;
 		else {
 			I iter = start;
-			for (idx_t i = 0; i < index; i++, iter++);
+			for (idx_t i = 0; i < index; ++i, ++iter);
 			return iter;
 		}
 	}
@@ -143,6 +85,7 @@ public:
 			return v;
 		}
 	}
+	constexpr bool empty() const { return end() == begin(); }
 
 	template <comparable_iter_R<I> R> constexpr idx_t find(const R& elem) const {
 		I iter = begin();
@@ -150,8 +93,7 @@ public:
 			if (*iter == elem) return i;
 		return -1;
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr idx_t find_first(const view<I2, S2>& elems) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr idx_t find_first(const view<I2, S2>& elems) const {
 		if (view<I2, S2>::Infinite) return -1;
 		idx_t index = -1;
 		idx_t which = -1;
@@ -172,19 +114,15 @@ public:
 			if (*iter == elem) ++ctr;
 		return ctr;
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr idx_t count(const view<I2, S2>& elems) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr idx_t count(const view<I2, S2>& elems) const {
 		if (view<I2, S2>::Infinite) return 0;
 		idx_t ctr = 0;
 		I2 iter2 = elems.begin();
 		for (idx_t i = 0; iter2 != elems.end(); ++i, ++iter2) ctr += count(*iter2);
 		return ctr;
 	}
-	template <comparable_iter_R<I> R> constexpr bool contains(const R& elem) const {
-		return find(elem) != -1;
-	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr idx_t contains_which(const view<I2, S2>& elems) const {
+	template <comparable_iter_R<I> R> constexpr bool contains(const R& elem) const { return find(elem) != -1; }
+	template <comparable_iter_I<I> I2, typename S2> constexpr idx_t contains_which(const view<I2, S2>& elems) const {
 		if (view<I2, S2>::Infinite) return -1;
 		idx_t index = -1;
 		idx_t which = -1;
@@ -198,16 +136,14 @@ public:
 		}
 		return which;
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr idx_t find_span(const view<I2, S2>& elems) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr idx_t find_span(const view<I2, S2>& elems) const {
 		if (view<I2, S2>::Infinite) return -1;
 		I iter = begin();
 		for (idx_t i = 0; iter != end(); ++i, ++iter)
 			if (span(iter, end()).starts_with(elems)) return i;
 		return -1;
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr bool contains_span(const view<I2, S2>& elems) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr bool contains_span(const view<I2, S2>& elems) const {
 		return find_span(elems) != -1;
 	}
 	template <comparable_iter_R<I> R> constexpr bool starts_with(const R& elem) const {
@@ -220,12 +156,12 @@ public:
 		else
 			return begin() != end() && *from(size() - 1) == elem;
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr bool starts_with(const view<I2, S2>& other) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr bool starts_with(const view<I2, S2>& other) const {
 		if (view<I2, S2>::Infinite) return false;
 		I iter1 = begin();
 		I2 iter2 = other.begin();
-		while (iter2 != other.end()) {
+		while (1) {
+			if (iter2 == other.end()) return true;
 			if (iter1 == end() || *iter1 != *iter2) return false;
 			++iter1;
 			++iter2;
@@ -254,8 +190,7 @@ public:
 			return subspan(size() - other.size()).starts_with(other);
 		}
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr bool equals(const view<I2, S2>& other) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr bool equals(const view<I2, S2>& other) const {
 		if (Infinite || view<I2, S2>::Infinite) return false;
 		I iter1 = begin();
 		I2 iter2 = other.begin();
@@ -266,14 +201,12 @@ public:
 		}
 		return iter2 == other.end();
 	}
-	template <comparable_iter_I<I> I2, typename S2>
-	constexpr bool operator==(const view<I2, S2>& other) const {
+	template <comparable_iter_I<I> I2, typename S2> constexpr bool operator==(const view<I2, S2>& other) const {
 		return equals(other);
 	}
 
 	template <typename Derived> constexpr auto& operator[](this Derived self, idx_t index) {
-		kassert(DEBUG_ONLY, WARNING, Infinite || index < (idx_t)self.size(),
-				"Out of bounds access to view.");
+		kassert(DEBUG_ONLY, WARNING, Infinite || index < (idx_t)self.size(), "Out of bounds access to view.");
 		return *from(self.begin(), index);
 	}
 	template <convertible_iter_I<I> I2, typename S2>
@@ -296,11 +229,12 @@ public:
 			*iter1 = *iter2;
 		}
 	}
-	template <std::convertible_to<T> R> constexpr void fill(const R& val) {
+	template <std::convertible_to<T> R> constexpr void fill(R&& val) {
 		if constexpr (std::same_as<std::make_unsigned_t<std::remove_cv_t<R>>, uint8_t>) {
 			memset(begin(), val, size());
-		} else
-			fill(view(&val, &val + 1));
+		} else {
+			for (I i = begin(); i != end(); ++i) *i = std::forward<R>(val);
+		}
 	}
 
 	template <typename F, typename R> R fold(const F& f, const R& r) {
@@ -310,10 +244,9 @@ public:
 	}
 
 	template <typename T2>
-		requires(!Infinite &&
-				 (sizeof(T) == 1 || sizeof(T2) == 1)) // Type aliasing required to not be UB for now
+		requires(!Infinite && (sizeof(T) == 1 || sizeof(T2) == 1)) // Type aliasing required to not be UB for now
 	constexpr view<T2*> reinterpret_as() const {
-		return view<T2*>((T2*)(void*)begin(), (T2*)(void*)end());
+		return view<T2*>((T2*)begin(), (T2*)end());
 	}
 };
 
@@ -321,11 +254,15 @@ template <typename T> class span : public view<T*, T*> {
 public:
 	using value_type = T;
 	using view<T*, T*>::view;
+	constexpr span(std::initializer_list<T> list)
+		: span(list.begin(), list.end()) {}
 };
 template <typename T> class span<const T> : public view<const T*, const T*> {
 public:
 	using value_type = const T;
 	using view<const T*, const T*>::view;
+	constexpr span(std::initializer_list<T> list)
+		: span(list.begin(), list.end()) {}
 };
 template <typename T> class ispan : public view<T*, std::unreachable_sentinel_t> {
 public:
@@ -342,6 +279,10 @@ template <container C> view(C&) -> view<container_iterator_t<C>>;
 template <container C> view(const C&) -> view<container_const_iterator_t<C>>;
 template <typename T> view(T*) -> view<T*, std::unreachable_sentinel_t>;
 
+template <typename I> span(const I&, const I&) -> span<decltype(*std::declval<I>())>;
+template <container C> span(C&) -> span<std::remove_reference_t<decltype(*std::declval<container_iterator_t<C>>())>>;
+template <container C>
+span(const C&) -> span<std::remove_reference_t<decltype(*std::declval<container_const_iterator_t<C>>())>>;
 template <typename T> span(T*, T*) -> span<T>;
 template <typename T> span(T*, idx_t) -> span<T>;
 template <typename T> ispan(T*) -> ispan<T>;

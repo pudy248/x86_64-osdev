@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
+#include <kstring.hpp>
+#include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
@@ -27,7 +29,7 @@ enum TCP_OPTS {
 };
 }
 
-struct tcp_flags {
+struct alignas(2) tcp_flags {
 	uint16_t reserved : 4;
 	uint16_t data_offset : 4;
 	uint16_t fin : 1;
@@ -42,21 +44,22 @@ struct tcp_flags {
 	tcp_flags(uint16_t f);
 };
 
-struct [[gnu::packed]] tcp_header {
+struct tcp_header {
 	uint16_t src_port;
 	uint16_t dst_port;
 	uint32_t seq_num;
 	uint32_t ack_num;
-	alignas(2) tcp_flags flags;
+	tcp_flags flags;
 	uint16_t window_size;
 	uint16_t checksum;
 	uint16_t urgent;
 };
 
-struct tcp_packet {
+struct tcp_info : ipv4_info {
 	uint16_t flags;
-	net_buffer_t buf;
 };
+using tcp_packet = packet<tcp_info>;
+
 struct tcp_fragment_partial {
 	uint32_t start_seq = 0;
 	uint32_t end_seq = 0;
@@ -86,8 +89,6 @@ struct tcp_connection {
 
 	tcp_connection() = default;
 
-	void listen(uint16_t port);
-	void connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port);
 	tcp_async_t send(tcp_fragment&& p);
 	void await_packet(std::size_t target_count);
 	tcp_fragment recv();
@@ -117,8 +118,7 @@ public:
 
 	tcp_input_iterator() = default;
 	tcp_input_iterator(tcp_conn_t conn);
-	tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index,
-					   std::size_t fragment_offset);
+	tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index, std::size_t fragment_offset);
 	uint8_t& operator*() const;
 	tcp_input_iterator& operator+=(int);
 	bool operator==(const tcp_input_iterator& other) const;
@@ -129,15 +129,16 @@ struct tcp_sentinel {
 	bool operator==(const tcp_input_iterator& other) const;
 };
 using tcp_istream = basic_istream<uint8_t, tcp_input_iterator, tcp_sentinel>;
+using tcp_istringstream = basic_istringstream<char, cast_iterator<tcp_input_iterator, char>, tcp_sentinel>;
 
 extern vector<tcp_conn_t> open_connections;
 
 net_buffer_t tcp_new(std::size_t data_size);
-void tcp_receive(struct ipv4_packet packet);
+void tcp_receive(ipv4_packet packet);
 net_async_t tcp_transmit(tcp_conn_t conn, tcp_packet packet);
 
-tcp_conn_t tcp_create();
 tcp_conn_t tcp_accept(uint16_t port);
+tcp_conn_t tcp_connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port);
 void tcp_destroy(tcp_conn_t conn);
 
 void tcp_await(tcp_async_t);

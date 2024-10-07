@@ -14,19 +14,19 @@
 #include <sys/global.hpp>
 #include <sys/memory/paging.hpp>
 
-vector<debug_symbol> symbol_table;
+vector<debug_symbol, mmap_allocator> symbol_table;
 static bool is_enabled = false;
 
 bool tags_enabled() { return globals->tag_allocs; }
 void debug_init() {
-	new (&globals->heap_allocations) vector<heap_tag, waterline_allocator>(
-		1000, waterline_allocator(mmap(0, 0x100000, 0, 0), 0x100000));
+	new (&globals->heap_allocations)
+		vector<heap_tag, waterline_allocator>(1000, waterline_allocator(mmap(0, 0x100000, 0, 0), 0x100000));
 	//globals->tag_allocs = true;
 }
 
+void* __walloc(uint64_t size, uint16_t alignment);
+
 void load_debug_symbs(const char* filename) {
-	bool old_tag = globals->tag_allocs;
-	globals->tag_allocs = false;
 	fat_file f = file_open(filename);
 	kassert(DEBUG_ONLY, WARNING, f.inode, "Failed to open file.");
 	if (!f.inode) return;
@@ -53,7 +53,7 @@ void load_debug_symbs(const char* filename) {
 		symb.size = str.read_x();
 		str.read_c();
 		rostring tmp = str.read_until_v('\n');
-		char* name = (char*)walloc(tmp.size() + 1, 0x10);
+		char* name = (char*)__walloc(tmp.size() + 1, 0x10);
 		memcpy(name, tmp.begin(), tmp.size());
 		name[tmp.size()] = 0;
 		symb.name = name;
@@ -62,7 +62,6 @@ void load_debug_symbs(const char* filename) {
 		symbol_table.append(symb);
 		//qprintf<1024>("%08x %04x %10s\n", symb.addr, symb.size, symb.name);
 	}
-	globals->tag_allocs = old_tag;
 	is_enabled = true;
 }
 
@@ -123,8 +122,7 @@ void stacktrace::print() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (uint32_t i = 0; i < num_ptrs; i++) {
 		debug_symbol* nearest = nearest_symbol(ptrs.at(i).ret);
-		qprintf<512>("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret, ptrs.at(i).rbp,
-					 nearest ? nearest->name : "(none)");
+		qprintf<512>("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret, ptrs.at(i).rbp, nearest ? nearest->name : "(none)");
 	}
 	::print("\n");
 }
@@ -155,6 +153,6 @@ void tag_dump() {
 	for (const heap_tag& tag : globals->heap_allocations) {
 		qprintf<64>("Allocation %p (%i bytes)\n", tag.ptr, tag.size);
 		tag.alloc_trace.print();
-		wait_until_kbhit();
+		delay(units::seconds{ 3. });
 	}
 }

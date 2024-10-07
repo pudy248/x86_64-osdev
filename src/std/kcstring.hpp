@@ -1,5 +1,5 @@
 #pragma once
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 
 constexpr int strlen(const char* str) {
 	int i = 0;

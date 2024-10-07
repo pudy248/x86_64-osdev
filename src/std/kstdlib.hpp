@@ -33,6 +33,7 @@ template <std::size_t A = 1> void bzero(void* __restrict dest, uint64_t size) {
 void mem_init();
 [[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment);
 [[gnu::returns_nonnull, gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment = 0x10);
+[[gnu::returns_nonnull, gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment = 0x10);
 void kfree(void* ptr);
 
 extern uint64_t waterline;

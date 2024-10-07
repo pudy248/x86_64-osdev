@@ -1,7 +1,7 @@
 CompileFlags: # Tweak the parse settings
   Add: 
-    - "--include-directory=/mnt/c/Users/riesp/Desktop/dev-work/osdev/include"
-    - "--include-directory=/mnt/c/Users/riesp/Desktop/dev-work/osdev/include/std"
+    - "--include-directory=/mnt/c/Users/riesp/Desktop/dev-work/osdev/src"
+    - "--include-directory=/mnt/c/Users/riesp/Desktop/dev-work/osdev/src/std"
     - "--std=c++23"
     - "-Wall"
     - "-Wextra"

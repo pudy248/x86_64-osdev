@@ -45,7 +45,6 @@ stage1_main:
     jmp 0x18:LongMode             ; Load CS with 64 bit segment and flush the instruction cache
 
 bits 64
-
 LongMode:
     mov ax, 0x20
     mov ds, ax
@@ -54,9 +53,12 @@ LongMode:
     mov gs, ax
     mov ss, ax
     
-    mov rsp, 0x1ffff0
+    mov rsp, 0x1fffe0
     mov rbp, rsp
     mov qword [rbp], 0
+    mov qword [rbp + 8], 0
+    mov qword [rbp + 16], 0
+    mov qword [rbp + 24], 0
 
     ; Blank out the screen to a blue color.
     mov edi, 0xB8000
@@ -80,7 +82,7 @@ LongMode:
     call enable_avx
     
     call stage2_main
-    sub rsp, 8
+    add rsp, 8
     jmp rax
 
 enable_sse:

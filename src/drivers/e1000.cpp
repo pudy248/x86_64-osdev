@@ -18,9 +18,7 @@ constexpr bool copy_tx = true;
 static void e1000_write(uint16_t addr, uint32_t val) {
 	((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2] = val;
 }
-static uint32_t e1000_read(uint16_t addr) {
-	return ((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2];
-}
+static uint32_t e1000_read(uint16_t addr) { return ((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2]; }
 static uint16_t e1000_read_eeprom(uint8_t addr) {
 	uint32_t tmp;
 	tmp = (uint32_t)addr << 8;
@@ -31,8 +29,7 @@ static uint16_t e1000_read_eeprom(uint8_t addr) {
 		tmp = e1000_read(E1000_REG::EERD);
 		if (tmp & 0x10) break;
 		if (i > 1000) {
-			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD),
-						e1000_read(E1000_REG::EERD));
+			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
 			inf_wait();
 		}
 	}
@@ -44,21 +41,17 @@ static void e1000_link() {
 	link_fn();
 }
 
-void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
-				void (*link_callback)(void)) {
+void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), void (*link_callback)(void)) {
 	globals->e1000 = waterline_new<e1000_handle>();
-	globals->e1000->rx_descs =
-		(e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
-	globals->e1000->tx_descs =
-		(e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
+	globals->e1000->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
+	globals->e1000->tx_descs = (e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
 
 	receive_fn = receive_callback;
 	link_fn = link_callback;
 	globals->e1000->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
 	globals->e1000->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
 
-	mprotect((void*)globals->e1000->mmio_base, 0x20000, PAGE_WT,
-			 MAP_PHYSICAL | MAP_PINNED | MAP_NEW);
+	mprotect((void*)globals->e1000->mmio_base, 0x20000, PAGE_WT, MAP_PHYSICAL | MAP_PINNED | MAP_NEW);
 	pci_enable_mem(e1000_pci.address);
 	printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);
 
@@ -129,13 +122,14 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 	e1000_write(E1000_REG::RXDESCHD, 0);
 	e1000_write(E1000_REG::RXDESCTL, E1000_NUM_RX_DESC);
 	globals->e1000->rx_cur = 0;
-	e1000_write(E1000_REG::RCTRL, E1000_RCTL::EN | E1000_RCTL::SBP | E1000_RCTL::UPE |
-									  E1000_RCTL::MPE | E1000_RCTL::RDMTS_H | E1000_RCTL::BAM |
-									  E1000_RCTL::SECRC | E1000_BUFSIZE_FLAGS);
+	e1000_write(E1000_REG::RCTRL, E1000_RCTL::EN | E1000_RCTL::SBP | E1000_RCTL::UPE | E1000_RCTL::MPE |
+									  E1000_RCTL::RDMTS_H | E1000_RCTL::BAM | E1000_RCTL::SECRC | E1000_BUFSIZE_FLAGS);
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-		globals->e1000->tx_descs[i].addr = (uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);;
+		globals->e1000->tx_descs[i].addr =
+			(uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);
+		;
 		globals->e1000->tx_descs[i].cmd = 0;
 		globals->e1000->tx_descs[i].status = E1000_TSTA::DD;
 	}
@@ -147,12 +141,11 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
 	globals->e1000->tx_tail = 0;
 	globals->e1000->tx_head = 0;
 	if (e1000_pci.device_id == 0x100E)
-		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP |
-										  (15 << E1000_TCTL::CTSHIFT) |
+		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) |
 										  (64 << E1000_TCTL::CTCSHIFT) | E1000_TCTL::RTLC);
 	else
-		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP |
-										  (15 << E1000_TCTL::CTSHIFT) | 63 << E1000_TCTL::CTCSHIFT | 3 << 28);
+		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) |
+										  63 << E1000_TCTL::CTCSHIFT | 3 << 28);
 	e1000_write(E1000_REG::TXDCTL, 1 << 24);
 	e1000_write(E1000_REG::TIPG, 0x0060200A);
 
@@ -185,32 +178,22 @@ static void e1000_int_handler(uint64_t, register_file*) {
 	if (status & 0x40) {
 		print("RXO\n");
 		printf("  RCTRL %08x\n", e1000_read(E1000_REG::RCTRL));
-		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD),
-			   e1000_read(E1000_REG::RXDESCTL));
-		printf("  RX0 ADDR %08x STATUS %02x\n", globals->e1000->rx_descs->addr,
-			   globals->e1000->rx_descs->status);
+		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
+		printf("  RX0 ADDR %08x STATUS %02x\n", globals->e1000->rx_descs->addr, globals->e1000->rx_descs->status);
 	}
 	if (status & 0x80) e1000_receive();
 }
 
 void e1000_receive() {
 	int tail = e1000_read(E1000_REG::RXDESCTL);
-	//printf("%02i:%02i\n", tail, head);
 	uint16_t old_cur = tail;
-	//double t1 = timepoint().unix_seconds();
 	while (globals->e1000->rx_descs[globals->e1000->rx_cur].status & 0x1) {
-		//printf("Reading %i\n", globals->e1000->rx_cur);
 		uint8_t* buf = (uint8_t*)globals->e1000->rx_descs[globals->e1000->rx_cur].addr;
 		uint16_t len = globals->e1000->rx_descs[globals->e1000->rx_cur].length;
-		uint8_t* newBuf = new uint8_t[len];
-		memcpy(newBuf, buf, len);
-		//double t2 = timepoint().unix_seconds();
-		//printf("Done reading %i in %fms\n", globals->e1000->rx_cur, (t2 - t1) * 1000);
-		//t1 = t2;
+		receive_fn({ buf, buf, len });
 		globals->e1000->rx_descs[globals->e1000->rx_cur].status = 0;
 		old_cur = globals->e1000->rx_cur;
 		globals->e1000->rx_cur = (globals->e1000->rx_cur + 1) % E1000_NUM_RX_DESC;
-		receive_fn({ newBuf, newBuf, len });
 	}
 	e1000_write(E1000_REG::RXDESCTL, old_cur);
 }
@@ -221,8 +204,8 @@ int e1000_send_async(net_buffer_t buf) {
 	if constexpr (copy_tx) {
 		memcpy((void*)globals->e1000->tx_descs[handle].addr, buf.data_begin, buf.data_size);
 		kfree(buf.frame_begin);
-	}
-	else globals->e1000->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
+	} else
+		globals->e1000->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
 	globals->e1000->tx_descs[handle].length = buf.data_size;
 
 	globals->e1000->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;

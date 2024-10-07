@@ -24,13 +24,13 @@ void keyboard_irq(uint64_t, struct register_file*) {
 	uint8_t status = inb(0x64);
 	if ((status & 1) == 0) return;
 	uint8_t key = inb(0x60);
-	//if (key == 0x3b) tag_dump();
-	//if (key == 0x3c) globals->fat_data.root_directory.inode->purge();
-	if (key == 0x3d) inline_stacktrace();
+	if (key == 0x3b) inline_stacktrace(); // f1
+	if (key == 0x3c) tag_dump();
 
 	keyboardInput.loopqueue[keyboardInput.pushIdx] = key;
 	keyboardInput.pushIdx = (keyboardInput.pushIdx + 1) % 256;
-	globals->g_console->putchar(key_to_ascii(key));
+	char c = key_to_ascii(key);
+	if (c) putchar(c);
 }
 
 uint8_t update_modifiers(uint8_t key) {

@@ -2,9 +2,6 @@ bits 16
 
 %define DISK_SIZE_MB 8
 
-%define SRC_DISK 0x80
-%define DEST_DISK 0x81
-
 org 0x7c00
 
 start:
@@ -18,18 +15,29 @@ start:
 
     ;call print_byte
 
-    mov si, startstr
+    mov si, str1
+    call print_str
+    xor ax, ax
+    int 0x16
+    cmp al, '2'
+    jne .L1
+    mov dl, byte [SRC_DISK]
+    xchg dl, byte [DEST_DISK]
+    mov byte [SRC_DISK], dl
+    .L1:
+
+    mov si, str2
     call print_str
 
     mov si, drive_packet
     loop_start:
         xor al, al
         mov ah, 0x42
-        mov dl, SRC_DISK
+        mov dl, byte [SRC_DISK]
         int 0x13
         jc handle_err
         dec word [drive_lba]
-        mov dl, DEST_DISK
+        mov dl, byte [DEST_DISK]
         mov ah, 0x43
         int 0x13
         jc handle_err
@@ -38,19 +46,19 @@ start:
     jnz loop_start
     loop_end:
 
-    ;mov si, endstr
-    ;call print_str
+    mov si, str3
+    call print_str
 
     reboot:
     ;pause for keypress
     xor ax, ax
-    ;int 0x16
+    int 0x16
     ;reboot
     int 0x19
 
 handle_err:
     push ax
-    mov si, errstr
+    mov si, strerr
     call print_str
     pop dx
     call print_word
@@ -111,10 +119,14 @@ drive_packet:
         dd 1
         dd 0
 
+SRC_DISK: db 0x80
+DEST_DISK: db 0x81
+
 hexTable: db "0123456789ABCDEF"
-startstr: db "Flashing USB contents to next available disk...", 0xa, 0xd, 0
-endstr: db "Write complete. Remove source media and press any key to continue...", 0xa, 0xd, 0
-errstr: db "A disk error has occured: ", 0
+str1: db "Press 1 to write, 2 to read.", 0xa, 0xd, 0
+str2: db "Flashing USB contents...", 0xa, 0xd, 0
+str3: db "Write complete. Remove source media and press any key to continue...", 0xa, 0xd, 0
+strerr: db "A disk error has occured: ", 0
 
 ; =============================================================
 ; Partition table is required on real hardware!!!

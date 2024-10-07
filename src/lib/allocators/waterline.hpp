@@ -73,21 +73,25 @@ public:
 	bool contains(ptr_t ptr) { return ptr >= this && ptr < this + 1; }
 	uint64_t mem_used() { return waterline; }
 
-	ptr_t alloc(uint64_t size, uint16_t _ = 0x10) {
+	ptr_t alloc(uint64_t size, uint16_t = 0x10) {
 		kassert(DEBUG_ONLY, WARNING, !waterline,
 				"Array allocator does not support multiple allocations.");
 		kassert(DEBUG_ONLY, WARNING, size <= N, "Array allocator overflow.");
 		waterline += size;
 		return &arr;
 	}
-	void dealloc(ptr_t ptr, uint64_t _ = 0) {
+	void dealloc(ptr_t ptr, uint64_t = 0) {
 		kassert(DEBUG_ONLY, ERROR, ptr == this,
 				"Tried to free pointer out of range of array allocator.");
 		waterline = 0;
 	}
-	ptr_t realloc(ptr_t ptr, uint64_t size, uint64_t new_size, uint16_t _ = 0x10) {
+	ptr_t realloc(ptr_t ptr, uint64_t size, uint64_t new_size, uint16_t = 0x10) {
 		dealloc(ptr, size);
-		alloc(ptr, new_size);
-		return ptr;
+		return alloc(new_size);
+	}
+	template <typename Derived> ptr_t move(this Derived& self, Derived& other, ptr_t other_ptr) {
+		kassert(DEBUG_ONLY, ERROR, !other_ptr || other_ptr == &other,
+				"Tried to move pointer out of range of array allocator.");
+		return &self.arr;
 	}
 };

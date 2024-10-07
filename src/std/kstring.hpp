@@ -31,6 +31,9 @@ public:
 	constexpr basic_string(const view<I2, S2>& other)
 		: view<I, S>(other.begin(), other.end()) {}
 
+	constexpr operator span<const CharT>() const { return span<const CharT>(this->begin(), this->end()); }
+	constexpr operator span<CharT>() { return span<CharT>(this->begin(), this->end()); }
+
 	constexpr basic_string(const I& cstr)
 		: view<I, S>(cstr, striend(cstr)) {}
 
@@ -61,8 +64,7 @@ public:
 
 constexpr rostring operator""_RO(cstr_t literal, uint64_t) { return rostring(literal); }
 
-template <typename CharT, iterator_of<CharT> I>
-class basic_ostringstream : public basic_ostream<CharT, I> {
+template <typename CharT, iterator_of<CharT> I> class basic_ostringstream : public basic_ostream<CharT, I> {
 public:
 	using basic_ostream<CharT, I>::basic_ostream;
 
@@ -72,9 +74,8 @@ public:
 		kassert(DEBUG_VERBOSE, ERROR, dat.begin(), "Null string.");
 		for (CharT c : dat) write(c);
 	}
-	void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ',
-				bool enforce_width = false, CharT* letters = "0123456789ABCDEF",
-				bool is_signed = true) {
+	void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ', bool enforce_width = false,
+				CharT* letters = "0123456789ABCDEF", bool is_signed = true) {
 		if (is_signed && n < 0) {
 			write('-');
 			writei(-n, max(field_width - 1, 1), radix, enforce_width, lead_char, letters, false);

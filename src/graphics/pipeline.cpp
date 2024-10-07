@@ -6,7 +6,7 @@
 #include <graphics/pipeline.hpp>
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 

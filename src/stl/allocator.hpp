@@ -42,8 +42,12 @@ public:
 		self.dealloc(ptr);
 		return new_alloc;
 	}
+	template <typename Derived> ptr_t move(this Derived&, Derived&, ptr_t other_ptr) {
+		return other_ptr;
+	}
 	void destroy() {}
 };
+template <typename T> using default_allocator_t = default_allocator;
 
 template <allocator T> class allocator_reference : public default_allocator {
 public:
@@ -55,6 +59,16 @@ public:
 	void dealloc(allocator_traits<T>::ptr_t ptr) { ref.dealloc(ptr); }
 };
 template <allocator T> class allocator_traits<allocator_reference<T>> {
+public:
+	using ptr_t = allocator_traits<T>::ptr_t;
+};
+
+template <allocator T, T& Ref> class static_allocator_reference : public default_allocator {
+public:
+	allocator_traits<T>::ptr_t alloc(uint64_t size) { return Ref.alloc(size); }
+	void dealloc(allocator_traits<T>::ptr_t ptr) { Ref.dealloc(ptr); }
+};
+template <allocator T, T& Ref> class allocator_traits<static_allocator_reference<T, Ref>> {
 public:
 	using ptr_t = allocator_traits<T>::ptr_t;
 };

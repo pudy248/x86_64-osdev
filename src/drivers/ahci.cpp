@@ -84,14 +84,13 @@ void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 	while (*(volatile uint32_t*)&dev.port->tfd & 0x84);
 	dev.port->ci |= 1;
 	//print("3\n");
-	while ((*(volatile uint32_t*)&dev.port->ci & 1) &&
-		   !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
+	while ((*(volatile uint32_t*)&dev.port->ci & 1) && !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
 		//printf("Write: %08x %08x\n", dev.port->cmd, dev.port->serr); //4017 800
 	}
 	if (dev.port->is & 0x40000000) print("Disk read error!\n");
 }
 
-void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
+void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, const void* buffer) {
 	uint32_t slots = dev.port->sact | dev.port->ci;
 	int slot;
 	for (slot = 0; slot < 32; slot++)

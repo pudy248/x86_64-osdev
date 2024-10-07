@@ -1,13 +1,11 @@
 #pragma once
 #include <cstdint>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 
 namespace ARP {
 enum ARP_CONSTANTS {
-	OP_REQUEST = 1,
-	OP_RESPONSE,
 	TYPE_PROBE = 1,
 	TYPE_REPLY_PROBE,
 	TYPE_REQUEST,
@@ -40,10 +38,13 @@ struct arp_entry {
 
 extern vector<arp_entry> arp_table;
 
-void arp_receive(ethernet_packet packet);
+void arp_process(eth_packet packet);
 net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target);
-void arp_announce(ipv4_t ip);
 
 void arp_update(mac_t mac, ipv4_t ip);
 ipv4_t arp_translate_mac(mac_t mac);
 mac_t arp_translate_ip(ipv4_t ip);
+
+net_async_t arp_whois(mac_t mac);
+net_async_t arp_whois(ipv4_t ip);
+net_async_t arp_announce(ipv4_t ip);

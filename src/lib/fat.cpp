@@ -109,8 +109,7 @@ struct fat_dir_ent {
 #define FAT_TABLE_CHAIN_STOP 0x0ffffff8
 
 static uint64_t cluster_lba(uint32_t cluster) {
-	return (uint64_t)(cluster - 2) * globals->fat_data.sectors_per_cluster +
-		   globals->fat_data.cluster_lba_offset;
+	return (uint64_t)(cluster - 2) * globals->fat_data.sectors_per_cluster + globals->fat_data.cluster_lba_offset;
 }
 static uint32_t count_consecutive_clusters(uint32_t cluster) {
 	uint32_t c = cluster;
@@ -135,40 +134,33 @@ void fat_init() {
 	kassert(ALWAYS_ACTIVE, ERROR, i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
 	fat32_bpb* bpb = new fat32_bpb();
 	read_disk(bpb, partTable->entries[i].lba_start, 1);
-	kassert(ALWAYS_ACTIVE, ERROR, bpb->signature == SIG_BPB_FAT32,
-			"Partition not recognized as FAT32.\n");
+	kassert(ALWAYS_ACTIVE, ERROR, bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
 
 	globals->fat_data.sectors_per_cluster = bpb->sectors_per_cluster;
 	globals->fat_data.bytes_per_sector = bpb->bytes_per_sector;
-	globals->fat_data.bytes_per_cluster =
-		globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
+	globals->fat_data.bytes_per_cluster = globals->fat_data.bytes_per_sector * globals->fat_data.sectors_per_cluster;
 	globals->fat_data.cluster_lba_offset =
-		partTable->entries[i].lba_start +
-		(bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
+		partTable->entries[i].lba_start + (bpb->reserved_sectors + bpb->fat_tables * bpb->sectors_per_fat32);
 
 	//bpb->fat_tables = 1;
 
 	new (&globals->fat_data.fat_tables) vector<uint32_t*>(1);
 	for (int i = 0; i < bpb->fat_tables; i++) {
-		globals->fat_data.fat_tables.append(
-			(uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
+		globals->fat_data.fat_tables.append((uint32_t*)walloc(bpb->sectors_per_fat32 * bpb->bytes_per_sector, 0x10));
 		read_disk(globals->fat_data.fat_tables[i],
-				  partTable->entries[i].lba_start +
-					  (bpb->reserved_sectors + i * bpb->sectors_per_fat32),
+				  partTable->entries[i].lba_start + (bpb->reserved_sectors + i * bpb->sectors_per_fat32),
 				  bpb->sectors_per_fat32);
 	}
 
-	new (&globals->fat_data.root_directory)
-		fat_file(new fat_inode(bpb->root_dir_entries * 32,
-							   FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
-							   NULL, bpb->root_cluster_num));
+	new (&globals->fat_data.root_directory) fat_file(
+		new fat_inode(bpb->root_dir_entries * 32, FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
+					  NULL, bpb->root_cluster_num));
 	globals->fat_data.root_directory.inode->filename = "ROOT"_RO;
 	new (&globals->fat_data.working_directory) fat_file(globals->fat_data.root_directory);
 	delete bpb;
 }
 
-fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent,
-					 uint32_t start_cluster)
+fat_inode::fat_inode(uint32_t filesize, uint8_t attributes, fat_inode* parent, uint32_t start_cluster)
 	: filesize(filesize)
 	, attributes(attributes)
 	, loaded(0)
@@ -211,19 +203,16 @@ static fat_inode* from_dir_ents(fat_inode* parent, fat_dir_ent* entries, std::si
 }
 static void* read_from_disk_layout(fat_inode* inode, std::size_t* out_sz) {
 	std::size_t cluster_idx = 0;
-	for (std::size_t i = 0; i < inode->disk_layout.size(); i++)
-		cluster_idx += inode->disk_layout.at(i).span_length;
+	for (std::size_t i = 0; i < inode->disk_layout.size(); i++) cluster_idx += inode->disk_layout.at(i).span_length;
 	std::size_t sz = cluster_idx * globals->fat_data.bytes_per_cluster;
 	if (out_sz) *out_sz = sz;
 	void* dat = kmalloc(sz);
 	cluster_idx = 0;
 	std::size_t cluster = inode->disk_layout.at(0).sector_start;
 	for (std::size_t i = 0; i < inode->disk_layout.size(); i++) {
-		std::size_t sectors =
-			inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
+		std::size_t sectors = inode->disk_layout.at(i).span_length * globals->fat_data.sectors_per_cluster;
 		std::size_t lba = cluster_lba(cluster);
-		read_disk((void*)((uint64_t)dat + cluster_idx * globals->fat_data.bytes_per_cluster), lba,
-				  sectors);
+		read_disk((void*)((uint64_t)dat + cluster_idx * globals->fat_data.bytes_per_cluster), lba, sectors);
 		cluster_idx += inode->disk_layout.at(i).span_length;
 	}
 	return dat;
@@ -234,9 +223,7 @@ void fat_inode::_add_child(fat_inode* child) {
 	memcpy(buf, &child, sizeof(fat_inode*));
 	for (size_t i = 0; i < sizeof(fat_inode*); i++) data.append(buf[i]);
 }
-fat_inode* fat_inode::_get_child(size_t idx) {
-	return view(data).reinterpret_as<fat_inode*>()[idx];
-}
+fat_inode* fat_inode::_get_child(size_t idx) { return span(data).reinterpret_as<fat_inode*>()[idx]; }
 size_t fat_inode::_num_children() { return data.size() / sizeof(fat_inode*); }
 
 void fat_inode::open() {
@@ -274,11 +261,11 @@ void fat_inode::close() {
 void fat_inode::purge() {
 	if (!loaded) return;
 	if (attributes & FAT_ATTRIBS::DIRECTORY) {
-		for (fat_inode* n : view(data).reinterpret_as<fat_inode*>()) n->purge();
+		for (fat_inode* n : span(data).reinterpret_as<fat_inode*>()) n->purge();
 	}
 	if (!references[0] && !references[1]) {
 		if (attributes & FAT_ATTRIBS::DIRECTORY) {
-			for (fat_inode* n : view(data).reinterpret_as<fat_inode*>()) delete n;
+			for (fat_inode* n : span(data).reinterpret_as<fat_inode*>()) delete n;
 		}
 		data.clear();
 		disk_layout.clear();
@@ -334,8 +321,7 @@ fat_file file_open(fat_file& directory, rostring filename) {
 	if (!directory.inode) return fat_file();
 	if (!(directory.inode->attributes & FAT_ATTRIBS::DIRECTORY)) return fat_file();
 	for (size_t i = 0; i < directory.inode->_num_children(); i++) {
-		if (directory.inode->_get_child(i)->filename == filename)
-			return fat_file(directory.inode->_get_child(i));
+		if (directory.inode->_get_child(i)->filename == filename) return fat_file(directory.inode->_get_child(i));
 	}
 	return NULL;
 }

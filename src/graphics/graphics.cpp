@@ -4,7 +4,7 @@
 #include <graphics/math.hpp>
 #include <graphics/pipeline.hpp>
 #include <graphics/vectypes.hpp>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 
 static char clip(Vec4 p) { return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0; }
 

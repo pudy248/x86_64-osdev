@@ -4,7 +4,7 @@
 
 void wait_until_kbhit();
 void inline_stacktrace();
-void print(const char*);
+void print(const char*, bool);
 void tag_dump();
 
 enum DEBUG_SEVERITY {
@@ -31,7 +31,7 @@ constexpr int DEFAULT_DEBUG_IGNORE_SEVERITY = COMMENT;
 
 #ifndef NDEBUG_LEVEL
 #define NDEBUG_LEVEL assert::DEFAULT_DEBUG_LEVEL
-#warning "User should define a debug level. Defaulting to ALWAYS_ACTIVE only."
+// #warning "User should define a debug level. Defaulting to ALWAYS_ACTIVE only."
 #endif
 
 #ifndef NDEBUG_HALT_SEVERITY
@@ -52,10 +52,10 @@ static const char* debug_severities[] = {
 
 template <bool halt>
 [[gnu::used]] static void kassert_impl(int severity, const char* location, const char* message) {
-	print(debug_severities[severity]);
-	print(location);
-	print(": ");
-	print(message);
+	print(debug_severities[severity], false);
+	print(location, false);
+	print(": ", false);
+	print(message, true);
 	inline_stacktrace();
 	for (int i = 0; i < 30000000; i++) cpu_relax();
 	tag_dump();

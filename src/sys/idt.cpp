@@ -91,8 +91,8 @@ extern "C" void handle_exception(uint64_t int_num, register_file* registers, uin
 	for (int i = 0; i < 12; i++) {
 		bool set = rflags & 1;
 		if (set && flagchars[i] != '-') {
-			globals->g_console->putchar(flagchars[i]);
-			print("F ");
+			putchar(flagchars[i], false);
+			print("F ", false);
 		}
 		rflags >>= 1;
 	}

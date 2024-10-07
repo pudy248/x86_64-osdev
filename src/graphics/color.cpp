@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <graphics/color.hpp>
 #include <graphics/vectypes.hpp>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 
 Vec3 rgb2hsl(Vec3 rgb) {
 	Vec3 result;

@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <kassert.hpp>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/allocators/heap.hpp>
@@ -24,7 +24,7 @@ void memset(void* dest, uint8_t src, uint64_t size) {
 
 void mem_init() {
 	new (&globals->global_waterline) waterline_allocator(mmap(0, 0x40000, 0, 0), 0x40000);
-	new (&globals->global_heap) heap_allocator(mmap(0, 0x10000, 0, 0), 0x10000);
+	new (&globals->global_heap) heap_allocator(mmap(0, 0x40000, 0, 0), 0x40000);
 	new (&globals->global_pagemap) slab_pagemap<16, 64>(mmap(0, 0x8000, 0, 0));
 	new (&globals->global_mmap_alloc) mmap_allocator();
 }
@@ -67,7 +67,13 @@ void __free(void* ptr) {
 	if (tags_enabled()) return tag_alloc(size, ptr);
 	return ptr;
 }
+[[gnu::returns_nonnull, gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment) {
+	void* ptr = kmalloc(size, alignment);
+	bzero<16>(ptr, size);
+	return ptr;
+}
 void kfree(void* ptr) {
+	if (!ptr) return;
 	if (tags_enabled()) tag_free(ptr);
 	__free(ptr);
 }

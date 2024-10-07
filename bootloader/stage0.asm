@@ -4,8 +4,6 @@ extern stage1_main
 
 ;PRESENT | WRITE
 %define PAGE_FLAGS 0x01 | 0x02
-%define PAGE_WRITETHROUGH 0x08
-%define PAGE_UNCACHEABLE  0x10
 %define PAGE_SIZE 128
 
 global stage0_main

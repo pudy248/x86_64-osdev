@@ -1,53 +1,66 @@
 ﻿#include <asm.hpp>
 #include <cstdint>
-#include <kstddefs.hpp>
+#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <stl/array.hpp>
 #include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
+#include <text/console.hpp>
+#include <text/text_display.hpp>
 
 struct register_file;
 
 bool do_pit_readout = false;
 
+static bool reset_tsc = false;
+
 void inc_pit(uint64_t, register_file*) {
 	globals->elapsed_pits++;
+	if (reset_tsc) [[unlikely]] {
+		globals->reference_tsc = rdtsc();
+		globals->elapsed_pits = 0;
+		reset_tsc = false;
+	}
+	if (globals->elapsed_pits == 1) [[unlikely]]
+		calibrate_frequency();
+	if (globals->elapsed_pits == 10) [[unlikely]]
+		calibrate_frequency();
+	if (globals->elapsed_pits == 100) [[unlikely]]
+		calibrate_frequency();
+	if (globals->elapsed_pits == 1000) [[unlikely]]
+		calibrate_frequency();
+
 	//Print diagnostics
 	if (do_pit_readout) {
-		int x, l, y = 0;
 		array<char, 32> arr;
+		text_layer o{ default_console() };
+		o.fill(0);
 
-		timepoint t = timepoint::pit_time_imprecise();
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "%02i:%02i:%02.3f", t.hour, t.minute,
-					t.second + t.micros / 1000000.);
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
-		y++;
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "   PT %i", fixed_globals->mapped_pages);
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
-		y++;
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    W %i", globals->global_waterline.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
-		y++;
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    H %i", globals->global_heap.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
-		y++;
-
-		x = globals->g_console->text_rect[2] - 1;
-		l = formats(arr.begin(), "    S %i", globals->global_pagemap.mem_used());
-		for (int i = l - 1; i >= 0; --i) globals->g_console->set_char(x--, y, arr[i]);
-		y++;
-
-		globals->g_console->refresh();
+		htimepoint t1(timepoint::tsc_time());
+		htimepoint t2(timepoint::pit_time_imprecise());
+		formats(arr.begin(), "TSC %02i:%02i:%02.3f\n", t1.hour, t1.minute, t1.second + t1.micros / 1000000.);
+		o.print(rostring(arr.begin()), true, o.dims[0], 0);
+		formats(arr.begin(), "PIT %02i:%02i:%02.3f\n", t2.hour, t2.minute, t2.second + t2.micros / 1000000.);
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "   PT %i\n", fixed_globals->mapped_pages);
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "    W %i\n", globals->global_waterline.mem_used());
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "    H %i\n", globals->global_heap.mem_used());
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "    S %i\n", globals->global_pagemap.mem_used());
+		o.print(rostring(arr.begin()), true);
+		o.display(default_output());
+		refresh_tty();
 	}
+}
+
+void time_init(void) {
+	globals->frequency = 3000;
+	reset_tsc = true;
+	globals->reference_timepoint = htimepoint::cmos_time();
 }
 
 static uint8_t get_cmos_register(uint8_t reg) {
@@ -55,23 +68,8 @@ static uint8_t get_cmos_register(uint8_t reg) {
 	return (uint8_t)inb(0x71);
 }
 
-static void compute_clockspeed() {
-	globals->frequency = 0;
-	for (int i = 0; i < 5; i++) {
-		double freq = clockspeed_MHz();
-		if (freq > 20000) continue;
-		globals->frequency = max(globals->frequency, freq);
-	}
-}
-
-void time_init(void) {
-	globals->reference_timepoint = timepoint::cmos_time();
-	globals->elapsed_pits = 0;
-	compute_clockspeed();
-}
-
-timepoint timepoint::cmos_time() {
-	timepoint t;
+htimepoint htimepoint::cmos_time() {
+	htimepoint t;
 	while (get_cmos_register(0x0a) & 0x80);
 	t.year = get_cmos_register(0x9);
 	t.month = get_cmos_register(0x8);
@@ -92,20 +90,8 @@ timepoint timepoint::cmos_time() {
 }
 
 static timepoint pit_time_override(uint32_t subcnt, int64_t pitcnt) {
-	timepoint t;
-	uint64_t cnt = (uint64_t)(pitcnt * 65536 + subcnt);
-	uint64_t micros_total = cnt * 1000000LLU / 1193182LLU;
-
-	uint64_t newSecond = micros_total / 1000000LLU;
-	uint32_t newMinute = newSecond / 60;
-	uint32_t newHour = newMinute / 60;
-	t.micros = micros_total % 1000000LLU;
-	t.second = newSecond % 60;
-	t.minute = newMinute % 60;
-	t.hour = newHour % 24;
-	t.day = newHour / 24;
-
-	return t;
+	units::pit_subcnts d{ (double)(pitcnt * 65536 + subcnt) };
+	return { d };
 }
 
 timepoint timepoint::pit_time() {
@@ -116,16 +102,27 @@ timepoint timepoint::pit_time() {
 }
 
 timepoint timepoint::pit_time_imprecise() { return pit_time_override(0, globals->elapsed_pits); }
-timepoint timepoint::now() { return timepoint::pit_time_imprecise(); };
+
+timepoint timepoint::tsc_time() {
+	double n = rdtsc() - globals->reference_tsc;
+	units::microseconds diff = { n / globals->frequency };
+	return { diff };
+}
+
+timepoint timepoint::now() { return timepoint::tsc_time(); };
 
 void tsc_delay(uint64_t cycles) {
 	uint64_t start = rdtsc();
 	while (rdtsc() - start < cycles);
 }
 
-void pit_delay(double seconds) {
-	double start = timepoint::pit_time().unix_seconds();
-	while (timepoint::pit_time().unix_seconds() - start < seconds);
+void pit_delay(units::seconds seconds) {
+	timepoint start = timepoint::pit_time();
+	while (timepoint::pit_time() - start < seconds) cpu_relax();
+}
+void delay(units::seconds seconds) {
+	timepoint start = timepoint::now();
+	while (timepoint::now() - start < seconds) cpu_relax();
 }
 
 /*
@@ -143,15 +140,19 @@ void print_lres_timepoint(lres_timepoint rtc, int fmt) {
 }*/
 
 int clockspeed_MHz() {
-	double t1 = timepoint::pit_time().unix_seconds();
+	timepoint t1 = timepoint::pit_time();
 	uint64_t stsc = rdtsc();
-	tsc_delay(0x1000000LLU);
-	double t2 = timepoint::pit_time().unix_seconds();
+	tsc_delay(0x3000000LLU);
+	timepoint t2 = timepoint::pit_time();
 	uint64_t etsc = rdtsc();
 
-	double eSec = (t2 - t1);
-	double freqMHz = (double)(etsc - stsc) / eSec / 1000000;
-	printf("%iMHz (%li cycles in %ius)\n", (uint32_t)freqMHz, etsc - stsc,
-		   (uint32_t)(eSec * 1000000));
+	units::microseconds eus = (t2 - t1);
+	double freqMHz = (double)(etsc - stsc) / eus.rep;
 	return freqMHz;
+}
+
+void calibrate_frequency() {
+	units::pit_cnts pit{ (double)globals->elapsed_pits };
+	uint64_t tsc = rdtsc() - globals->reference_tsc;
+	globals->frequency = tsc / units::microseconds(pit);
 }

@@ -119,8 +119,8 @@ public:
 		, _cbegin((const T* (*)(void*)) & C::static_cbegin)
 		, _end((T * (*)(void*)) & C::static_end)
 		, _cend((const T* (*)(void*)) & C::static_cend)
-		, _reserve((void (*)(void*, int)) & C::static_reserve)
-		, _size((int (*)(void*)) & C::static_size) {}
+		, _reserve((void (*)(void*, int))&C::static_reserve)
+		, _size((int (*)(void*))&C::static_size) {}
 
 	constexpr container_wrapper(T*, T*) {
 		kassert(ALWAYS_ACTIVE, ERROR, false,
@@ -136,4 +136,5 @@ public:
 	const T* cend() { return _cend(_container); }
 	void reserve(int size) { return _reserve(_container, size); }
 	int size() const { return _size(_container); }
+	constexpr bool empty() const { return !size(); }
 };
