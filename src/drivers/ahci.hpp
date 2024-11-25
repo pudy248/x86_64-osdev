@@ -145,3 +145,4 @@ void ahci_init(pci_device ahci_pci);
 void ahci_read(ahci_device dev, uint64_t LBA, uint16_t size, void* buffer);
 void ahci_write(ahci_device dev, uint64_t LBA, uint16_t size, const void* buffer);
 void read_disk(void* address, uint32_t lbaStart, uint16_t lbaCount);
+void write_disk(void* address, uint32_t lbaStart, uint16_t lbaCount);

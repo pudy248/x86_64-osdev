@@ -7,8 +7,10 @@
 #include <stl/bitset.hpp>
 
 //slab size, page size (actually allocator size)
-template <std::size_t SS, std::size_t PS> class slab_allocator;
-template <std::size_t SS, std::size_t PS> class allocator_traits<slab_allocator<SS, PS>> {
+template <std::size_t SS, std::size_t PS>
+class slab_allocator;
+template <std::size_t SS, std::size_t PS>
+class allocator_traits<slab_allocator<SS, PS>> {
 public:
 	using ptr_t = void*;
 };
@@ -21,12 +23,12 @@ public:
 	constexpr static std::size_t SLAB_COUNT = ((PS - 8) * 8 / (SS * 8 + 1));
 	constexpr static std::size_t EXTRA_BYTES = ((PS - 8) * 8 - SLAB_COUNT * (SS * 8 + 1)) / 8;
 	bitset<SLAB_COUNT> bits;
-	uint8_t padding[EXTRA_BYTES];
+	std::byte padding[EXTRA_BYTES];
 
 	uint32_t num_allocs = 0;
 	uint32_t ring_index = 0;
 	struct {
-		uint8_t bytes[SS];
+		std::byte bytes[SS];
 	} slabs[SLAB_COUNT];
 
 protected:
@@ -37,12 +39,11 @@ public:
 	uint64_t mem_used() { return SS * (num_allocs); }
 
 	ptr_t alloc(uint64_t size) {
-		kassert(DEBUG_ONLY, ERROR, !size || size == SS,
-				"Attempted to allocate slab of incorrect size.");
-		kassert(DEBUG_ONLY, ERROR, num_allocs < SLAB_COUNT,
-				"Attempted to allocate slab from full allocator.");
+		kassert(DEBUG_ONLY, ERROR, !size || size == SS, "Attempted to allocate slab of incorrect size.");
+		kassert(DEBUG_ONLY, ERROR, num_allocs < SLAB_COUNT, "Attempted to allocate slab from full allocator.");
 		for (;; ring_index = (ring_index + 1) % SLAB_COUNT) {
-			if (!bits[ring_index]) break;
+			if (!bits[ring_index])
+				break;
 		}
 		bits.flip(ring_index);
 		num_allocs++;

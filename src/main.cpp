@@ -6,9 +6,11 @@
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
 #include <kassert.hpp>
+#include <kfile.hpp>
 #include <kstdio.hpp>
 #include <kstring.hpp>
-#include <lib/fat.hpp>
+#include <lib/cmd/commandline.hpp>
+#include <lib/filesystems/fat.hpp>
 #include <lib/profile.hpp>
 #include <net/arp.hpp>
 #include <net/dhcp.hpp>
@@ -34,8 +36,11 @@ static void http_main() {
 		net_fwdall();
 		{
 			tcp_conn_t c = tcp_accept(80);
-			if (!c) c = tcp_accept(8080);
-			if (c) { conns.append(c); }
+			if (!c)
+				c = tcp_accept(8080);
+			if (c) {
+				conns.append(c);
+			}
 		}
 		for (std::size_t i = 0; i < conns.size(); i++) {
 			tcp_conn_t conn = conns.at(i);
@@ -47,9 +52,9 @@ static void http_main() {
 			}
 			if (conn->received_packets.size()) {
 				tcp_istream stream({ conn }, { conn });
-				vector<uint8_t> http_packet =
-					stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>("\r\n\r\n"_RO, true);
-				rostring s = span(http_packet).reinterpret_as<char>();
+				auto v = stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>("\r\n\r\n"_RO, true);
+				vector<char> http_packet{ v.begin(), v.end() };
+				rostring s = http_packet;
 				printf("%S\n", &s);
 				if (http_process(conn, s)) {
 					conn->close();
@@ -72,8 +77,11 @@ static void dhcp_main() {
 	tcp_conn_t conn = tcp_connect(ip, 54321, HTTP_PORT);
 	http_response r = http_req_get(conn, s);
 	conn->close();
+	tcp_destroy(conn);
 	printf("[HTTP] GET / from %S returned code %i and %i bytes.\n", &s, r.code, r.content.size());
-	while (1) net_fwdall();
+	r = {};
+	while (1)
+		net_fwdall();
 }
 
 static void graphics_main() {
@@ -91,8 +99,8 @@ static void graphics_main() {
 
 	uint32_t vi = 0;
 	uint32_t ti = 0;
-	fat_file f = file_open("/cow.obj");
-	istringstream obj(span(f.inode->data).reinterpret_as<char>());
+	file_t f = file_open("/cow.obj"_RO);
+	istringstream obj(f.rodata());
 	while (obj.readable()) {
 		if (rostring(obj.begin(), obj.end()).starts_with("v "_RO)) {
 			obj.read_c();
@@ -169,10 +177,10 @@ static void graphics_main() {
 }
 
 static void dealloc_fat() {
-	fat_inode* tmp = globals->fat_data.root_directory.inode;
-	globals->fat_data.root_directory = fat_file();
-	globals->fat_data.working_directory = fat_file();
-	globals->fat_data.fat_tables.clear();
+	file_inode* tmp = globals->fat32->root_directory.n;
+	globals->fat32->root_directory = file_t();
+	globals->fs = {};
+	globals->fat32->fat_tables.clear();
 	tmp->purge();
 
 	delete tmp;
@@ -184,8 +192,8 @@ static void console_init() {
 }
 
 static int generator(int start) {
-	while (1) thread_switch<int>({ 0 });
-	//thread_co_yield(start++);
+	while (1)
+		thread_co_yield(start++);
 }
 
 static void thread_main() {
@@ -195,23 +203,25 @@ static void thread_main() {
 	PROFILE_LOOP(thread_switch(t), time1 = timepoint::now(), time2 = timepoint::now(), 50000000)
 	uint64_t t1, t2;
 	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
-	thread_kill(t);
+	//thread_kill(t);
 	printf("Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
 		   units::seconds(time2 - time1).rep, (t2 - t1) / 100);
+	inf_wait();
 }
 
 extern "C" void kernel_main(void) {
 	kernel_reinit();
-	globals->fat_data.root_directory.inode->purge();
+	globals->fat32->root_directory.n->purge();
 	do_pit_readout = true;
 	//inf_wait();
 
 	//graphics_main();
-	dealloc_fat();
+	//dealloc_fat();
 	//console_init();
 	//http_main();
-	dhcp_main();
+	//dhcp_main();
 	//thread_main();
+	cli_init();
 
 	//tag_dump();
 	print("Kernel reached end of execution.\n");

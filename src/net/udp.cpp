@@ -15,9 +15,11 @@ vector<uint16_t> blocked_ports_udp = vector<uint16_t>({ 7423 });
 void udp_block(uint16_t port, bool is_blocked) {
 	if (is_blocked) {
 		int idx = span(blocked_ports_udp).find(port);
-		if (idx >= 0) blocked_ports_udp.erase(idx);
+		if (idx >= 0)
+			blocked_ports_udp.erase(idx);
 	} else {
-		if (!span(blocked_ports_udp).contains(port)) blocked_ports_udp.append(port);
+		if (!span(blocked_ports_udp).contains(port))
+			blocked_ports_udp.append(port);
 	}
 }
 udp_conn_t udp_accept(uint16_t port) {
@@ -41,7 +43,7 @@ net_buffer_t udp_new(std::size_t data_size) {
 
 udp_packet udp_process(ipv4_packet p) {
 	udp_header* udp = (udp_header*)p.b.data_begin;
-	uint8_t* data = p.b.data_begin + sizeof(udp_header);
+	std::byte* data = p.b.data_begin + sizeof(udp_header);
 
 	uint16_t expected_size = htons(udp->length);
 	uint16_t actual_size = p.b.data_size;
@@ -84,7 +86,8 @@ net_async_t udp_send(udp_packet p) {
 
 bool udp_get(uint16_t port, udp_packet& out) {
 	ipv4_packet p;
-	if (!ipv4_get(p)) return false;
+	if (!ipv4_get(p))
+		return false;
 	if (p.i.protocol != IPv4::PROTOCOL_UDP) {
 		ipv4_forward(p);
 		return false;

@@ -4,13 +4,19 @@
 #include <ratio>
 #include <sys/idt.hpp>
 
-template <typename T, typename R> struct duration {
+template <typename T, typename R>
+struct duration {
 	T rep;
-	template <typename R2> constexpr operator duration<T, R2>() const {
+	template <typename R2>
+	constexpr operator duration<T, R2>() const {
 		return { rep * std::ratio_divide<R, R2>::num / std::ratio_divide<R, R2>::den };
 	}
-	template <typename T2> constexpr operator duration<T2, R>() const { return { (T2)rep }; }
-	template <typename T2, typename R2> constexpr operator duration<T2, R2>() const {
+	template <typename T2>
+	constexpr operator duration<T2, R>() const {
+		return { (T2)rep };
+	}
+	template <typename T2, typename R2>
+	constexpr operator duration<T2, R2>() const {
 		return (duration<T2, R2>)(duration<T2, R>)*this;
 	}
 	constexpr operator T() const { return rep; }
@@ -90,20 +96,24 @@ struct timepoint {
 
 	static timepoint now();
 
-	template <typename T, typename R> constexpr timepoint& operator+=(const duration<T, R>& other) {
+	template <typename T, typename R>
+	constexpr timepoint& operator+=(const duration<T, R>& other) {
 		t += other;
 		return *this;
 	}
-	template <typename T, typename R> constexpr timepoint& operator-=(const duration<T, R>& other) {
+	template <typename T, typename R>
+	constexpr timepoint& operator-=(const duration<T, R>& other) {
 		t -= other;
 		return *this;
 	}
-	template <typename T, typename R> constexpr timepoint operator+(const duration<T, R>& other) const {
+	template <typename T, typename R>
+	constexpr timepoint operator+(const duration<T, R>& other) const {
 		timepoint t = *this;
 		t += other;
 		return t;
 	}
-	template <typename T, typename R> constexpr timepoint operator-(const duration<T, R>& other) const {
+	template <typename T, typename R>
+	constexpr timepoint operator-(const duration<T, R>& other) const {
 		timepoint t = *this;
 		t -= other;
 		return t;
@@ -128,8 +138,7 @@ struct htimepoint {
 	// Mean error: 0.5sec
 	static htimepoint cmos_time();
 
-	constexpr htimepoint()
-		: htimepoint(timepoint::now()) {}
+	constexpr htimepoint() : htimepoint(timepoint::now()) {}
 	constexpr htimepoint(const timepoint& t) {
 		unitsi::microseconds total = t.t;
 		uint64_t newSecond = total.rep / 1000000LLU;

@@ -63,9 +63,9 @@ using tcp_packet = packet<tcp_info>;
 struct tcp_fragment_partial {
 	uint32_t start_seq = 0;
 	uint32_t end_seq = 0;
-	vector<uint8_t> contents;
+	vector<char> contents;
 };
-using tcp_fragment = vector<uint8_t>;
+using tcp_fragment = vector<char>;
 
 using tcp_async_t = struct tcp_connection*;
 
@@ -97,9 +97,10 @@ struct tcp_connection {
 
 using tcp_conn_t = tcp_connection*;
 
-template <> struct std::indirectly_readable_traits<struct tcp_input_iterator> {
+template <>
+struct std::indirectly_readable_traits<struct tcp_input_iterator> {
 public:
-	using value_type = uint8_t;
+	using value_type = char;
 };
 
 struct tcp_input_iterator : iterator_crtp<tcp_input_iterator> {
@@ -109,7 +110,7 @@ private:
 	tcp_fragment& cur_frag() const;
 
 public:
-	using value_type = uint8_t;
+	using value_type = char;
 	using difference_type = std::ptrdiff_t;
 
 	tcp_conn_t conn;
@@ -119,7 +120,7 @@ public:
 	tcp_input_iterator() = default;
 	tcp_input_iterator(tcp_conn_t conn);
 	tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index, std::size_t fragment_offset);
-	uint8_t& operator*() const;
+	char& operator*() const;
 	tcp_input_iterator& operator+=(int);
 	bool operator==(const tcp_input_iterator& other) const;
 	void flush();
@@ -128,7 +129,7 @@ struct tcp_sentinel {
 	tcp_conn_t conn;
 	bool operator==(const tcp_input_iterator& other) const;
 };
-using tcp_istream = basic_istream<uint8_t, tcp_input_iterator, tcp_sentinel>;
+using tcp_istream = basic_istream<char, tcp_input_iterator, tcp_sentinel>;
 using tcp_istringstream = basic_istringstream<char, cast_iterator<tcp_input_iterator, char>, tcp_sentinel>;
 
 extern vector<tcp_conn_t> open_connections;

@@ -11,7 +11,9 @@ int rand() throw() {
 
 float sqrtf(float x) {
 	float z = 1;
-	for (int i = 0; i < 10; i++) { z -= (z * z - x) / (2 * z); }
+	for (int i = 0; i < 10; i++) {
+		z -= (z * z - x) / (2 * z);
+	}
 	return z;
 }
 

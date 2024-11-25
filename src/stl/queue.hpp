@@ -7,14 +7,50 @@
 #include <type_traits>
 #include <utility>
 
-template <typename T, allocator A = default_allocator_t<T>> class queue : protected vector<T, A> {
+template <typename T>
+class queue_iterator;
+
+template <typename T>
+class std::incrementable_traits<queue_iterator<T>> {
+public:
+	using difference_type = idx_t;
+};
+template <typename T>
+class std::indirectly_readable_traits<queue_iterator<T>> {
+public:
+	using value_type = T;
+};
+
+template <typename T>
+class queue_iterator : public iterator_crtp<queue_iterator<T>> {
+public:
+	T* ptr;
+	idx_t length;
+	idx_t offset;
+
+	constexpr T& operator*() const { return ptr[offset]; }
+	constexpr operator T*() { return ptr + offset; }
+	constexpr queue_iterator& operator+=(idx_t v) {
+		offset = ((offset + v) % length + length) % length;
+		return *this;
+	}
+	constexpr idx_t operator-(const queue_iterator& other) {
+		kassert(DEBUG_ONLY, WARNING, ptr == other.ptr && length == other.length,
+				"Attempted to compare queue iterators from different objects.");
+		return ((other.offset - offset) % length + length) % length;
+	}
+};
+
+template <typename T, allocator A = default_allocator_t<T>>
+class queue : protected vector<T, A> {
 protected:
 	static constexpr std::size_t resize_ratio = 2;
 	std::size_t head = 0;
 	std::size_t tail = 0;
 
 	constexpr std::size_t inc_head() {
-		if (size() + 1 >= capacity()) reserve(max(1u, capacity()) * resize_ratio);
+		if (size() + 1 >= capacity())
+			reserve(max(1u, capacity()) * resize_ratio);
 		std::size_t h = head;
 		head = (head + 1) % this->capacity();
 		return h;
@@ -56,11 +92,13 @@ public:
 		tail = 0;
 	}
 
-	constexpr void enqueue(T&& elem) { (*this)[inc_head()] = elem; }
-	template <std::same_as<std::remove_reference_t<T>> TF> constexpr void enqueue(TF&& elem) {
+	constexpr void enqueue(T&& elem) { (*this)[inc_head()] = std::move(elem); }
+	template <std::same_as<std::remove_reference_t<T>> TF>
+	constexpr void enqueue(TF&& elem) {
 		(*this)[inc_head()] = std::forward<TF>(elem);
 	}
-	template <typename... Args> constexpr void enqueue(Args&&... args) {
+	template <typename... Args>
+	constexpr void enqueue(Args&&... args) {
 		(*this)[inc_head()] = T(std::forward<Args>(args)...);
 	}
 	constexpr T&& dequeue() { return std::move((*this)[inc_tail()]); }

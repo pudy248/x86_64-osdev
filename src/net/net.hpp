@@ -28,18 +28,20 @@ extern mac_t global_mac;
 extern ipv4_t global_ip;
 
 struct net_buffer_t {
-	uint8_t* frame_begin;
-	uint8_t* data_begin;
+	pointer<std::byte, type_cast> frame_begin;
+	pointer<std::byte, type_cast> data_begin;
 	std::size_t data_size;
 };
-template <typename T> struct packet {
+template <typename T>
+struct packet {
 	T i;
 	net_buffer_t b;
 };
 
-template <typename T, bool FL> struct tlv_option_t {
+template <typename T, bool FL>
+struct tlv_option_t {
 	T opt;
-	span<const uint8_t> value;
+	cbytespan value;
 };
 
 struct [[gnu::packed]] ethernet_header {
@@ -105,5 +107,7 @@ uint64_t net_partial_checksum(const void* data, uint16_t len);
 uint16_t net_checksum(const void* data, uint16_t len);
 uint16_t net_checksum(uint64_t partial);
 
-template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(ibinstream<>& s);
-template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, obinstream<>& s);
+template <typename T, bool FL>
+tlv_option_t<T, FL> read_tlv(ibinstream<>& s);
+template <typename T, bool FL>
+void write_tlv(const tlv_option_t<T, FL>& opt, obinstream<>& s);

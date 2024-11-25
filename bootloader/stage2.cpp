@@ -4,8 +4,9 @@
 #include <drivers/keyboard.hpp>
 #include <drivers/pci.hpp>
 #include <kassert.hpp>
+#include <kfile.hpp>
 #include <kstdlib.hpp>
-#include <lib/fat.hpp>
+#include <lib/filesystems/fat.hpp>
 #include <stl/vector.hpp>
 #include <sys/idt.hpp>
 #include <sys/init.hpp>
@@ -35,14 +36,14 @@ extern "C" void* stage2_main() {
 	//load_debug_symbs("/symbols2.txt");
 	uint64_t kernel_main;
 	{
-		fat_file kernel = file_open("/kernel.img");
+		file_t kernel = file_open("/kernel.img");
 
-		kassert(UNMASKABLE, CATCH_FIRE, kernel.inode, "Kernel image not found!\n");
-		uint64_t kernel_link_loc = ((uint64_t*)&*kernel.inode->data.begin())[0];
-		uint64_t kernel_mem_end = ((uint64_t*)&*kernel.inode->data.begin())[1];
-		kernel_main = ((uint64_t*)&*kernel.inode->data.begin())[2];
-		mprotect((void*)kernel_link_loc, kernel_mem_end - kernel_link_loc, 0, MAP_KERNEL | MAP_NEW);
-		memcpy<8>((void*)kernel_link_loc, kernel.inode->data.begin(), kernel.inode->filesize);
+		kassert(UNMASKABLE, CATCH_FIRE, kernel.n, "Kernel image not found!\n");
+		uint64_t kernel_link_loc = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[0];
+		uint64_t kernel_mem_end = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[1];
+		kernel_main = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[2];
+		mprotect(kernel_link_loc, kernel_mem_end - kernel_link_loc, 0, MAP_KERNEL | MAP_NEW);
+		kmemcpy<8>((void*)kernel_link_loc, kernel.rodata().cbegin(), kernel.n->filesize);
 	}
 
 	disable_interrupts();

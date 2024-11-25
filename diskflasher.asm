@@ -1,6 +1,6 @@
 bits 16
 
-%define DISK_SIZE_MB 8
+%define DISK_SIZE_MB 64
 
 org 0x7c00
 
@@ -143,6 +143,6 @@ partitionTable:
         sysid: db 0x00
         chs_end: db 0xff, 0xff, 0xff
         lba_start: dd 1
-        lba_size: dd 0x1000
+        lba_size: dd 0x20000
     partitions2to4: times 48 db 0
     dw 0xaa55

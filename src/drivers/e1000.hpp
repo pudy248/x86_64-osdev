@@ -135,7 +135,7 @@ struct [[gnu::packed]] e1000_tx_desc {
 	volatile uint16_t special;
 };
 
-struct e1000_handle {
+struct e1000_device {
 	uint64_t mmio_base;
 	uint16_t pio_base;
 	mac_t mac;
@@ -147,8 +147,7 @@ struct e1000_handle {
 	bool eeprom;
 };
 
-void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t),
-				void (*link_callback)(void));
+void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), void (*link_callback)(void));
 void e1000_enable();
 void e1000_pause();
 void e1000_resume();

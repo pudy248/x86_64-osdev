@@ -15,10 +15,10 @@ save_regs:
     mov qword [rsp-0x28], rdx
     mov rdx, qword [REGISTER_FILE_PTR]
     mov qword [rdx], rax
-    mov qword [rdx + 8], rbx
-    mov qword [rdx + 16], rcx
     mov rax, rdx
     mov rdx, qword [rsp-0x28]
+    mov qword [rax + 8], rbx
+    mov qword [rax + 16], rcx
     mov qword [rax + 24], rdx
     mov qword [rax + 32], rsi
     mov qword [rax + 40], rdi
@@ -117,36 +117,41 @@ restore_regs:
     ret
 
 ; frame: 
-; rsp+0x20: interrupt stack frame
-; rsp+0x18: save/rstor return address
-; rsp+0x10: int num
-; rsp+0x08: err num
-; rsp+0x00: is_fatal
-;; rsp+0x08: virtual_ret_addr
-;; rsp+0x00: virtual_rbp
+; rsp+0x30: interrupt stack frame
+; rsp+0x28: save/rstor return address
+; rsp+0x20: int num
+; rsp+0x18: err num
+; rsp+0x10: is_fatal
+; rsp+0x08: virtual_ret_addr
+; rsp+0x00: virtual_rbp
 handle_interrupt:
     call save_regs ;rax := frame ptr
-    sub rsp, 0x28
-    mov rdi, qword [rsp + 0x18]
+    sub rsp, 0x38
+    mov rdx, qword [rsp + 0x38] ; ret rip
+    mov qword [rsp + 0x00], rdx
+    mov rdx, qword [rsp + 0x50] ; ret rsp
+    mov qword [rsp + 0x08], rdx
+
+    mov rdi, qword [rsp + 0x28]
     mov rsi, rax
     mov rax, qword [isr_fns + 8 * rdi]
-    cmp rax, 0
-    je .no_interrupt_handler
+    test rax, rax
+    jz .no_interrupt_handler
         call rax
         jmp .end_handler_switch
     .no_interrupt_handler:
-        mov rdx, qword [rsp + 0x10]
-        mov rcx, qword [rsp + 0x08]
+        mov rdx, qword [rsp + 0x20]
+        mov rcx, qword [rsp + 0x18]
         call handle_exception
     .end_handler_switch:
-    mov rdi, qword [rsp + 0x18]
+    mov rdi, qword [rsp + 0x28]
     cmp rdi, 32
     jl .not_pic
     sub rdi, 32
     cli
     call pic_eoi
     .not_pic:
-    add rsp, 0x30
+    add rsp, 0x40
     call restore_regs
     iretq
 

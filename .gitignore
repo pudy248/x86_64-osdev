@@ -2,7 +2,9 @@ compile_commands.json
 tmp/*
 disk.img
 disk_2.img
+disk.hexproj
 fattener
 .cache/*
 .vscode/*
 .clangd
+disk_include_old/*

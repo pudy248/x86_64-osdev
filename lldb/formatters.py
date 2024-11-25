@@ -33,12 +33,12 @@ class VectorSynthProvider(object):
                 "[" + str(index) + "]", offset, self.data_type
             )
         except:
-            return None
+            return "Except"
 
     def update(self):
         self.count = None
         try:
-            self.arr = self.valobj.GetChildMemberWithName("m_arr")
+            self.arr = self.valobj.GetChildMemberWithName("m_arr").GetChildMemberWithName("ptr")
             self.size = self.valobj.GetChildMemberWithName("m_size")
             self.data_type = self.valobj.GetType().GetTemplateArgumentType(0)
             self.data_size = self.data_type.GetByteSize()
@@ -92,12 +92,12 @@ class VectorSynthProviderDeref(object):
                 "[" + str(index) + "]", offset, self.ptr_type
             ).Dereference()
         except:
-            return None
+            return "Except"
 
     def update(self):
         self.count = None
         try:
-            self.arr = self.valobj.GetChildMemberWithName("m_arr")
+            self.arr = self.valobj.GetChildMemberWithName("m_arr").GetChildMemberWithName("ptr")
             self.size = self.valobj.GetChildMemberWithName("m_size")
             self.ptr_type = self.valobj.type.GetTemplateArgumentType(0)
             self.ptr_size = self.ptr_type.GetByteSize()
@@ -125,7 +125,7 @@ def char_container(valobj,internal_dict,options):
     return '"' + str + '"_RO'
 
 def char_container_rw(valobj,internal_dict,options):
-    arr = valobj.GetChildMemberWithName('m_arr').Cast(valobj.target.FindFirstType("char").GetPointerType())
+    arr = valobj.GetChildMemberWithName('m_arr').GetChildMemberWithName('ptr').Cast(valobj.target.FindFirstType("char").GetPointerType())
     size_v = valobj.GetChildMemberWithName('m_size').unsigned
     str = ''
     for i in range(size_v):
@@ -175,7 +175,7 @@ class StacktraceProvider(object):
     def update(self):
         self.count = None
         self.arr = self.valobj.GetChildMemberWithName("ptrs")
-        self.arr_v = self.arr.GetChildMemberWithName("m_arr")
+        self.arr_v = self.arr.GetChildMemberWithName("m_arr").GetChildMemberWithName('ptr')
         self.size = self.valobj.GetChildMemberWithName("num_ptrs")
         self.data_type = self.arr.type.GetTemplateArgumentType(0)
         self.data_size = self.data_type.GetByteSize()

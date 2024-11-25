@@ -15,7 +15,7 @@ CFLAGS:=\
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
 -Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
--Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wglobal-constructors \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 CFLAGS_KERNEL:=-DKERNEL
 
@@ -52,7 +52,7 @@ QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-LOCAL_IP:=192.168.1.2
+LOCAL_IP:=192.168.1.203
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img
@@ -63,7 +63,7 @@ clean:
 disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp tmp/diskflasher.img
 	$(CC) fattener.cpp -o tmp/fattener
 	./tmp/fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
-	@truncate -s 64M disk.img
+	@truncate -s 80M disk.img
 	cat tmp/diskflasher.img disk.img > disk_2.img
 
 start: disk.img
@@ -75,7 +75,7 @@ start-trace: disk.img
 start-trace-2: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
 start-dbg: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null 2> /dev/null &
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null -d cpu_reset &
 	lldb -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &

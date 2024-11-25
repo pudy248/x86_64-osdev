@@ -33,8 +33,11 @@ lbl_discover:
 	timepoint t1 = timepoint::now();
 	dhcp_discover(xid, preferred_ip);
 	while (1) {
-		if (dhcp_get(DHCP_CLIENT_PORT, xid, p)) { break; }
-		if (timepoint::now() - t1 > units::seconds(5.)) goto lbl_discover;
+		if (dhcp_get(DHCP_CLIENT_PORT, xid, p)) {
+			break;
+		}
+		if (timepoint::now() - t1 > units::seconds(5.))
+			goto lbl_discover;
 	}
 	dhcp_lease l = dhcp_parse_response(p, DHCP_MTYPE::OFFER);
 	kfree(p.b.frame_begin);
@@ -42,9 +45,13 @@ lbl_request:
 	timepoint t2 = timepoint::now();
 	dhcp_request(xid, l);
 	while (1) {
-		if (dhcp_get(DHCP_CLIENT_PORT, xid, p)) { break; }
-		if (timepoint::now() - t2 > units::seconds(1.)) goto lbl_request;
-		if (timepoint::now() - t1 > units::seconds(5.)) goto lbl_discover;
+		if (dhcp_get(DHCP_CLIENT_PORT, xid, p)) {
+			break;
+		}
+		if (timepoint::now() - t2 > units::seconds(1.))
+			goto lbl_request;
+		if (timepoint::now() - t1 > units::seconds(5.))
+			goto lbl_discover;
 	}
 	arp_update(p.i.src_mac, p.i.src_ip);
 	l = dhcp_parse_response(p, DHCP_MTYPE::ACK);
@@ -55,7 +62,8 @@ lbl_request:
 
 bool dhcp_get(uint16_t port, uint32_t xid, dhcp_packet& out_packet) {
 	udp_packet p = {};
-	if (!udp_get(port, p)) return false;
+	if (!udp_get(port, p))
+		return false;
 	dhcp_header* h = (dhcp_header*)p.b.data_begin;
 	if (h->xid != xid) {
 		udp_forward(p);
@@ -67,7 +75,8 @@ bool dhcp_get(uint16_t port, uint32_t xid, dhcp_packet& out_packet) {
 
 bool dhcp_get(udp_conn_t conn, uint32_t xid, dhcp_packet& out_packet) {
 	udp_packet p = {};
-	if (!udp_get(conn, p)) return false;
+	if (!udp_get(conn, p))
+		return false;
 	dhcp_header* h = (dhcp_header*)p.b.data_begin;
 	if (h->xid != xid) {
 		udp_forward(p);
@@ -78,7 +87,8 @@ bool dhcp_get(udp_conn_t conn, uint32_t xid, dhcp_packet& out_packet) {
 }
 
 void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
-	if (DHCP_LOG) qprintf<128>("[DHCP] <XID %08x> Discover: Preferred IP %I.\n", xid, preferred_ip);
+	if (DHCP_LOG)
+		qprintf<128>("[DHCP] <XID %08x> Discover: Preferred IP %I.\n", xid, preferred_ip);
 	net_buffer_t buf = udp_new(sizeof(dhcp_header) + 64);
 	dhcp_header* dhcp = (dhcp_header*)buf.data_begin;
 	dhcp->op = 1;
@@ -92,14 +102,15 @@ void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
 	dhcp->yiaddr = 0;
 	dhcp->siaddr = 0;
 	dhcp->giaddr = 0;
-	memcpy<1>(dhcp->chaddr, &global_mac, 6);
-	bzero<1>(dhcp->padding, sizeof(dhcp->padding));
+	kmemcpy<1>(dhcp->chaddr, &global_mac, 6);
+	kbzero<1>(dhcp->padding, sizeof(dhcp->padding));
 	dhcp->cookie = COOKIE;
 
-	obinstream<> s{ (uint8_t*)(dhcp + 1) };
-	write_tlv<uint8_t, false>({ DHCP_OPT::MESSAGE_TYPE, span<const uint8_t>({ DHCP_MTYPE::DISCOVER }) }, s);
+	obinstream<> s{ (std::byte*)(dhcp + 1) };
+	write_tlv<uint8_t, false>({ DHCP_OPT::MESSAGE_TYPE, cbytespan({ DHCP_MTYPE::DISCOVER }) }, s);
 
-	if (preferred_ip) write_tlv<uint8_t, false>({ DHCP_OPT::REQUEST_IP, span<uint8_t>((uint8_t*)&preferred_ip, 4) }, s);
+	if (preferred_ip)
+		write_tlv<uint8_t, false>({ DHCP_OPT::REQUEST_IP, cbytespan((uint8_t*)&preferred_ip, 4) }, s);
 	uint8_t cid[7] = { HTYPE::ETH };
 	span(cid, 7).blit(span((uint8_t*)&global_mac, 6), 1);
 	write_tlv<uint8_t, false>({ DHCP_OPT::CLIENT_IDENT, span(cid, 7) }, s);
@@ -111,7 +122,7 @@ void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
 		DHCP_OPT::DHCP_SERVER, DHCP_OPT::DNS_SERVER, DHCP_OPT::BROADCAST_ADDR,
 	};
 	write_tlv<uint8_t, false>({ DHCP_OPT::PRL, span(prl, sizeof(prl)) }, s);
-	s.write((uint8_t)DHCP_OPT::END);
+	s.write((std::byte)DHCP_OPT::END);
 	//bzero<1>(s.begin(), ((uint8_t*)(dhcp + 1) + 64) - s.begin());
 	udp_info npi;
 	npi.dst_ip = 0xffffffff;
@@ -123,12 +134,12 @@ void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
 dhcp_lease dhcp_parse_response(dhcp_packet packet, uint8_t expected_mtype) {
 	dhcp_header* dhcp = packet.i.header;
 	dhcp_lease l;
-	memcpy<1>(&l.chaddr, dhcp->chaddr, 6);
+	kmemcpy<1>(&l.chaddr, dhcp->chaddr, 6);
 	l.yiaddr = dhcp->yiaddr;
 	l.siaddr = dhcp->siaddr;
 
-	ibinstream<> s{ (uint8_t*)(packet.b.data_begin) + sizeof(dhcp_header),
-					(uint8_t*)(packet.b.data_begin) + packet.b.data_size };
+	ibinstream<> s{ (std::byte*)(packet.b.data_begin) + sizeof(dhcp_header),
+					(std::byte*)(packet.b.data_begin) + packet.b.data_size };
 	tlv_option_t<uint8_t, false> opt = {};
 	do {
 		opt = read_tlv<uint8_t, false>(s);
@@ -138,7 +149,7 @@ dhcp_lease dhcp_parse_response(dhcp_packet packet, uint8_t expected_mtype) {
 		case DHCP_OPT::DNS_SERVER: l.dns = *(ipv4_t*)opt.value.begin(); break;
 		case DHCP_OPT::DHCP_SERVER: l.server_ident = *(ipv4_t*)opt.value.begin(); break;
 		case DHCP_OPT::MESSAGE_TYPE:
-			if (opt.value[0] != expected_mtype) {
+			if ((uint8_t)opt.value[0] != expected_mtype) {
 				qprintf<128>("[DHCP] Expected message type %i, got %i\n", expected_mtype, opt.value[0]);
 				return {};
 			}
@@ -168,11 +179,11 @@ void dhcp_request(uint32_t xid, const dhcp_lease& offer) {
 	dhcp->yiaddr = 0;
 	dhcp->siaddr = 0;
 	dhcp->giaddr = 0;
-	memcpy<1>(dhcp->chaddr, &global_mac, 6);
+	kmemcpy<1>(dhcp->chaddr, &global_mac, 6);
 	//bzero<1>(dhcp->padding, sizeof(dhcp->padding));
 	dhcp->cookie = COOKIE;
 
-	obinstream<> s{ (uint8_t*)(dhcp + 1) };
+	obinstream<> s{ (std::byte*)(dhcp + 1) };
 	write_tlv<uint8_t, false>({ DHCP_OPT::MESSAGE_TYPE, span<const uint8_t>({ DHCP_MTYPE::REQUEST }) }, s);
 	uint8_t cid[7] = { HTYPE::ETH };
 	span(cid, 7).blit(span((uint8_t*)&global_mac, 6), 1);
@@ -187,7 +198,7 @@ void dhcp_request(uint32_t xid, const dhcp_lease& offer) {
 		DHCP_OPT::DHCP_SERVER, DHCP_OPT::DNS_SERVER, DHCP_OPT::BROADCAST_ADDR,
 	};
 	write_tlv<uint8_t, false>({ DHCP_OPT::PRL, span(prl, sizeof(prl)) }, s);
-	s.write((uint8_t)DHCP_OPT::END);
+	s.write((std::byte)DHCP_OPT::END);
 	//bzero<1>(s.begin(), ((uint8_t*)(dhcp + 1) + 64) - s.begin());
 	udp_info npi;
 	npi.dst_ip = 0xffffffff;

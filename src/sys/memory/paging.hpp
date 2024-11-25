@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
-#include <kassert.hpp>
 #include <stl/bitset.hpp>
+#include <stl/pointer.hpp>
 
 enum PAGE_FLAGS {
 	PAGE_P = 0x0001, // Present
@@ -51,25 +51,25 @@ struct [[gnu::packed]] page_t {
 	void set_flags(uint16_t flags);
 	uint16_t get_flags();
 
-	page_t(void* address, uint16_t flags);
-	void* address();
+	page_t(pointer<void, reinterpret> address, uint16_t flags);
+	pointer<void, reinterpret> address();
 };
 
 struct page_table {
 	page_t entries[512];
-	void* at(int index);
+	pointer<void, reinterpret> at(int index);
 };
 struct page_pdt {
 	page_t entries[512];
-	page_table* at(int index);
+	pointer<page_table> at(int index);
 };
 struct page_pdpt {
 	page_t entries[512];
-	page_pdt* at(int index);
+	pointer<page_pdt> at(int index);
 };
 struct page_pml4 {
 	page_t entries[512];
-	page_pdpt* at(int index);
+	pointer<page_pdpt> at(int index);
 };
 
 struct frame_info {
@@ -89,12 +89,12 @@ struct page_stat {
 
 static inline void invlpg(void* m) { asmv("invlpg (%0)\n" : : "b"(m) : "memory"); }
 
-void* virt2phys(void* virt);
-void* phys2virt(void* phys);
+pointer<void, reinterpret> virt2phys(pointer<void, reinterpret> virt);
+pointer<void, reinterpret> phys2virt(pointer<void, reinterpret> phys);
 
-void* mmap(void* addr, size_t size, uint16_t flags, int map);
-void munmap(void* addr, size_t size);
-void mprotect(void* addr, size_t size, uint16_t flags, int map);
-page_stat mstat(void* addr);
+pointer<void, reinterpret> mmap(pointer<void, reinterpret> addr, size_t size, uint16_t flags, int map);
+void munmap(pointer<void, reinterpret> addr, size_t size);
+void mprotect(pointer<void, reinterpret> addr, size_t size, uint16_t flags, int map);
+page_stat mstat(pointer<void, reinterpret> addr);
 
 void paging_init();

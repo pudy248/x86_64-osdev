@@ -6,8 +6,8 @@ constexpr uint16_t HTTP_PORT = 80;
 
 struct http_response {
 	int code;
-	vector<uint8_t> header;
-	vector<uint8_t> content;
+	vector<char> header;
+	vector<char> content;
 };
 
 http_response http_get(tcp_conn_t conn);

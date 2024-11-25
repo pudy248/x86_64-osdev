@@ -36,11 +36,16 @@ Vec3 rgb2hsl(Vec3 rgb) {
 }
 
 static float hue2rgb(float p, float q, float t) {
-	if (t < 0) t += 1;
-	if (t > 1) t -= 1;
-	if (t < 1.f / 6) return p + (q - p) * 6 * t;
-	if (t < 1.f / 2) return q;
-	if (t < 2.f / 3) return p + (q - p) * (2.f / 3 - t) * 6;
+	if (t < 0)
+		t += 1;
+	if (t > 1)
+		t -= 1;
+	if (t < 1.f / 6)
+		return p + (q - p) * 6 * t;
+	if (t < 1.f / 2)
+		return q;
+	if (t < 2.f / 3)
+		return p + (q - p) * (2.f / 3 - t) * 6;
 
 	return p;
 }
@@ -61,6 +66,5 @@ Vec3 hsl2rgb(Vec3 hsl) {
 	return result;
 }
 uint32_t rgba2u32(Vec4 c) {
-	return (((uint32_t)c.x & 0xff) << 16) | (((uint32_t)c.y & 0xff) << 8) |
-		   (((uint32_t)c.z & 0xff) << 0);
+	return (((uint32_t)c.x & 0xff) << 16) | (((uint32_t)c.y & 0xff) << 8) | (((uint32_t)c.z & 0xff) << 0);
 }

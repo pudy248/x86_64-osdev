@@ -12,7 +12,8 @@
 
 bool ipv4_get(ipv4_packet& out) {
 	eth_packet p;
-	if (!eth_get(p)) return false;
+	if (!eth_get(p))
+		return false;
 	if (p.i.ethertype != ETHERTYPE::IPv4) {
 		net_forward(p);
 		return false;
@@ -23,14 +24,14 @@ bool ipv4_get(ipv4_packet& out) {
 
 ipv4_packet ipv4_process(eth_packet p) {
 	ipv4_header* ip = (ipv4_header*)p.b.data_begin;
-	uint8_t* data = p.b.data_begin + sizeof(ipv4_header);
+	std::byte* data = p.b.data_begin + sizeof(ipv4_header);
 	// std::size_t size = p.b.data_size - sizeof(ipv4_header);
 
 	uint16_t expected_size = htons(ip->total_length) - sizeof(ipv4_header);
 	uint16_t actual_size = p.b.data_size - sizeof(ipv4_header);
 
 	if (expected_size > actual_size) {
-		qprintf<100>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip,
+		qprintf<128>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip,
 					 expected_size, actual_size);
 		hexdump(ip, min(expected_size, actual_size));
 		return {};

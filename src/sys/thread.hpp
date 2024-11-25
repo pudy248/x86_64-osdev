@@ -15,18 +15,29 @@ enum THREAD_STATE {
 };
 }
 
-template <typename R> struct thread {
+template <typename R>
+struct thread {
 	uint32_t id;
 };
-template <typename R> struct thread_context {
+struct thread_any {
+	uint32_t id;
+	constexpr thread_any() = default;
+	constexpr thread_any(uint32_t id) : id(id) {}
+	template <typename R>
+	constexpr thread_any(thread<R> t) : id(t.id) {}
+};
+template <typename R = void>
+struct thread_context {
 	uint32_t id;
 	uint32_t state;
 	uint32_t __reference_count;
 	uint32_t exit_code;
-	void* stack_bottom;
-	void* args;
+	pointer<void, reinterpret> stack_bottom;
+	pointer<void, reinterpret> args;
 	register_file registers;
+
 	optional<R> return_val;
+
 	thread<R> handle() const { return thread<R>{ id }; }
 };
 
@@ -37,15 +48,19 @@ struct thread_creation_opts {
 
 void threading_init();
 
-template <typename R, typename... Args> thread<R> thread_create(R (*fn)(Args...), Args... args);
+template <typename R, typename... Args>
+thread<R> thread_create(R (*fn)(Args...), Args... args);
 template <typename R, typename... Args>
 thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... args);
-template <typename R> void thread_switch(thread<R> t);
-template <typename R> [[gnu::noreturn]] void thread_jump(thread<R> t);
+void thread_switch(thread_any t);
+[[gnu::noreturn]] void thread_jump(thread_any t);
 [[gnu::noreturn]] void thread_exit(int code);
 void thread_yield();
-template <typename R> R thread_join(thread<R> t);
-template <typename R> void thread_kill(thread<R> t);
+void thread_kill(thread_any t);
 
-template <typename R> R thread_co_await(thread<R> t);
-template <typename R> void thread_co_yield(R co_ret);
+template <typename R>
+R thread_join(thread<R> t);
+template <typename R>
+R thread_co_await(thread<R> t);
+template <typename R>
+void thread_co_yield(R co_ret);

@@ -107,7 +107,7 @@ drive_packet:
 
 times 0x1b8 - ($ - $$) db 0
 partitionTable:
-    disk_id: dd 0x12345678
+    disk_id: dd 0xa8124232
     reserved: dw 0
     partition1:
         attrs: db 0x80
@@ -115,6 +115,6 @@ partitionTable:
         sysid: db 0x0c ;fat32 LBA
         chs_end: db 0xff, 0xff, 0xff
         lba_start: dd PARTITION_LBA
-        lba_size: dd 0x01f000
+        lba_size: dd SECTORS_PER_FAT32 * 64 + 2 * SECTORS_PER_FAT32 + RESERVED_SECTORS
     partitions2to4: times 48 db 0
     dw 0xaa55

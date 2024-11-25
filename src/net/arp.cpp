@@ -11,7 +11,8 @@
 vector<arp_entry> arp_table;
 
 void arp_update(mac_t mac, ipv4_t ip) {
-	if (ARP_LOG_UPDATE) qprintf<128>("[ARP] Update: %M %I\n", mac, ip);
+	if (ARP_LOG_UPDATE)
+		qprintf<128>("[ARP] Update: %M %I\n", mac, ip);
 
 	for (std::size_t i = 0; i < arp_table.size(); i++) {
 		//if (mac == arp_table[i].mac) {
@@ -28,14 +29,16 @@ void arp_update(mac_t mac, ipv4_t ip) {
 
 ipv4_t arp_translate_mac(mac_t mac) {
 	for (std::size_t i = 0; i < arp_table.size(); i++) {
-		if (mac == arp_table[i].mac) return arp_table[i].ip;
+		if (mac == arp_table[i].mac)
+			return arp_table[i].ip;
 	}
 	return 0;
 }
 
 static mac_t arp_translate_ip_local(ipv4_t ip) {
 	for (std::size_t i = 0; i < arp_table.size(); i++)
-		if (ip == arp_table[i].ip) return arp_table[i].mac;
+		if (ip == arp_table[i].ip)
+			return arp_table[i].mac;
 
 	int tries = 0;
 try_again:
@@ -44,7 +47,8 @@ try_again:
 	while (tries < ARP_MAX_RETRIES) {
 		net_fwdall();
 		for (std::size_t i = 0; i < arp_table.size(); i++)
-			if (ip == arp_table[i].ip) return arp_table[i].mac;
+			if (ip == arp_table[i].ip)
+				return arp_table[i].mac;
 		if (timepoint::now() - t > 0.1) {
 			tries++;
 			goto try_again;
@@ -54,15 +58,18 @@ try_again:
 }
 
 mac_t arp_translate_ip(ipv4_t ip) {
-	if (ip == 0xffffffffU) return MAC_BCAST;
+	if (ip == 0xffffffffU)
+		return MAC_BCAST;
 
 	for (std::size_t i = 0; i < arp_table.size(); i++)
-		if (ip == arp_table[i].ip) return arp_table[i].mac;
+		if (ip == arp_table[i].ip)
+			return arp_table[i].mac;
 
 	// this is control flow hell
 	if (active_lease.duration.rep) {
 		if ((ip & active_lease.subnet_mask) == (global_ip & active_lease.subnet_mask))
-			if (mac_t addr = arp_translate_ip_local(ip); addr) return addr;
+			if (mac_t addr = arp_translate_ip_local(ip); addr)
+				return addr;
 		if (ip != active_lease.router) {
 			mac_t m = arp_translate_ip(active_lease.router);
 			arp_update(m, ip);
@@ -89,37 +96,46 @@ void arp_process(eth_packet p) {
 
 	switch ((sMac << 0) | (sIp << 1) | (tMac << 2) | (tIp << 3) | (htons(h->op) << 4)) {
 	case 0x19: //Probe
-		if (ARP_LOG) printf("[ARP] %M wants to know: Is %I available?\n", selfMac, targetIP);
+		if (ARP_LOG)
+			printf("[ARP] %M wants to know: Is %I available?\n", selfMac, targetIP);
 		if (targetIP == global_ip) {
-			if (ARP_LOG) printf("[ARP] No, %I belongs to %M.\n", global_ip, global_mac);
+			if (ARP_LOG)
+				printf("[ARP] No, %I belongs to %M.\n", global_ip, global_mac);
 			arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
 		}
 		break;
 	case 0x1B:
 		if (selfIP != targetIP) { //Request
-			if (ARP_LOG) printf("[ARP] %I wants to know: Who is %I?\n", selfIP, targetIP);
-			if (targetIP == new_ipv4(10, 0, 2, 15)) global_ip = targetIP;
+			if (ARP_LOG)
+				printf("[ARP] %I wants to know: Who is %I?\n", selfIP, targetIP);
+			if (targetIP == new_ipv4(10, 0, 2, 15))
+				global_ip = targetIP;
 
 			if (targetIP == global_ip) {
-				if (ARP_LOG) printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
+				if (ARP_LOG)
+					printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
 				arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
 			}
 		} else { //Gratuitous announcement
-			if (ARP_LOG) printf("[ARP] Announcement: %I belongs to %M.\n", selfIP, selfMac);
+			if (ARP_LOG)
+				printf("[ARP] Announcement: %I belongs to %M.\n", selfIP, selfMac);
 		}
 		break;
 	case 0x1F:
 		if (targetIP == global_ip) {
-			if (ARP_LOG) printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
+			if (ARP_LOG)
+				printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
 			arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
 		}
 		break;
 	case 0x2F:
-		if (ARP_LOG) printf("[ARP] Reply: %I is %M.\n", selfIP, targetIP, targetMac);
+		if (ARP_LOG)
+			printf("[ARP] Reply: %I is %M.\n", selfIP, targetIP, targetMac);
 		arp_update(targetMac, targetIP);
 		break;
 	case 0x4F:
-		if (ARP_LOG) printf("[ARP] Reply: %M is %I.\n", selfIP, targetMac, targetIP);
+		if (ARP_LOG)
+			printf("[ARP] Reply: %M is %I.\n", selfIP, targetMac, targetIP);
 		arp_update(targetMac, targetIP);
 		break;
 	default:
@@ -165,6 +181,7 @@ net_async_t arp_whois(ipv4_t ip) {
 
 net_async_t arp_announce(ipv4_t ip) {
 	net_update_ip(ip);
-	if (ARP_LOG) printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac);
+	if (ARP_LOG)
+		printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac);
 	return arp_send(ARP::TYPE_PROBE, arp_entry(global_mac, global_ip), arp_entry(0, global_ip));
 }

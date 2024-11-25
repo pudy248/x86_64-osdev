@@ -18,15 +18,9 @@ static inline uint32_t inl(uint16_t port) {
 	return ret;
 }
 
-static inline void outb(uint16_t port, uint8_t val) {
-	asmv("outb %0, %1\n" : : "a"(val), "Nd"(port) : "memory");
-}
-static inline void outw(uint16_t port, uint16_t val) {
-	asmv("outw %0, %1\n" : : "a"(val), "Nd"(port) : "memory");
-}
-static inline void outl(uint16_t port, uint32_t val) {
-	asmv("outl %0, %1\n" : : "a"(val), "Nd"(port) : "memory");
-}
+static inline void outb(uint16_t port, uint8_t val) { asmv("outb %0, %1\n" : : "a"(val), "Nd"(port) : "memory"); }
+static inline void outw(uint16_t port, uint16_t val) { asmv("outw %0, %1\n" : : "a"(val), "Nd"(port) : "memory"); }
+static inline void outl(uint16_t port, uint32_t val) { asmv("outl %0, %1\n" : : "a"(val), "Nd"(port) : "memory"); }
 
 static inline uint64_t read_cr0(void) {
 	uint64_t val;
@@ -74,11 +68,13 @@ static inline void cpu_relax() { asm("rep nop\n" : : : "memory"); }
 	__builtin_unreachable();
 }
 [[noreturn]] static inline void inf_wait(void) {
-	for (;;);
+	for (;;)
+		;
 	//cpu_halt();
 }
 
-template <int N> static inline void invoke_interrupt(void) {
+template <int N>
+static inline void invoke_interrupt(void) {
 	__asm__("int %0\n" : : "N"(N) : "cc", "memory");
 }
 static inline void int3(void) { asmv("int3\n"); }

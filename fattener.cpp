@@ -5,52 +5,52 @@
 #include <cstring>
 #include <inttypes.h>
 
-#define FAT_ATTRIB_RO           0x01
-#define FAT_ATTRIB_HIDDEN       0x02
-#define FAT_ATTRIB_SYSTEM       0x04
-#define FAT_ATTRIB_VOL_ID       0x08
-#define FAT_ATTRIB_DIR          0x10
-#define FAT_ATTRIB_ARCHIVE      0x20
-#define FAT_ATTRIB_LFN          0x0f
+#define FAT_ATTRIB_RO 0x01
+#define FAT_ATTRIB_HIDDEN 0x02
+#define FAT_ATTRIB_SYSTEM 0x04
+#define FAT_ATTRIB_VOL_ID 0x08
+#define FAT_ATTRIB_DIR 0x10
+#define FAT_ATTRIB_ARCHIVE 0x20
+#define FAT_ATTRIB_LFN 0x0f
 
-#define FAT_TABLE_CHAIN_STOP    0x0ffffff8
+#define FAT_TABLE_CHAIN_STOP 0x0ffffff8
 
 typedef struct fat_date {
-    uint16_t    day:5;
-    uint16_t    month:4;
-    uint16_t    year:7; //since 1980
+	uint16_t day : 5;
+	uint16_t month : 4;
+	uint16_t year : 7; //since 1980
 } fat_date;
 typedef struct fat_time {
-    uint16_t    dseconds:5; //double-seconds, 1-30
-    uint16_t    minute:6;
-    uint16_t    hour:5;
+	uint16_t dseconds : 5; //double-seconds, 1-30
+	uint16_t minute : 6;
+	uint16_t hour : 5;
 } fat_time;
 
 typedef struct fat_disk_entry {
-    char        filename[8];
-    char        extension[3];
-    uint8_t     flags;
-    uint8_t     reserved;
-    uint8_t     creation_tenths;
-    fat_time    creation_time;
-    fat_date    creation_date;
-    fat_date    accessed_date;
-    uint16_t    cluster_high;
-    fat_time    modified_time;
-    fat_date    modified_date;
-    uint16_t    cluster_low;  
-    uint32_t    file_size;
+	char filename[8];
+	char extension[3];
+	uint8_t flags;
+	uint8_t reserved;
+	uint8_t creation_tenths;
+	fat_time creation_time;
+	fat_date creation_date;
+	fat_date accessed_date;
+	uint16_t cluster_high;
+	fat_time modified_time;
+	fat_date modified_date;
+	uint16_t cluster_low;
+	uint32_t file_size;
 } __attribute__((packed)) fat_disk_entry;
 
 typedef struct fat_disk_lfn {
-    uint8_t position; //Last entry masked with 0x40
-    uint16_t chars_1[5];
-    uint8_t flags; //Always 0x0f
-    uint8_t entry_type; //Always 0
-    uint8_t checksum;
-    uint16_t chars_2[6];
-    uint16_t reserved2;
-    uint16_t chars_3[2];
+	uint8_t position; //Last entry masked with 0x40
+	uint16_t chars_1[5];
+	uint8_t flags; //Always 0x0f
+	uint8_t entry_type; //Always 0
+	uint8_t checksum;
+	uint16_t chars_2[6];
+	uint16_t reserved2;
+	uint16_t chars_3[2];
 } __attribute__((packed)) fat_disk_lfn;
 
 uint64_t fsize(const char* file) {
@@ -63,12 +63,13 @@ uint64_t fsize(const char* file) {
 
 uint8_t fat_lfn_checksum(const uint8_t* pFCBName) {
 	uint8_t sum = 0;
-	for (int i = 11; i; i--) sum = ((sum & 1) << 7) + (sum >> 1) + *pFCBName++;
+	for (int i = 11; i; i--)
+		sum = ((sum & 1) << 7) + (sum >> 1) + *pFCBName++;
 	return sum;
 }
 
 #define SECTORS_PER_CLUSTER 8
-#define SECTORS_PER_FAT32 32
+#define SECTORS_PER_FAT32 64
 
 int main(int argc, char** argv) {
 	if (argc == 1) {
@@ -94,8 +95,8 @@ int main(int argc, char** argv) {
 		fileSizes[2 * i + 1] = cc;
 	}
 
-	uint32_t fatTable[128 * SECTORS_PER_FAT32];
-	memset(fatTable, 0, 512 * SECTORS_PER_FAT32);
+	uint32_t fatTable[128UL * SECTORS_PER_FAT32];
+	memset(fatTable, 0, 512UL * SECTORS_PER_FAT32);
 
 	uint32_t cluster = 0;
 	fatTable[cluster++] = 0x0ffffff8;
@@ -115,11 +116,13 @@ int main(int argc, char** argv) {
 		int j = 0;
 		int nameStart = 0;
 		for (j = 0; argv[i + 1][j] != 0; j++) {
-			if (argv[i + 1][j] == '/') nameStart = j + 1;
+			if (argv[i + 1][j] == '/')
+				nameStart = j + 1;
 		}
 		int extStart = 0;
 		for (j = nameStart; argv[i + 1][j] != 0; j++) {
-			if (argv[i + 1][j] == '.') extStart = j + 1;
+			if (argv[i + 1][j] == '.')
+				extStart = j + 1;
 		}
 
 		printf("%s: %i %i; ", argv[i + 1], nameStart, extStart);
@@ -201,7 +204,8 @@ int main(int argc, char** argv) {
 		fread(startAddr, 1, fileSizes[2 * i], file);
 		fclose(file);
 
-		for (j = 0; j < nLFNs; j++) ((fat_disk_lfn*)rootDir)[rootCtr++] = names[j];
+		for (j = 0; j < nLFNs; j++)
+			((fat_disk_lfn*)rootDir)[rootCtr++] = names[j];
 		free(names);
 		rootDir[rootCtr++] = f;
 
@@ -216,8 +220,8 @@ int main(int argc, char** argv) {
 	fwrite(bootBuffer, 1, bootloaderSize, output);
 	fclose(bootloader);
 
-	fwrite(fatTable, 1, 512 * SECTORS_PER_FAT32, output);
-	fwrite(fatTable, 1, 512 * SECTORS_PER_FAT32, output);
+	fwrite(fatTable, 1, 512UL * SECTORS_PER_FAT32, output);
+	fwrite(fatTable, 1, 512UL * SECTORS_PER_FAT32, output);
 	fwrite(fatData, 1, clusterCount * 512 * SECTORS_PER_CLUSTER, output);
 	fclose(output);
 

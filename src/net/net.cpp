@@ -31,14 +31,15 @@ void net_init() {
 		pci_print();
 		inf_wait();
 	}
-	qprintf<50>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
+	qprintf<64>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
 	e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
 	global_mac = globals->e1000->mac;
 	e1000_enable();
 	if (e1000_pci->device_id == 0x100E)
 		ethernet_link();
 	else
-		while (!eth_connected) cpu_relax();
+		while (!eth_connected)
+			cpu_relax();
 }
 
 void ethernet_link() {
@@ -53,15 +54,18 @@ void net_update_ip(ipv4_t ip) {
 
 void ethernet_recieve(net_buffer_t buf) {
 	eth_packet p = eth_process(buf);
-	if (!PROMISCUOUS && p.i.dst_mac != global_mac && p.i.dst_mac != MAC_BCAST) return;
-	if (PACKET_LOG) qprintf<64>("R %M -> %M (%i bytes)\n", p.i.src_mac, p.i.dst_mac, buf.data_size);
+	if (!PROMISCUOUS && p.i.dst_mac != global_mac && p.i.dst_mac != MAC_BCAST)
+		return;
+	if (PACKET_LOG)
+		qprintf<64>("R %M -> %M (%i bytes)\n", p.i.src_mac, p.i.dst_mac, buf.data_size);
 	packet_queue_back.enqueue(p);
 }
 
 static void net_touch() {
 	disable_interrupts();
 	//e1000_pause();
-	while (packet_queue_back.size()) packet_queue_front.enqueue(packet_queue_back.dequeue());
+	while (packet_queue_back.size())
+		packet_queue_front.enqueue(packet_queue_back.dequeue());
 	enable_interrupts();
 	//e1000_resume();
 
@@ -82,21 +86,21 @@ bool eth_get(eth_packet& out) {
 }
 
 eth_packet eth_process(net_buffer_t raw) {
-	ethernet_header* frame = (ethernet_header*)raw.data_begin;
+	ethernet_header* frame = raw.data_begin;
 	mac_t src, dst;
 	memcpy(&src, &frame->src, 6);
 	memcpy(&dst, &frame->dst, 6);
 
-	uint8_t* newBuf = (uint8_t*)kmalloc(raw.data_size);
+	pointer<std::byte, type_cast> newBuf = kmalloc(raw.data_size);
 	memcpy(newBuf, raw.frame_begin, raw.data_size);
 	uint16_t size = raw.data_size - sizeof(ethernet_header);
-	uint8_t* contents = newBuf + sizeof(ethernet_header);
+	pointer<std::byte, type_cast> contents = newBuf + sizeof(ethernet_header);
 	eth_packet packet = { { timepoint::now(), src, dst, htons(frame->ethertype) }, { newBuf, contents, size } };
 	return packet;
 }
 
 net_buffer_t eth_new(std::size_t data_size) {
-	uint8_t* buf = (uint8_t*)kcalloc(data_size + sizeof(ethernet_header));
+	pointer<std::byte, type_cast> buf = kcalloc(data_size + sizeof(ethernet_header));
 	return { buf, buf + sizeof(ethernet_header), data_size };
 }
 
@@ -122,7 +126,9 @@ void net_forward(eth_packet p) {
 
 void net_fwdall() {
 	net_touch();
-	while (packet_queue_front.size()) { net_forward(packet_queue_front.dequeue()); }
+	while (packet_queue_front.size()) {
+		net_forward(packet_queue_front.dequeue());
+	}
 }
 
 uint64_t net_partial_checksum(const void* data, uint16_t len) {
@@ -132,24 +138,29 @@ uint64_t net_partial_checksum(const void* data, uint16_t len) {
 		sum += *buf++;
 		len -= 2;
 	}
-	if (len) sum += *buf & 0xff;
+	if (len)
+		sum += *buf & 0xff;
 	return sum;
 }
 uint16_t net_checksum(uint64_t sum) {
-	while (sum >> 16) { sum = (sum & 0xffff) + (sum >> 16); }
+	while (sum >> 16) {
+		sum = (sum & 0xffff) + (sum >> 16);
+	}
 	sum = ~sum;
 	return sum;
 }
 uint16_t net_checksum(const void* data, uint16_t len) { return net_checksum(net_partial_checksum(data, len)); }
 
-template <typename T, bool FL> tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {
+template <typename T, bool FL>
+tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {
 	tlv_option_t<T, FL> opt;
 	opt.opt = s.read_b<T>();
 	T len = s.read_b<T>();
 	opt.value = s.read_n(len - FL * 2 * sizeof(T));
 	return opt;
 }
-template <typename T, bool FL> void write_tlv(tlv_option_t<T, FL> opt, obinstream<>& s) {
+template <typename T, bool FL>
+void write_tlv(tlv_option_t<T, FL> opt, obinstream<>& s) {
 	s.write_b<T>(opt.opt);
 	s.write_b<T>(opt.value.size() + FL * 2 * sizeof(T));
 	s.write(opt.value);

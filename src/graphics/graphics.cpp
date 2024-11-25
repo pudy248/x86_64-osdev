@@ -36,7 +36,8 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 
 	ProjectedVertex v1 = pipeline->projVertBuffer[p1];
 	ProjectedVertex v2 = pipeline->projVertBuffer[p2];
-	if (clip(v1.spos) || clip(v2.spos)) return;
+	if (clip(v1.spos) || clip(v2.spos))
+		return;
 
 	if (v1.spos.y < v2.spos.y) {
 		ProjectedVertex tmp = v1;
@@ -55,11 +56,13 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 	for (int y = (int)ss1.y; y < ss2.y; y++) {
 		int x1 = max(ss1.y, y) * mi12 + bi12;
 		int x2 = min(ss2.y, y + 1) * mi12 + bi12;
-		if (x1 == x2) x2++;
+		if (x1 == x2)
+			x2++;
 		int xl = min(x1, x2);
 		int xr = max(x1, x2);
 		for (int x = xl; x < xr; x++) {
-			if (x < 0 || x > (int)pipeline->display_w) continue;
+			if (x < 0 || x > (int)pipeline->display_w)
+				continue;
 			create_frag(pipeline, x, y, v1.color, v1.wpos.w);
 			//float xf = (float)(x - x1) / (float)(x2 - x1);
 			//Vec4 col = lerp4(color1, color2, xf);
@@ -68,8 +71,8 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 	}
 }
 
-static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2,
-					 float depth1, float depth2) {
+static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1,
+					 float depth2) {
 	if (x2 < x1) {
 		int tmp1 = x1;
 		x1 = x2;
@@ -104,7 +107,8 @@ void raster_triangle(RenderPipeline* pipeline, uint32_t tri) {
 	ProjectedVertex v1 = pipeline->projVertBuffer[p1];
 	ProjectedVertex v2 = pipeline->projVertBuffer[p2];
 	ProjectedVertex v3 = pipeline->projVertBuffer[p3];
-	if (clip(v1.spos) || clip(v2.spos) || clip(v3.spos)) return;
+	if (clip(v1.spos) || clip(v2.spos) || clip(v3.spos))
+		return;
 
 	if (v1.spos.y < v2.spos.y) {
 		ProjectedVertex tmp = v1;

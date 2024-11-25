@@ -65,12 +65,13 @@ void time_init(void) {
 
 static uint8_t get_cmos_register(uint8_t reg) {
 	outb(0x70, reg);
-	return (uint8_t)inb(0x71);
+	return inb(0x71);
 }
 
 htimepoint htimepoint::cmos_time() {
 	htimepoint t;
-	while (get_cmos_register(0x0a) & 0x80);
+	while (get_cmos_register(0x0a) & 0x80)
+		;
 	t.year = get_cmos_register(0x9);
 	t.month = get_cmos_register(0x8);
 	t.day = get_cmos_register(0x7);
@@ -113,24 +114,22 @@ timepoint timepoint::now() { return timepoint::tsc_time(); };
 
 void tsc_delay(uint64_t cycles) {
 	uint64_t start = rdtsc();
-	while (rdtsc() - start < cycles);
+	while (rdtsc() - start < cycles)
+		;
 }
 
 void pit_delay(units::seconds seconds) {
 	timepoint start = timepoint::pit_time();
-	while (timepoint::pit_time() - start < seconds) cpu_relax();
+	while (timepoint::pit_time() - start < seconds)
+		cpu_relax();
 }
 void delay(units::seconds seconds) {
 	timepoint start = timepoint::now();
-	while (timepoint::now() - start < seconds) cpu_relax();
+	while (timepoint::now() - start < seconds)
+		cpu_relax();
 }
 
 /*
-static const char* months[12] = {
-	"January", "February", "March",		"April",   "May",	   "June",
-	"July",	   "August",   "September", "October", "November", "December",
-};
-
 void print_lres_timepoint(lres_timepoint rtc, int fmt) {
     switch(fmt) {
         case 0: printf("%s %i, 20%02i - %02i:%02i:%02i\n", months[rtc.month], rtc.day, rtc.year, rtc.hour, rtc.minute, rtc.second); break;

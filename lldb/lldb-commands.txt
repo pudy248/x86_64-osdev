@@ -8,19 +8,19 @@ set set target.x86-disassembly-flavor intel
 
 command script import ./lldb/formatters.py
 
-type synthetic add -x "vector<" -l formatters.VectorSynthProvider
-type synthetic add -x "vector<.*\*," -l formatters.VectorSynthProviderDeref
+# type synthetic add -x "vector<" -l formatters.VectorSynthProvider
+# type synthetic add -x "vector<.*\*," -l formatters.VectorSynthProviderDeref
 
-type summary add --expand -x "vector<" --summary-string "${svar%#} children"
-type summary add --expand -x "span<" --summary-string "${svar%#} children"
-
-type summary add -v "span<char>" -F formatters.char_container
-type summary add -v "rostring" -F formatters.char_container
-type summary add -v "vector<char, default_allocator>" -F formatters.char_container_rw
-type summary add -v "string" -F formatters.char_container_rw
-
+# type summary add --expand -x "vector<" --summary-string "${svar%#} children"
+# type summary add --expand -x "span<" --summary-string "${svar%#} children"
+#
+# type summary add -v "span<char>" -F formatters.char_container
+# type summary add -v "rostring" -F formatters.char_container
+# type summary add -v "vector<char, default_allocator>" -F formatters.char_container_rw
+# type summary add -v "string" -F formatters.char_container_rw
+ 
 type synthetic add "stacktrace" -l formatters.StacktraceProvider
 type summary add --expand "stacktrace" --summary-string "${svar%#} addresses"
 type summary add -v "stacktrace::stack_frame" -F formatters.function_address
-
-type summary add -v "fat_file" -F formatters.fat_file
+ 
+# type summary add -v "fat_file" -F formatters.fat_file

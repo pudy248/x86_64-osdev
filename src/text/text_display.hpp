@@ -9,13 +9,14 @@
 class text_layer {
 public:
 	heap_array<char> buffer;
-	int pos[2] = {};
+	int cursor[2] = {};
+	int offset[2] = {};
 	int dims[2] = {};
-	int margins[4] = {};
+	int margins[4] = {}; // xxyy, in this-space
 
 	text_layer() = default;
 	text_layer(const class console& c);
-	text_layer(span<const int>, span<const int>, span<const int>);
+	text_layer(span<const int> offset, span<const int> dims, span<const int> margins);
 
 	text_layer& clear();
 	text_layer& fill(char c, int x1 = -1, int x2 = -1, int y1 = -1, int y2 = -1);

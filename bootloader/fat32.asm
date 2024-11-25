@@ -23,7 +23,7 @@ FAT_BPB:
     sectors_per_fat: dw 0
     sectors_per_track: dw 63
     num_heads: dw 255
-    num_hidden_sectors: dd 0
+    num_hidden_sectors: dd PARTITION_LBA
     large_sector_count: dd SECTORS_PER_FAT32 * 64 + 2 * SECTORS_PER_FAT32 + RESERVED_SECTORS
 FAT32_EBPB:
     sectors_per_fat32: dd SECTORS_PER_FAT32

@@ -28,48 +28,43 @@
 void pic_init() {
 	uint8_t a1, a2;
 
-	a1 = inb(PIC1_DATA); // save masks
+	a1 = inb(PIC1_DATA);
 	a2 = inb(PIC2_DATA);
 
-	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); // starts the initialization sequence (in cascade mode)
+	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4);
 	io_wait();
 	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4);
 	io_wait();
-	outb(PIC1_DATA, MASTER_OFFSET); // ICW2: Master PIC vector offset
+	outb(PIC1_DATA, MASTER_OFFSET);
 	io_wait();
-	outb(PIC2_DATA, SLAVE_OFFSET); // ICW2: Slave PIC vector offset
+	outb(PIC2_DATA, SLAVE_OFFSET);
 	io_wait();
-	outb(PIC1_DATA, 4); // ICW3: tell Master PIC that there is a slave PIC at IRQ2 (0000 0100)
+	outb(PIC1_DATA, 4);
 	io_wait();
-	outb(PIC2_DATA, 2); // ICW3: tell Slave PIC its cascade identity (0000 0010)
+	outb(PIC2_DATA, 2);
 	io_wait();
 
-	outb(PIC1_DATA, ICW4_8086); // ICW4: have the PICs use 8086 mode (and not 8080 mode)
+	outb(PIC1_DATA, ICW4_8086);
 	io_wait();
 	outb(PIC2_DATA, ICW4_8086);
 	io_wait();
 
-	outb(PIC1_DATA, a1); // restore saved masks.
+	outb(PIC1_DATA, a1);
 	outb(PIC2_DATA, a2);
 }
 
 extern "C" void pic_eoi(uint8_t irq) {
-	if (irq >= 8) outb(PIC2_CMD, PIC_EOI);
+	if (irq >= 8)
+		outb(PIC2_CMD, PIC_EOI);
 
 	outb(PIC1_CMD, PIC_EOI);
 }
 
-/* Helper func */
 static uint16_t __pic_get_irq_reg(uint8_t ocw3) {
-	/* OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
-     * represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain */
 	outb(PIC1_CMD, ocw3);
 	outb(PIC2_CMD, ocw3);
 	return (uint16_t)((uint16_t)inb(PIC2_CMD) << 8) | inb(PIC1_CMD);
 }
 
-/* Returns the combined value of the cascaded PICs irq request register */
 uint16_t pic_get_irr() { return __pic_get_irq_reg(PIC_READ_IRR); }
-
-/* Returns the combined value of the cascaded PICs in-service register */
 uint16_t pic_get_isr() { return __pic_get_irq_reg(PIC_READ_ISR); }

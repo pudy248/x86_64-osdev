@@ -24,4 +24,13 @@ void hexdump(const void* ptr, uint32_t bytes, uint32_t block_width = 4, uint32_t
 class console& default_console();
 class text_layer& default_output();
 
+void disable_log();
+void clear_log();
+class rostring output_log();
+
+void error(const char* str);
+template <std::size_t N, typename... Args>
+	requires(!!sizeof...(Args))
+void errorf(const char* fmt, Args... args);
+
 void replace_console(console&& con);

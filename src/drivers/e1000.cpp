@@ -27,7 +27,8 @@ static uint16_t e1000_read_eeprom(uint8_t addr) {
 	for (int i = 0; 1; i++) {
 		outb(0x80, 0);
 		tmp = e1000_read(E1000_REG::EERD);
-		if (tmp & 0x10) break;
+		if (tmp & 0x10)
+			break;
 		if (i > 1000) {
 			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
 			inf_wait();
@@ -42,7 +43,7 @@ static void e1000_link() {
 }
 
 void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), void (*link_callback)(void)) {
-	globals->e1000 = waterline_new<e1000_handle>();
+	globals->e1000 = decltype(globals->e1000)::make_unique(waterline_new<e1000_device>());
 	globals->e1000->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
 	globals->e1000->tx_descs = (e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
 
@@ -106,7 +107,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 
 	qprintf<80>("Found MAC address: %M\n", globals->e1000->mac);
 
-	for (int i = 0; i < 0x80; i++) e1000_write(0x5200 + i * 4, 0);
+	for (int i = 0; i < 0x80; i++)
+		e1000_write(0x5200 + i * 4, 0);
 
 	//Initialize RX
 	for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
@@ -170,18 +172,21 @@ static void e1000_int_handler(uint64_t, register_file*) {
 		//qprintf<32>("%i\n", head);
 		while (globals->e1000->tx_head != head) {
 			//qprintf<32>("freeing %i\n", globals->e1000->tx_head);
-			if constexpr (!copy_tx) kfree((void*)globals->e1000->tx_descs[globals->e1000->tx_head].addr);
+			if constexpr (!copy_tx)
+				kfree((void*)globals->e1000->tx_descs[globals->e1000->tx_head].addr);
 			globals->e1000->tx_head = (globals->e1000->tx_head + 1) % E1000_NUM_TX_DESC;
 		}
 	}
-	if (status & 0x04) e1000_link();
+	if (status & 0x04)
+		e1000_link();
 	if (status & 0x40) {
 		print("RXO\n");
 		printf("  RCTRL %08x\n", e1000_read(E1000_REG::RCTRL));
 		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
 		printf("  RX0 ADDR %08x STATUS %02x\n", globals->e1000->rx_descs->addr, globals->e1000->rx_descs->status);
 	}
-	if (status & 0x80) e1000_receive();
+	if (status & 0x80)
+		e1000_receive();
 }
 
 void e1000_receive() {
@@ -200,12 +205,13 @@ void e1000_receive() {
 
 int e1000_send_async(net_buffer_t buf) {
 	uint8_t handle = globals->e1000->tx_tail;
-	while (~globals->e1000->tx_descs[handle].status & 1) cpu_relax();
+	while (~globals->e1000->tx_descs[handle].status & 1)
+		cpu_relax();
 	if constexpr (copy_tx) {
 		memcpy((void*)globals->e1000->tx_descs[handle].addr, buf.data_begin, buf.data_size);
 		kfree(buf.frame_begin);
 	} else
-		globals->e1000->tx_descs[handle].addr = (uint64_t)buf.frame_begin;
+		globals->e1000->tx_descs[handle].addr = (uint64_t)pointer<std::byte, integer>(buf.frame_begin);
 	globals->e1000->tx_descs[handle].length = buf.data_size;
 
 	globals->e1000->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
@@ -216,5 +222,6 @@ int e1000_send_async(net_buffer_t buf) {
 }
 
 void net_await(int handle) {
-	while (~globals->e1000->tx_descs[handle].status & 1) cpu_relax();
+	while (~globals->e1000->tx_descs[handle].status & 1)
+		cpu_relax();
 }

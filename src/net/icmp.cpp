@@ -33,7 +33,8 @@ net_async_t icmp_send(ipv4_t ip, uint8_t type, uint8_t ttl, rostring data, rostr
 }
 bool icmp_get(icmp_packet& out) {
 	ipv4_packet p;
-	if (!ipv4_get(p)) return false;
+	if (!ipv4_get(p))
+		return false;
 	if (p.i.protocol != IPv4::PROTOCOL_ICMP) {
 		ipv4_forward(p);
 		return false;
@@ -61,8 +62,10 @@ retry:
 	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "KATEOS PING :3"_RO, {});
 	icmp_packet p;
 	while (1) {
-		if (icmp_get(p)) break;
-		if (timepoint::now() - sent_time > 3.) goto retry;
+		if (icmp_get(p))
+			break;
+		if (timepoint::now() - sent_time > 3.)
+			goto retry;
 	}
 	units::milliseconds diff = p.i.timestamp - sent_time;
 	qprintf<128>("[ICMP] %I responded in %fms.\n", ip, diff.rep);
@@ -77,8 +80,10 @@ retry:
 	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "KATEOS PING :3"_RO, domain);
 	icmp_packet p;
 	while (1) {
-		if (icmp_get(p)) break;
-		if (timepoint::now() - sent_time > 3.) goto retry;
+		if (icmp_get(p))
+			break;
+		if (timepoint::now() - sent_time > 3.)
+			goto retry;
 	}
 	units::milliseconds diff = p.i.timestamp - sent_time;
 	qprintf<128>("[ICMP] %S (%I) responded in %fms.\n", &domain, ip, diff.rep);

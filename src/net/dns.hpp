@@ -58,7 +58,7 @@ struct dns_answer {
 	uint16_t type;
 	uint16_t class_code;
 	uint32_t ttl;
-	span<const uint8_t> data;
+	span<const std::byte> data;
 };
 
 ipv4_t dns_query(rostring domain);

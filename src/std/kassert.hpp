@@ -1,10 +1,10 @@
 #pragma once
 #include <asm.hpp>
-#include <kstdlib.hpp>
 
 void wait_until_kbhit();
 void inline_stacktrace();
-void print(const char*, bool);
+void error(const char*);
+void putchar(char, bool);
 void tag_dump();
 
 enum DEBUG_SEVERITY {
@@ -50,14 +50,39 @@ static const char* debug_severities[] = {
 	"halt and catch fire!! ", "fatal exception: ", "error: ", "warning: ", "info: ", "note: ", ""
 };
 
+constexpr std::size_t WAIT_CYCLES = 30000000;
+
 template <bool halt>
 [[gnu::used]] static void kassert_impl(int severity, const char* location, const char* message) {
-	print(debug_severities[severity], false);
-	print(location, false);
-	print(": ", false);
-	print(message, true);
+	error(debug_severities[severity]);
+	error(location);
+	error(": ");
+	error(message);
+	for (std::size_t i = 0; i < WAIT_CYCLES; i++)
+		cpu_relax();
 	inline_stacktrace();
-	for (int i = 0; i < 30000000; i++) cpu_relax();
+	for (std::size_t i = 0; i < WAIT_CYCLES; i++)
+		cpu_relax();
+	tag_dump();
+	//if (severity <= NDEBUG_PAUSE_SEVERITY) {
+	//	wait_until_kbhit();
+	//}
+	if constexpr (halt) {
+		inf_wait();
+		__builtin_unreachable();
+	}
+}
+template <bool halt, typename... Args>
+[[gnu::used]] static void kassertf_impl(int severity, const char* location, const char* format, Args... args) {
+	error(debug_severities[severity]);
+	error(location);
+	error(": ");
+	errorf(format, args...);
+	for (std::size_t i = 0; i < WAIT_CYCLES; i++)
+		cpu_relax();
+	inline_stacktrace();
+	for (std::size_t i = 0; i < WAIT_CYCLES; i++)
+		cpu_relax();
 	tag_dump();
 	//if (severity <= NDEBUG_PAUSE_SEVERITY) {
 	//	wait_until_kbhit();
@@ -71,17 +96,24 @@ template <bool halt>
 
 #define STRINGIZE(x) STRINGIZE2(x)
 #define STRINGIZE2(x) #x
-#define kassert(level, severity, condition, msg)                                  \
-	do {                                                                          \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY) \
-			if (!(condition))                                                     \
-				assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(          \
-					severity, __FILE__ ":" STRINGIZE(__LINE__), msg);             \
+#define kassert(level, severity, condition, msg)                                                                    \
+	do {                                                                                                            \
+		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                                   \
+			if (!(condition))                                                                                       \
+				assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity, __FILE__ ":" STRINGIZE(__LINE__), \
+																										 msg);      \
+	} while (0)
+#define kassertf(level, severity, condition, fmt, ...)                                           \
+	do {                                                                                         \
+		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                \
+			if (!(condition))                                                                    \
+				assert::kassertf_impl<(severity < NDEBUG_HALT_SEVERITY)>(                        \
+					severity, __FILE__ ":" STRINGIZE(__LINE__), fmt __VA_OPT__(, ) __VA_ARGS__); \
 	} while (0)
 
-#define kassert_trace(level, severity)                                            \
-	do {                                                                          \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY) \
-			assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(              \
-				severity, __FILE__ ":" STRINGIZE(__LINE__), "Backtrace");         \
+#define kassert_trace(level, severity)                                                                             \
+	do {                                                                                                           \
+		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                                  \
+			assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity, __FILE__ ":" STRINGIZE(__LINE__),    \
+																									 "Backtrace"); \
 	} while (0)
