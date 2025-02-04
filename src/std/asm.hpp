@@ -29,7 +29,7 @@ static inline uint64_t read_cr0(void) {
 }
 static inline uint64_t read_cr2(void) {
 	uint64_t val;
-	asmv("mov %%cr2, %0" : "=r"(val));
+	asmv("mov %%cr2, %0\n" : "=r"(val));
 	return val;
 }
 static inline uint64_t read_cr3(void) {

@@ -336,7 +336,8 @@ static void to_dir_ents(pointer<file_inode> directory) {
 			if (!c || c == '.')
 				break;
 		}
-		for (std::size_t j = 0; j < 3 && j < children[i].n->filename.size() - extStart; j++) {
+		for (std::size_t j = 0;
+			 j < 3 && j < children[i].n->filename.size() - extStart && children[i].n->filename[extStart + j]; j++) {
 			files[i].extension[j] = toupper(children[i].n->filename[extStart + j]);
 		}
 		if (extStart < 7)
@@ -363,12 +364,13 @@ static void to_dir_ents(pointer<file_inode> directory) {
 			continue;
 		}
 		int nLFNs = (children[i].n->filename.size() + 12) / 13;
+		children[i].n->filename.c_str();
 		istringstream ns = { children[i].n->filename };
 		for (int k = 0; k < nLFNs; k++) {
 			fat_file_lfn lfn;
 			lfn.flags = 0x0f;
 			lfn.entry_type = 0;
-			lfn.position = (k + 1) | (k == nLFNs - 1 ? 0x40 : 0);
+			lfn.position = (k + 1) | (k == 0 ? 0x40 : 0);
 			lfn.checksum = fat_lfn_checksum(files[i].filename);
 			lfn.reserved2 = 0;
 			memset(lfn.chars_1, 0xff, 10);

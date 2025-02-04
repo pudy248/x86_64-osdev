@@ -1,0 +1,10 @@
+; %define PARTITION_LBA 128
+; %define FAT32_RESERVED_SECTORS 16
+; %define SECTORS_PER_CLUSTER 8
+; %define SECTORS_PER_FAT32 512
+
+%define TOTAL_SECTORS (FAT32_RESERVED_SECTORS + SECTORS_PER_FAT32 * (128 * SECTORS_PER_CLUSTER + 2))
+
+%macro SETORG 1
+    times (%1) - ($ - $$) db 0
+%endmacro

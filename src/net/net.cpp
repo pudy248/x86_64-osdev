@@ -160,7 +160,7 @@ tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {
 	return opt;
 }
 template <typename T, bool FL>
-void write_tlv(tlv_option_t<T, FL> opt, obinstream<>& s) {
+void write_tlv(const tlv_option_t<T, FL>& opt, obinstream<>& s) {
 	s.write_b<T>(opt.opt);
 	s.write_b<T>(opt.value.size() + FL * 2 * sizeof(T));
 	s.write(opt.value);

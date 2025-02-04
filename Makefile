@@ -3,6 +3,13 @@ LLVM_VERSION:=20
 CC:=clang-$(LLVM_VERSION)
 LLVM_TOOLS_SUFFIX=
 LD:=ld.lld$(LLVM_TOOLS_SUFFIX)
+ASM:=nasm
+
+BOOTLOADER_CONFIG:=\
+-DBOOTLOADER_RESERVED_SECTORS=128 \
+-DSECTORS_PER_CLUSTER=8 \
+-DSECTORS_PER_FAT32=512 \
+-DFAT32_RESERVED_SECTORS=16 \
 
 CFLAGS_CC_SPECIFIC:=-Xclang -fmerge-functions -fno-cxx-exceptions -fnew-alignment=16
 CFLAGS_CC_SPECIFIC_DBG:=-fdebug-macro -mno-omit-leaf-frame-pointer
@@ -14,23 +21,20 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
--Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 \
+-Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 \
 -Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
-CFLAGS_KERNEL:=-DKERNEL
+
+CFLAGS_HOST:=-Og -march=native -std=c++26 -lstdc++ -g
 
 LDFLAGS_INC:=--lto=thin --ignore-data-address-equality --ignore-function-address-equality
 LDFLAGS_FIN:=-gc-sections --lto=thin --icf=all --ignore-data-address-equality --ignore-function-address-equality
-
-ASM:=nasm
-ASMFLAGS:=-f elf64
 
 IWYUFLAGS:=-std=c++26 -Isrc -Isrc/std -I/usr/lib/llvm-$(LLVM_VERSION)/lib/clang/$(LLVM_VERSION)/include
 CLANG_TIDY_CHECKS_EXTRA:=*,-llvmlibc-callee-namespace,$(CLANG_TIDY_CHECKS)
 CLANG_TIDY_CHECKS:=-bugprone-suspicious-include,-clang-analyzer-valist.Uninitialized
 CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS_EXTRA) -header-filter=.*
 CLANG_TIDY_CC_FLAGS:=-std=c++26 -Isrc -Isrc/std
-
 OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source
 
 ASM_SRC:=$(shell find ./src -name "*.asm" | sed -e "s/^\.\///g")
@@ -38,11 +42,6 @@ C_HDR:=$(shell find ./src -name "*.hpp" | sed -e "s/^\.\///g")
 C_SRC:=$(shell find ./src -name "*.cpp" | sed -e "s/^\.\///g")
 ASM_OBJ:=$(patsubst src/%.asm,tmp/%.o,$(ASM_SRC))
 DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
-
-BOOTLOADER_ASM:=$(shell find ./bootloader -name "*.asm" | sed -e "s/^\.\///g")
-BOOTLOADER_ASM_OBJ:=$(patsubst bootloader/%.asm,tmp/%.o,$(BOOTLOADER_ASM))
-BOOTLOADER_SRC:=$(shell find ./bootloader -name "*.cpp" | sed -e "s/^\.\///g")
-BOOTLOADER_C_OBJ:=$(patsubst bootloader/%.cpp,tmp/%.o,$(BOOTLOADER_SRC))
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
@@ -52,19 +51,24 @@ QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-LOCAL_IP:=192.168.1.203
+LOCAL_IP:=192.168.1.2
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img
 clean:
-	@rm -f disk.img disk_2.img
 	@rm -rf tmp/*
+	@rm -f disk.img disk_2.img
 
-disk.img: tmp/kernel.img tmp/bootloader.img fattener.cpp tmp/diskflasher.img
-	$(CC) fattener.cpp -o tmp/fattener
-	./tmp/fattener tmp/kernel.img tmp/symbols.txt tmp/symbols2.txt $(shell echo disk_include/*)
-	@truncate -s 80M disk.img
-	cat tmp/diskflasher.img disk.img > disk_2.img
+# Final assembly
+disk.img: tmp/fattener tmp/kernel.img tmp/bootloader.img tmp/fat32.img tmp/fsinfo.img tmp/flash.img
+	@mkdir -p tmp/root
+	@cp -r disk_include/* tmp/root
+	@cp tmp/kernel.img tmp/root
+	@cp tmp/symbols.txt tmp/root
+	@cp tmp/symbols2.txt tmp/root
+	./tmp/fattener tmp/root
+	@truncate -s 128M disk.img
+#	cat tmp/flash.img disk.img > disk_2.img
 
 start: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS)
@@ -81,47 +85,44 @@ start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5555
 
-tmp/diskflasher.img: diskflasher.asm
-	nasm $< -f bin -o $@
-
 $(ASM_OBJ) : tmp/%.o : src/%.asm
-	$(ASM) $(ASMFLAGS) -o $@ $<
+	$(ASM) -f elf64 -o $@ $<
 tmp/obj.o : $(C_SRC) $(C_HDR)
 	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
-	$(CC) $(CFLAGS) $(CFLAGS_KERNEL) -o $@ -c tmp/all.cpp
+	$(CC) $(CFLAGS) -DKERNEL -o $@ -c tmp/all.cpp
 
 tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
 #	llvm-objdump $(OBJDUMP_FLAGS) $@ > tmp/base.S
-
+tmp/kernel_noentry.elf: tmp/kernel.elf
+	llvm-objcopy$(LLVM_TOOLS_SUFFIX) --weaken -N kernel_main $^ $@
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
 
 tmp/kernel.img: tmp/kernel.img.elf
 	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) $^ > tmp/kernel.S
 	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle $^ > tmp/symbols.txt
-	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -O binary $< $@
+	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -O binary $^ $@
 
-$(BOOTLOADER_ASM_OBJ) : tmp/%.o : bootloader/%.asm bootloader/constants.asm
-	$(ASM) $(ASMFLAGS) -o $@ $<
-$(BOOTLOADER_C_OBJ): tmp/%.o : bootloader/%.cpp
+tmp/bootloader.img: tmp/kernel_noentry.elf tmp/stage0.o tmp/stage1.o tmp/stage2.o
+	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld $^ -o $@.elf 
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) $@.elf > tmp/bootloader.S
+	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle $@.elf > tmp/symbols2.txt
+	objcopy -O binary $@.elf $@
+
+tmp/flash.img tmp/fat32.img tmp/fsinfo.img: tmp/%.img : bootloader/%.asm
+	$(ASM) $(BOOTLOADER_CONFIG) -f bin $< -o $@
+tmp/stage0.o tmp/stage1.o: tmp/%.o : bootloader/%.asm
+	$(ASM) $(BOOTLOADER_CONFIG) -f elf64 $< -o $@
+tmp/stage2.o : bootloader/stage2.cpp
 	$(CC) $(CFLAGS) -o $@ -c $<
-
-tmp/bootloader.img: $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) bootloader/bootloader.ld tmp/kernel.img.elf
-#	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -SxK kernel_main tmp/kernel.img.elf tmp/kernel_entry.elf
-	llvm-objcopy$(LLVM_TOOLS_SUFFIX) --weaken -N kernel_main tmp/kernel.elf tmp/kernel_noentry.elf
-	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld -o tmp/bootloader.img.elf $(BOOTLOADER_ASM_OBJ) $(BOOTLOADER_C_OBJ) tmp/kernel_noentry.elf
-	
-	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) tmp/bootloader.img.elf > tmp/bootloader.S
-	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle tmp/bootloader.img.elf > tmp/symbols2.txt
-	objcopy -O binary tmp/bootloader.img.elf tmp/bootloader.img
+tmp/fattener: bootloader/fattener.cpp
+	$(CC) $(CFLAGS_HOST) $(BOOTLOADER_CONFIG) $< -o $@
 
 format:
 	clang-format$(LLVM_TOOLS_SUFFIX) -i $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
-
 tidy: tmp/obj.o
 	clang-tidy$(LLVM_TOOLS_SUFFIX) $(CLANG_TIDY_FLAGS) tmp/all.cpp -- $(CLANG_TIDY_CC_FLAGS) > tmp/tidy_spam.txt
-
 iwyu: $(C_SRC) $(C_HDR) $(BOOTLOADER_SRC)
 	for file in $^; do \
 		iwyu $(IWYUFLAGS) $$file; \

@@ -26,10 +26,6 @@ SECTIONS
         end_bss = .;
     }
 
-    .fat 0x7C00 + 0x200 * 128: AT(0x200 * 128) {
-        KEEP(*(.fat));
-    }
-
     /DISCARD/ : {
         *(.eh_frame)
         *(.comment)
