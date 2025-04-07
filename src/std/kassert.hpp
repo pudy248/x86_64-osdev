@@ -98,17 +98,27 @@ template <bool halt, typename... Args>
 #define STRINGIZE2(x) #x
 #define kassert(level, severity, condition, msg)                                                                    \
 	do {                                                                                                            \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                                   \
+		if consteval {                                                                                              \
 			if (!(condition))                                                                                       \
-				assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity, __FILE__ ":" STRINGIZE(__LINE__), \
-																										 msg);      \
+				1 / 0;                                                                                              \
+		} else {                                                                                                    \
+			if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                               \
+				if (!(condition))                                                                                   \
+					assert::kassert_impl<(severity < NDEBUG_HALT_SEVERITY)>(severity,                               \
+																			__FILE__ ":" STRINGIZE(__LINE__), msg); \
+		}                                                                                                           \
 	} while (0)
-#define kassertf(level, severity, condition, fmt, ...)                                           \
-	do {                                                                                         \
-		if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                \
-			if (!(condition))                                                                    \
-				assert::kassertf_impl<(severity < NDEBUG_HALT_SEVERITY)>(                        \
-					severity, __FILE__ ":" STRINGIZE(__LINE__), fmt __VA_OPT__(, ) __VA_ARGS__); \
+#define kassertf(level, severity, condition, fmt, ...)                                               \
+	do {                                                                                             \
+		if consteval {                                                                               \
+			if (!(condition))                                                                        \
+				1 / 0;                                                                               \
+		} else {                                                                                     \
+			if constexpr (level <= NDEBUG_LEVEL && severity < NDEBUG_IGNORE_SEVERITY)                \
+				if (!(condition))                                                                    \
+					assert::kassertf_impl<(severity < NDEBUG_HALT_SEVERITY)>(                        \
+						severity, __FILE__ ":" STRINGIZE(__LINE__), fmt __VA_OPT__(, ) __VA_ARGS__); \
+		}                                                                                            \
 	} while (0)
 
 #define kassert_trace(level, severity)                                                                             \

@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <kstddef.hpp>
 #include <net/net.hpp>
-#include <stl/vector.hpp>
 
 namespace IPv4 {
 enum IPv4_CONSTANTS {
@@ -13,7 +12,7 @@ enum IPv4_CONSTANTS {
 };
 }
 
-struct ipv4_header {
+struct [[gnu::packed]] ipv4_header {
 	uint8_t ver_ihl; // 4, 5
 	uint8_t dscp; // 0
 	uint16_t total_length; //20 + data

@@ -116,21 +116,83 @@ class VectorSynthProviderDeref(object):
     def has_children(self):
         return True
 
+
+class BytespanSynthProvider(object):
+    def __init__(self, valobj, dict):
+        self.valobj = valobj
+        self.count = None
+
+    def num_children(self):
+        if self.count is None:
+            arr_val = self.arr.unsigned
+            size_val = int(self.size)
+            if arr_val == 0 or size_val == 0:
+                self.count = 0
+                return self.count
+            self.count = size_val
+        return self.count
+
+    def get_child_index(self, name):
+        print("get child index")
+        print(name)
+        try:
+            return int(name.lstrip("[").rstrip("]"))
+        except:
+            return -1
+        
+    def get_child_at_index(self, index):
+        print("get child at index")
+        print(index)
+        if index < 0:
+            return None
+        if index >= self.num_children():
+            return None
+        try:
+            offset = index * self.ptr_size
+            return self.arr.CreateChildAtOffset(
+                "[" + str(index) + "]", offset, self.ptr_type
+            )
+        except:
+            return "Except"
+
+    def update(self):
+        self.count = None
+        try:
+            self.arr = self.valobj.GetChildMemberWithName("iter").GetChildMemberWithName("ptr")
+            sent = self.valobj.GetChildMemberWithName("sentinel").GetChildMemberWithName("ptr")
+            self.ptr_type = self.valobj.target.FindFirstType("std::byte")
+            self.ptr_size = self.ptr_type.GetByteSize()
+            self.size = (sent.unsigned - self.arr.unsigned) / self.ptr_size
+            if (
+                self.arr.IsValid()
+                and self.ptr_type.IsValid()
+            ):
+                self.count = None
+            else:
+                self.count = 0
+        except:
+            self.count = 0
+            print("Except")
+        return False
+    
+    def has_children(self):
+        return True
+
 def char_container(valobj,internal_dict,options):
-    begin = valobj.GetChildMemberWithName('m_begin')
-    sentinel = valobj.GetChildMemberWithName('m_sentinel')
-    str = ''
+    begin = valobj.GetNonSyntheticValue().GetChildMemberWithName('iter').Cast(valobj.target.FindFirstType("char").GetPointerType())
+    sentinel = valobj.GetNonSyntheticValue().GetChildMemberWithName('sentinel')
+    s = ''
     for i in range(sentinel.unsigned - begin.unsigned):
-        str = str + begin.GetChildAtIndex(i, 0, True).value[1:-1]
-    return '"' + str + '"_RO'
+        s = s + begin.GetChildAtIndex(i, 0, True).value[1:-1]
+    return '"' + s + '"_RO'
 
 def char_container_rw(valobj,internal_dict,options):
-    arr = valobj.GetChildMemberWithName('m_arr').GetChildMemberWithName('ptr').Cast(valobj.target.FindFirstType("char").GetPointerType())
-    size_v = valobj.GetChildMemberWithName('m_size').unsigned
-    str = ''
+    arr = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_arr').GetChildMemberWithName('ptr').Cast(valobj.target.FindFirstType("char").GetPointerType())
+    size_v = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_size').unsigned
+    s = ''
     for i in range(size_v):
-        str = str + arr.GetChildAtIndex(i, 0, True).value[1:-1]
-    return '"' + str + '"_RW'
+        s = s + arr.GetChildAtIndex(i, 0, True).value[1:-1]
+    return '"' + s + '"_RW'
 
 def function_address(valobj,internal_dict,options):
     ret = valobj.GetChildMemberWithName('ret').unsigned

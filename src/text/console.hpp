@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <stl/view.hpp>
 #include <text/text_display.hpp>
 
 class console {

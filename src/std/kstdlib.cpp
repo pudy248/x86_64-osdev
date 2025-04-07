@@ -38,8 +38,8 @@ int memcmp(void* l, void* r, uint64_t size) {
 }
 
 void mem_init() {
-	new (&globals->global_waterline) waterline_allocator(mmap(nullptr, 0x40000, 0, 0), 0x40000);
-	new (&globals->global_heap) heap_allocator(mmap(nullptr, 0x100000, 0, 0), 0x100000);
+	new (&globals->global_waterline) waterline_allocator(mmap(nullptr, 0x100000, 0, 0), 0x100000);
+	new (&globals->global_heap) heap_allocator(mmap(nullptr, 0x200000, 0, 0), 0x200000);
 	new (&globals->global_pagemap) slab_pagemap();
 	new (&globals->global_mmap_alloc) mmap_allocator();
 }
@@ -72,23 +72,23 @@ void __free(void* ptr) {
 	}
 }
 
-[[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment) {
+[[gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment) {
 	kassert(DEBUG_ONLY, WARNING, size <= 0xffffffff, "Invalid size in walloc()");
-	void* ptr = __walloc(size, alignment);
-	if (tags_enabled())
+	void* ptr = size ? __walloc(size, alignment) : nullptr;
+	if (ptr && tags_enabled())
 		return tag_alloc(size, ptr);
 	return ptr;
 }
-[[gnu::returns_nonnull, gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment) {
+[[gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment) {
 	kassert(DEBUG_ONLY, WARNING, size <= 0xffffffff, "Invalid size in malloc()");
-	void* ptr = __malloc(size, alignment);
-	if (tags_enabled())
+	void* ptr = size ? __malloc(size, alignment) : nullptr;
+	if (ptr && tags_enabled())
 		return tag_alloc(size, ptr);
 	return ptr;
 }
-[[gnu::returns_nonnull, gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment) {
+[[gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment) {
 	void* ptr = kmalloc(size, alignment);
-	kbzero<16>(ptr, size);
+	kbzero<16>(ptr, (size + alignment - 1) & ~(alignment - 1));
 	return ptr;
 }
 void kfree(void* ptr) {
@@ -119,3 +119,5 @@ void operator delete[](void* ptr, unsigned long) noexcept {
 	if (ptr)
 		kfree(ptr);
 }
+
+extern "C" void abort() { int3(); }

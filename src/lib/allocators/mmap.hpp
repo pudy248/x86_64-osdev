@@ -27,7 +27,9 @@ public:
 	std::size_t used = 0;
 	mmap_allocator() = default;
 
-	bool contains(ptr_t ptr) { return mstat(get_actual_ptr(ptr).begin).map_flags & MAP_ALLOC; }
+	bool contains(ptr_t ptr) {
+		return (uintptr_t(ptr) & 0xfff) == 0x10 && mstat(get_actual_ptr(ptr).begin).map_flags & MAP_ALLOC;
+	}
 	std::size_t mem_used() { return used; }
 
 	ptr_t alloc(uint64_t size, uint16_t = 0x10) {

@@ -4,7 +4,7 @@
 #include <drivers/vmware_svga.hpp>
 #include <kassert.hpp>
 #include <kstdlib.hpp>
-#include <stl/view.hpp>
+#include <stl/ranges.hpp>
 #include <sys/global.hpp>
 #include <sys/memory/paging.hpp>
 
@@ -19,7 +19,8 @@ static void svga_write(uint32_t addr, uint32_t val) {
 	outl(globals->svga->pio_base + 1, val);
 }
 
-static void svga_fifo_write(span<uint32_t> arr) {
+template <ranges::range R>
+static void svga_fifo_write(const R& arr) {
 	disable_interrupts();
 	globals->svga->fifo[SVGA_FIFO::RESERVED] = arr.size() << 2;
 	uint32_t min = globals->svga->fifo[SVGA_FIFO::MIN];

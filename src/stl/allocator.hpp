@@ -42,10 +42,10 @@ public:
 		return new_alloc;
 	}
 	template <typename Derived>
-	ptr_t move(this Derived&, Derived&, ptr_t other_ptr) {
+	constexpr ptr_t move(this Derived&, Derived&, ptr_t other_ptr) {
 		return other_ptr;
 	}
-	void destroy() {}
+	constexpr void destroy() {}
 };
 template <typename T>
 using default_allocator_t = default_allocator;

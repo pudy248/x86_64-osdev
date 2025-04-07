@@ -14,7 +14,7 @@ enum ICMP_TYPE : uint8_t {
 };
 }
 
-struct icmp_header {
+struct [[gnu::packed]] icmp_header {
 	uint8_t type;
 	uint8_t code;
 	uint16_t checksum;

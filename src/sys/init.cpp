@@ -10,6 +10,7 @@
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/memory/paging.hpp>
+#include <sys/pic.hpp>
 #include <text/console.hpp>
 #include <text/text_display.hpp>
 #include <text/vga_terminal.hpp>
@@ -38,20 +39,29 @@ void init_libcpp() {
 	kbzero<8>(&start_bss, (&end_bss - &start_bss) * sizeof(uint64_t));
 	kbzero<8>(fixed_globals, sizeof(fixed_global_data_t));
 	paging_init();
-	vga_text_init();
 	mem_init();
+
+	idt_init();
+	pic_init();
+	isr_set(32, &inc_pit);
+	isr_set(33, &keyboard_irq);
+
+	vga_text_init();
 	globals->g_console = decltype(globals->g_console)::make_unique(waterline_new<console>());
-	new (globals->g_console()) console(&vga_text_set_char, &vga_text_update, vga_text_dimensions);
+	new (globals->g_console) console(&vga_text_set_char, &vga_text_update, vga_text_dimensions);
 	globals->g_stdout = decltype(globals->g_stdout)::make_unique(waterline_new<text_layer>());
 	new (globals->g_stdout) text_layer(default_console());
 	default_output().fill(' ');
+
 	debug_init();
+	// time_init();
+
 	global_ctors();
 }
 
 void kernel_reinit() {
 	kbzero<8>(&start_bss, (&end_bss - &start_bss) * sizeof(uint64_t));
-	//globals->tag_allocs = true;
+	globals->tag_allocs = true;
 	replace_console(console(&vga_text_set_char, &vga_text_update, vga_text_dimensions));
 	idt_reinit();
 	*globals->fs = { fat_read_directory, fat_write_directory, fat_read_file,

@@ -1,7 +1,6 @@
 #pragma once
 #include <kstddef.hpp>
 #include <stl/stream.hpp>
-#include <stl/vector.hpp>
 #include <sys/ktime.hpp>
 
 typedef uint64_t mac_t;
@@ -24,7 +23,10 @@ enum HTYPE : uint8_t {
 };
 }
 
-extern mac_t global_mac;
+extern union mac_union {
+	mac_t as_int;
+	mac_bits_t as_bits;
+} global_mac;
 extern ipv4_t global_ip;
 
 struct net_buffer_t {

@@ -68,7 +68,7 @@ int ipv4_send(ipv4_packet p) {
 
 	eth_info eth;
 	eth.ethertype = ETHERTYPE::IPv4;
-	eth.src_mac = global_mac;
+	eth.src_mac = global_mac.as_int;
 	eth.dst_mac = arp_translate_ip(p.i.dst_ip);
 	net_buffer_t buf = { p.b.frame_begin, p.b.data_begin - sizeof(ipv4_header), p.b.data_size + sizeof(ipv4_header) };
 

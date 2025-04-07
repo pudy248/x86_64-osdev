@@ -1,3 +1,4 @@
+#include "sys/ktime.hpp"
 #include <cstdint>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
@@ -6,13 +7,14 @@
 #include <net/dhcp.hpp>
 #include <net/net.hpp>
 #include <net/udp.hpp>
-#include <stl/view.hpp>
+#include <stl/algorithms.hpp>
+#include <stl/ranges.hpp>
 
 dhcp_lease active_lease;
 
 constexpr static uint32_t COOKIE = 0x63538263;
-constexpr const char* HOSTNAME = "KATEOS_DESKTOP";
-constexpr const char* VENDOR = "KATEOS";
+constexpr const char* HOSTNAME = "IVYOS_DESKTOP";
+constexpr const char* VENDOR = "IVYOS";
 
 void dhcp_set_active(const dhcp_lease& l) {
 	active_lease = l;
@@ -40,6 +42,10 @@ lbl_discover:
 			goto lbl_discover;
 	}
 	dhcp_lease l = dhcp_parse_response(p, DHCP_MTYPE::OFFER);
+	if (!l.yiaddr) {
+		delay(units::seconds(1.));
+		goto lbl_discover;
+	}
 	kfree(p.b.frame_begin);
 lbl_request:
 	timepoint t2 = timepoint::now();
@@ -55,6 +61,10 @@ lbl_request:
 	}
 	arp_update(p.i.src_mac, p.i.src_ip);
 	l = dhcp_parse_response(p, DHCP_MTYPE::ACK);
+	if (!l.yiaddr) {
+		delay(units::seconds(1.));
+		goto lbl_discover;
+	}
 	kfree(p.b.frame_begin);
 	l.established = timepoint::now();
 	return l;
@@ -102,7 +112,7 @@ void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
 	dhcp->yiaddr = 0;
 	dhcp->siaddr = 0;
 	dhcp->giaddr = 0;
-	kmemcpy<1>(dhcp->chaddr, &global_mac, 6);
+	kmemcpy<1>(&dhcp->chaddr, &global_mac, 6);
 	kbzero<1>(dhcp->padding, sizeof(dhcp->padding));
 	dhcp->cookie = COOKIE;
 
@@ -112,17 +122,17 @@ void dhcp_discover(uint32_t xid, ipv4_t preferred_ip) {
 	if (preferred_ip)
 		write_tlv<uint8_t, false>({ DHCP_OPT::REQUEST_IP, cbytespan((uint8_t*)&preferred_ip, 4) }, s);
 	uint8_t cid[7] = { HTYPE::ETH };
-	span(cid, 7).blit(span((uint8_t*)&global_mac, 6), 1);
+	ranges::copy(span(cid + 1, 6), global_mac.as_bits);
 	write_tlv<uint8_t, false>({ DHCP_OPT::CLIENT_IDENT, span(cid, 7) }, s);
-	write_tlv<uint8_t, false>({ DHCP_OPT::HOST_NAME, rostring(HOSTNAME).reinterpret_as<uint8_t>() }, s);
-	write_tlv<uint8_t, false>({ DHCP_OPT::VENDOR_IDENT, rostring(VENDOR).reinterpret_as<uint8_t>() }, s);
+	write_tlv<uint8_t, false>({ DHCP_OPT::HOST_NAME, rostring(HOSTNAME) }, s);
+	write_tlv<uint8_t, false>({ DHCP_OPT::VENDOR_IDENT, rostring(VENDOR) }, s);
 
 	uint8_t prl[] = {
 		DHCP_OPT::SUBNET,	   DHCP_OPT::ROUTER,	 DHCP_OPT::NTP_SERVER,
 		DHCP_OPT::DHCP_SERVER, DHCP_OPT::DNS_SERVER, DHCP_OPT::BROADCAST_ADDR,
 	};
 	write_tlv<uint8_t, false>({ DHCP_OPT::PRL, span(prl, sizeof(prl)) }, s);
-	s.write((std::byte)DHCP_OPT::END);
+	s.put((std::byte)DHCP_OPT::END);
 	//bzero<1>(s.begin(), ((uint8_t*)(dhcp + 1) + 64) - s.begin());
 	udp_info npi;
 	npi.dst_ip = 0xffffffff;
@@ -144,16 +154,20 @@ dhcp_lease dhcp_parse_response(dhcp_packet packet, uint8_t expected_mtype) {
 	do {
 		opt = read_tlv<uint8_t, false>(s);
 		switch (opt.opt) {
-		case DHCP_OPT::SUBNET: l.subnet_mask = *(ipv4_t*)opt.value.begin(); break;
-		case DHCP_OPT::ROUTER: l.router = *(ipv4_t*)opt.value.begin(); break;
-		case DHCP_OPT::DNS_SERVER: l.dns = *(ipv4_t*)opt.value.begin(); break;
-		case DHCP_OPT::DHCP_SERVER: l.server_ident = *(ipv4_t*)opt.value.begin(); break;
+		case DHCP_OPT::SUBNET: kmemcpy(&l.subnet_mask, opt.value.begin(), 4); break;
+		case DHCP_OPT::ROUTER: kmemcpy(&l.router, opt.value.begin(), 4); break;
+		case DHCP_OPT::DNS_SERVER: kmemcpy(&l.dns, opt.value.begin(), 4); break;
+		case DHCP_OPT::DHCP_SERVER: kmemcpy(&l.server_ident, opt.value.begin(), 4); break;
 		case DHCP_OPT::MESSAGE_TYPE:
 			if ((uint8_t)opt.value[0] != expected_mtype) {
 				qprintf<128>("[DHCP] Expected message type %i, got %i\n", expected_mtype, opt.value[0]);
 				return {};
 			}
-		case DHCP_OPT::LEASE_TIME: l.duration.rep = htonl(*(uint32_t*)opt.value.begin()); break;
+			break;
+		case DHCP_OPT::LEASE_TIME:
+			kmemcpy(&l.duration.rep, opt.value.begin(), 4);
+			l.duration.rep = htonl(l.duration.rep);
+			break;
 		default: break;
 		}
 	} while (opt.opt != DHCP_OPT::END);
@@ -186,19 +200,19 @@ void dhcp_request(uint32_t xid, const dhcp_lease& offer) {
 	obinstream<> s{ (std::byte*)(dhcp + 1) };
 	write_tlv<uint8_t, false>({ DHCP_OPT::MESSAGE_TYPE, span<const uint8_t>({ DHCP_MTYPE::REQUEST }) }, s);
 	uint8_t cid[7] = { HTYPE::ETH };
-	span(cid, 7).blit(span((uint8_t*)&global_mac, 6), 1);
+	ranges::copy(span(cid + 1, 6), global_mac.as_bits);
 	write_tlv<uint8_t, false>({ DHCP_OPT::CLIENT_IDENT, span(cid, 7) }, s);
 	write_tlv<uint8_t, false>({ DHCP_OPT::REQUEST_IP, span<uint8_t>((uint8_t*)&offer.yiaddr, 4) }, s);
 	write_tlv<uint8_t, false>({ DHCP_OPT::DHCP_SERVER, span<uint8_t>((uint8_t*)&offer.server_ident, 4) }, s);
-	write_tlv<uint8_t, false>({ DHCP_OPT::HOST_NAME, rostring(HOSTNAME).reinterpret_as<uint8_t>() }, s);
-	write_tlv<uint8_t, false>({ DHCP_OPT::VENDOR_IDENT, rostring(VENDOR).reinterpret_as<uint8_t>() }, s);
+	write_tlv<uint8_t, false>({ DHCP_OPT::HOST_NAME, rostring(HOSTNAME) }, s);
+	write_tlv<uint8_t, false>({ DHCP_OPT::VENDOR_IDENT, rostring(VENDOR) }, s);
 
 	uint8_t prl[] = {
 		DHCP_OPT::SUBNET,	   DHCP_OPT::ROUTER,	 DHCP_OPT::NTP_SERVER,
 		DHCP_OPT::DHCP_SERVER, DHCP_OPT::DNS_SERVER, DHCP_OPT::BROADCAST_ADDR,
 	};
 	write_tlv<uint8_t, false>({ DHCP_OPT::PRL, span(prl, sizeof(prl)) }, s);
-	s.write((std::byte)DHCP_OPT::END);
+	s.put((std::byte)DHCP_OPT::END);
 	//bzero<1>(s.begin(), ((uint8_t*)(dhcp + 1) + 64) - s.begin());
 	udp_info npi;
 	npi.dst_ip = 0xffffffff;

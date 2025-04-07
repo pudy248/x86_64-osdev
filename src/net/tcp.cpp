@@ -7,8 +7,9 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
+#include <stl/algorithms.hpp>
+#include <stl/ranges.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 #include <utility>
 
 #define TCP_DATA_OFFSET(s) ((s + 5) << 4)
@@ -32,7 +33,7 @@ struct tcp_mss {
 	uint16_t mss;
 };
 constexpr bool TCP_STATE::valid(int s) { return s == ESTABLISHED; }
-tcp_flags::tcp_flags(uint16_t f) { *(uint16_t*)this = f; }
+tcp_flags::tcp_flags(uint16_t f) { kmemcpy(this, &f, 2); }
 
 net_buffer_t tcp_new(std::size_t data_size) {
 	net_buffer_t buf = ipv4_new(data_size + sizeof(tcp_header));
@@ -63,7 +64,7 @@ net_async_t tcp_transmit(tcp_conn_t conn, tcp_packet p) {
 }
 static net_async_t tcp_transmit(tcp_conn_t conn, span<std::byte> data, uint16_t flags) {
 	net_buffer_t buf = tcp_new(data.size());
-	ispan((std::byte*)buf.data_begin).blit(data);
+	algo::copy(buf.data_begin, buf.data_begin + buf.data_size, data.begin(), data.end());
 	return tcp_transmit(conn, { tcp_info{ .flags = flags }, buf });
 }
 
@@ -183,8 +184,9 @@ void tcp_receive(ipv4_packet p) {
 					conn->partial.end_seq = htonl(tcp->seq_num) + size;
 					conn->partial.contents = vector<char>(conn->partial.end_seq - conn->partial.start_seq);
 				}
-				view(conn->partial.contents)
-					.blit(span((char*)contents, size), htonl(tcp->seq_num) - conn->partial.start_seq);
+				conn->partial.contents.reserve(htonl(tcp->seq_num) + size - conn->partial.start_seq);
+				algo::copy((std::byte*)conn->partial.contents.begin() + (htonl(tcp->seq_num) - conn->partial.start_seq),
+						   contents, contents + size);
 				if (htonl(tcp->seq_num) + size == conn->partial.end_seq)
 					conn->partial.end_seq = htonl(tcp->seq_num);
 				if (htonl(tcp->seq_num) == conn->partial.start_seq)
@@ -194,11 +196,11 @@ void tcp_receive(ipv4_packet p) {
 					conn->partial.contents.clear();
 					conn->partial.start_seq = conn->partial.end_seq = 0;
 
-					conn->received_packets.append({ vector(buf, size) });
+					conn->received_packets.append({ buf, buf + size });
 				}
 			} else {
 				//tcp_send(conn, { span(contents, size) }, set_flags(TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK));
-				conn->received_packets.append({ (char*)contents, size });
+				conn->received_packets.append({ (char*)contents, (char*)contents + size });
 			}
 		} else if (tcp->flags.fin) {
 			conn->cur_ack = htonl(tcp->seq_num) + 1;
@@ -355,51 +357,16 @@ void tcp_await(tcp_conn_t conn) {
 	}
 }
 
-tcp_input_iterator::tcp_input_iterator(tcp_conn_t conn)
-	: conn(conn), fragment_index(conn->packet_offset), fragment_offset(0) {
-	get_packet();
+tcp_input_iterator::tcp_input_iterator(tcp_conn_t conn) : conn(conn) {}
+const char& tcp_input_iterator::operator*() const {
+	conn->await_packet(1);
+	return conn->received_packets[0][conn->packet_offset];
 }
-tcp_input_iterator::tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index, std::size_t fragment_offset)
-	: conn(conn), fragment_index(fragment_index), fragment_offset(fragment_offset) {}
-void tcp_input_iterator::get_packet() const { conn->await_packet(fragment_index + 1 - conn->packet_offset); }
-bool tcp_input_iterator::in_bounds() const {
-	return fragment_index - conn->packet_offset < conn->received_packets.size();
-}
-tcp_fragment& tcp_input_iterator::cur_frag() const {
-	return conn->received_packets.at(fragment_index - conn->packet_offset);
-}
-void tcp_input_iterator::flush() {
-	conn->received_packets.erase(0, fragment_index);
-	conn->packet_offset += fragment_index;
-	fragment_index = 0;
-}
-char& tcp_input_iterator::operator*() const {
-	get_packet();
-	return cur_frag().at(fragment_offset);
-}
-//char* tcp_input_iterator::operator()() const {
-//	if (in_bounds() && fragment_offset < cur_frag().size())
-//		return &**this;
-//	else if (in_bounds())
-//		return tcp_input_iterator{ conn, fragment_index, 0 }() + fragment_offset;
-//	else if (fragment_index - conn->packet_offset == conn->received_packets.size())
-//		return tcp_input_iterator{ conn, fragment_index - 1, 0 }() +
-//			   conn->received_packets.back().size();
-//	else
-//		return NULL;
-//}
-//tcp_input_iterator::operator void*() const { return (void*)(*this)(); }
-tcp_input_iterator& tcp_input_iterator::operator+=(int n) {
-	fragment_offset += n;
-	while (fragment_offset >= cur_frag().size()) {
-		fragment_offset -= cur_frag().size();
-		fragment_index++;
-		if (!in_bounds())
-			break;
+tcp_input_iterator& tcp_input_iterator::operator++() {
+	conn->packet_offset++;
+	if (conn->packet_offset == conn->received_packets[0].size()) {
+		conn->received_packets.erase(0);
+		conn->packet_offset = 0;
 	}
 	return *this;
 }
-bool tcp_input_iterator::operator==(const tcp_input_iterator& other) const {
-	return conn == other.conn && fragment_index == other.fragment_index && fragment_offset == other.fragment_offset;
-}
-bool tcp_sentinel::operator==(const tcp_input_iterator& other) const { return !TCP_STATE::valid(other.conn->state); }

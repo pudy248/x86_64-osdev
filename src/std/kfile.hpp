@@ -1,61 +1,28 @@
 #pragma once
 #include <cstdint>
 #include <kstring.hpp>
+#include <stl/pointer.hpp>
 #include <stl/vector.hpp>
-
-namespace FILE_ATTRIBS {
-enum FILE_ATTRIBS {
-	READONLY = 0x01,
-	HIDDEN = 0x02,
-	SYSTEM = 0x04,
-	DIRECTORY = 0x08,
-};
-}
-
-namespace ACCESS_FLAGS {
-enum ACCESS_FLAGS {
-	READ = 0x01,
-	WRITE = 0x02,
-	MODIFY = 0x03,
-	APPEND = 0x04,
-	FILE = 0x08,
-	DIRECTORY = 0x10,
-	CREATE = 0x20,
-	CREATE_IF_MISSING = 0x40,
-	CREATE_RECURSIVE = 0x60,
-};
-}
-enum class ACCESS_RESULT {
-	SUCCESS,
-	ERR_NOT_FOUND,
-	ERR_EXISTS,
-	ERR_PATH_NOT_FOUND,
-	ERR_PATH_TYPE,
-	ERR_TYPE_FILE,
-	ERR_TYPE_DIRECTORY,
-	ERR_READONLY,
-	ERR_FLAGS,
-	ERR_IN_USE,
-	ERR_NOT_EMPTY,
-};
 
 struct path {
 	vector<string> fragments;
 	constexpr path() = default;
-	constexpr path(const rostring& s) : fragments(s.split('/')) {
-		if (fragments.size() && !fragments[(fragments.size() - 1)].size()) {
+	constexpr path(const rostring& s) : fragments(std::move(s.split('/'))) {
+		while (fragments.size() && !fragments[(fragments.size() - 1)].size()) {
 			fragments.erase(fragments.size() - 1);
 		}
+		if (!fragments.size())
+			fragments.append("");
 	}
 	constexpr path(ccstr_t s) : path(rostring(s)) {}
-	template <convertible_elem_I<string> I, typename S>
-	constexpr path(const view<I, S>& frags) : fragments(frags) {}
+	template <ranges::range R>
+	constexpr path(const R& frags) : fragments(frags) {}
 	constexpr path& operator+=(const path& other) {
 		fragments.append(other.fragments);
 		return (*this);
 	}
 	constexpr path operator+(const path& other) const { return path(*this) += other; }
-	constexpr path parent() const { return path(span(fragments).subspan(0, fragments.size() - 1)); }
+	constexpr path parent() const { return path(ranges::subrange(fragments, 0, fragments.size() - 1)); }
 };
 
 struct file_inode {
@@ -182,18 +149,70 @@ struct filesystem {
 	file_t current;
 };
 
-ACCESS_RESULT file_access(const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::READ);
-ACCESS_RESULT file_access_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
-ACCESS_RESULT file_access(const path& path, int flags = ACCESS_FLAGS::READ);
+namespace fs {
+namespace FILE_ATTRIBS {
+enum FILE_ATTRIBS {
+	READONLY = 0x01,
+	HIDDEN = 0x02,
+	SYSTEM = 0x04,
+	DIRECTORY = 0x08,
+};
+}
 
-file_t file_open(const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::READ);
-file_t file_open_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
-file_t file_open(const path& path, int flags = ACCESS_FLAGS::READ);
+namespace ACCESS_FLAGS {
+enum ACCESS_FLAGS {
+	READ = 0x01,
+	WRITE = 0x02,
+	MODIFY = 0x03,
+	APPEND = 0x04,
+	FILE = 0x08,
+	DIRECTORY = 0x10,
+	CREATE = 0x20,
+	CREATE_IF_MISSING = 0x40,
+	CREATE_RECURSIVE = 0x60,
+};
+}
+enum class ACCESS_RESULT {
+	SUCCESS,
+	ERR_NOT_FOUND,
+	ERR_EXISTS,
+	ERR_PATH_NOT_FOUND,
+	ERR_PATH_TYPE,
+	ERR_TYPE_FILE,
+	ERR_TYPE_DIRECTORY,
+	ERR_READONLY,
+	ERR_FLAGS,
+	ERR_IN_USE,
+	ERR_NOT_EMPTY,
+};
 
-ACCESS_RESULT file_move(const file_t& file, const file_t& directory, const rostring& filename,
-						int flags = ACCESS_FLAGS::MODIFY);
-ACCESS_RESULT file_move(const path& src, const path& dst, int flags = ACCESS_FLAGS::MODIFY);
+ACCESS_RESULT access(const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::READ);
+ACCESS_RESULT access_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
+ACCESS_RESULT access(const path& path, int flags = ACCESS_FLAGS::READ);
 
-ACCESS_RESULT file_delete(file_t& file);
-ACCESS_RESULT file_delete_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
-ACCESS_RESULT file_delete(const path& path, int flags = ACCESS_FLAGS::READ);
+file_t open(const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::READ);
+file_t open_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
+file_t open(const path& path, int flags = ACCESS_FLAGS::READ);
+
+ACCESS_RESULT move(const file_t& file, const file_t& directory, const rostring& filename,
+				   int flags = ACCESS_FLAGS::MODIFY);
+ACCESS_RESULT move(const path& src, const path& dst, int flags = ACCESS_FLAGS::MODIFY);
+
+ACCESS_RESULT remove(file_t& file);
+ACCESS_RESULT remove_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
+ACCESS_RESULT remove(const path& path, int flags = ACCESS_FLAGS::READ);
+
+namespace unsafe {
+file_t open(const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::READ);
+file_t open_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
+file_t open(const path& path, int flags = ACCESS_FLAGS::READ);
+
+//ACCESS_RESULT move(const file_t& file, const file_t& directory, const rostring& filename,
+//				   int flags = ACCESS_FLAGS::MODIFY);
+//ACCESS_RESULT move(const path& src, const path& dst, int flags = ACCESS_FLAGS::MODIFY);
+
+//ACCESS_RESULT remove(file_t& file);
+//ACCESS_RESULT remove_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
+//ACCESS_RESULT remove(const path& path, int flags = ACCESS_FLAGS::READ);
+}
+}

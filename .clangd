@@ -2,6 +2,6 @@ CompileFlags: # Tweak the parse settings
   Add: 
     - "--include-directory=/mnt/c/Users/pudy248/Desktop/dev-work/osdev/src"
     - "--include-directory=/mnt/c/Users/pudy248/Desktop/dev-work/osdev/src/std"
-    - "--std=c++23"
+    - "--std=c++26"
     - "-Wall"
     - "-Wextra"

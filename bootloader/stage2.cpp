@@ -5,14 +5,14 @@
 #include <drivers/pci.hpp>
 #include <kassert.hpp>
 #include <kfile.hpp>
+#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/filesystems/fat.hpp>
 #include <stl/vector.hpp>
-#include <sys/idt.hpp>
 #include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/memory/paging.hpp>
-#include <sys/pic.hpp>
+#include <text/text_display.hpp>
 
 #ifdef KERNEL
 void* stage2_main_discard() {
@@ -20,11 +20,6 @@ void* stage2_main_discard() {
 extern "C" void* stage2_main() {
 #endif
 	init_libcpp();
-	idt_init();
-	pic_init();
-	isr_set(32, &inc_pit);
-	isr_set(33, &keyboard_irq);
-	// time_init();
 
 	pci_init();
 	pci_device* ahci_pci = pci_match(PCI_CLASS::STORAGE, PCI_SUBCLASS::STORAGE_SATA);
@@ -36,8 +31,7 @@ extern "C" void* stage2_main() {
 	//load_debug_symbs("/symbols2.txt");
 	uint64_t kernel_main;
 	{
-		file_t kernel = file_open("/kernel.img");
-
+		file_t kernel = fs::open("/kernel.img");
 		kassert(UNMASKABLE, CATCH_FIRE, kernel.n, "Kernel image not found!\n");
 		uint64_t kernel_link_loc = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[0];
 		uint64_t kernel_mem_end = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[1];

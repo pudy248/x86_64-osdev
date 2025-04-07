@@ -3,7 +3,7 @@
 #include <kstring.hpp>
 #include <net/net.hpp>
 #include <net/udp.hpp>
-#include <stl/view.hpp>
+#include <stl/ranges.hpp>
 #include <sys/ktime.hpp>
 
 namespace DNS_TYPE {
@@ -33,7 +33,7 @@ enum DNS_FMASK : uint16_t {
 
 constexpr uint16_t DNS_PORT = 53;
 
-struct dns_header {
+struct [[gnu::packed]] dns_header {
 	uint16_t xid;
 	uint16_t flags;
 	uint16_t n_quest;

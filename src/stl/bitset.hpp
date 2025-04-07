@@ -4,8 +4,8 @@
 #include <iterator>
 #include <kassert.hpp>
 #include <stl/allocator.hpp>
+#include <stl/ranges.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 
 class bitset_reference {
 public:
@@ -39,13 +39,13 @@ public:
 	using value_type = bool;
 };
 
-class bitset_iterator : iterator_crtp<bitset_iterator> {
+class bitset_iterator : random_access_iterator_interface<bitset_iterator> {
 public:
 	uint8_t* ptr;
 	uint8_t offset;
 	constexpr bitset_reference operator*() { return { ptr, offset }; }
 	constexpr const bitset_reference operator*() const { return { ptr, offset }; }
-	constexpr bitset_iterator& operator+=(idx_t v) {
+	constexpr bitset_iterator& operator+=(std::ptrdiff_t v) {
 		ptr += v >> 3;
 		offset += v & 7;
 		if (offset >= 8) {
@@ -79,66 +79,62 @@ public:
 	constexpr bitset() = default;
 	template <typename I, typename S>
 	constexpr bitset(const I& begin, const S& end) : bitset(view<I, S>(begin, end)) {}
-	template <typename I, typename S>
-		requires requires {
-			requires convertible_elem_I<I, bool>;
-			requires(!view<I, S>::Infinite);
-		}
-	constexpr bitset(const view<I, S>& v) {
-		if constexpr (std::same_as<std::iter_value_t<I>, uint8_t>) {
-			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
+	template <ranges::range R>
+	constexpr bitset(const R& range) {
+		if constexpr (std::same_as<ranges::value_t<R>, uint8_t>) {
+			auto iter = ranges::begin(range);
+			for (std::ptrdiff_t i = 0; iter != ranges::end(range); i++, iter++)
 				m_arr[i] = *iter;
 		} else {
-			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
+			auto iter = ranges::begin(range);
+			for (std::ptrdiff_t i = 0; iter != ranges::end(range); i++, iter++)
 				set(i, *iter);
 		}
 	}
 
 	template <std::size_t N2>
-	constexpr void copy(const bitset<N2>& other, idx_t start, idx_t count) {
-		for (idx_t i = 0; i < count; i++)
+	constexpr void copy(const bitset<N2>& other, std::ptrdiff_t start, std::ptrdiff_t count) {
+		for (std::ptrdiff_t i = 0; i < count; i++)
 			set(start + i, other.at(i));
 	}
 	template <std::size_t N2>
-	constexpr void copy(const bitset<N2>& other, idx_t start = 0) {
+	constexpr void copy(const bitset<N2>& other, std::ptrdiff_t start = 0) {
 		copy(other, start, other.size());
 	}
 
-	constexpr bitset_reference at(idx_t idx) {
+	constexpr bitset_reference at(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
 		return bitset_reference{ m_arr + (idx >> 3), (uint8_t)(idx & 7) };
 	}
-	constexpr bitset_reference at(idx_t idx) const {
+	constexpr bitset_reference at(std::ptrdiff_t idx) const {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
 		return bitset_reference{ m_arr + (idx >> 3), (uint8_t)(idx & 7) };
 	}
 	template <typename Derived>
-	constexpr const bitset_reference operator[](this Derived& self, idx_t idx) {
+	constexpr const bitset_reference operator[](this Derived& self, std::ptrdiff_t idx) {
 		return self.at(idx);
 	}
-	constexpr void set(idx_t idx, bool value) {
+	constexpr void set(std::ptrdiff_t idx, bool value) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.set()\n");
 		if (value)
 			m_arr[idx >> 3] |= 1 << (idx & 7);
 		else
 			m_arr[idx >> 3] &= ~(1 << (idx & 7));
 	}
-	constexpr void flip(idx_t idx) {
+	constexpr void flip(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.set()\n");
 		m_arr[idx >> 3] ^= 1 << (idx & 7);
 	}
-	constexpr idx_t first_equal(bool value = false) const {
-		for (idx_t i = 0; i < size(); i++) {
+	constexpr std::ptrdiff_t first_equal(bool value = false) const {
+		for (std::ptrdiff_t i = 0; i < size(); i++) {
 			if (m_arr[i] == value)
 				return i;
 		}
 		return -1;
 	}
-	constexpr idx_t contiguous_span_equal(idx_t how_many, bool value = false) {
-		idx_t counter = 0;
-		for (idx_t i = 0; i < size(); i++) {
+	constexpr std::ptrdiff_t contiguous_span_equal(std::ptrdiff_t how_many, bool value = false) {
+		std::ptrdiff_t counter = 0;
+		for (std::ptrdiff_t i = 0; i < size(); i++) {
 			if (m_arr[i] == value) {
 				counter++;
 				if (counter == how_many)
@@ -157,7 +153,7 @@ public:
 	constexpr auto end(this Derived& self) {
 		return bitset_iterator(self.m_arr, self.size());
 	}
-	constexpr idx_t size() const { return N; }
+	constexpr std::ptrdiff_t size() const { return N; }
 };
 
 class bitvector {
@@ -169,67 +165,66 @@ public:
 	constexpr bitvector() = default;
 	template <typename I, typename S>
 	constexpr bitvector(const I& begin, const S& end) : bitvector(view<I, S>(begin, end)) {}
-	template <typename I, typename S>
-		requires(convertible_elem_I<I, bool> && !view<I, S>::Infinite)
-	constexpr bitvector(const view<I, S>& v) {
-		if constexpr (std::same_as<std::iter_value_t<I>, uint8_t>) {
-			m_vec.resize(v.size());
-			m_size = v.size() * 8;
-			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
+	template <ranges::range R>
+	constexpr bitvector(const R& range) {
+		if constexpr (std::same_as<ranges::value_t<R>, uint8_t>) {
+			m_vec.resize(std::size(range));
+			m_size = std::size(range) * 8;
+			auto iter = ranges::begin(range);
+			for (std::ptrdiff_t i = 0; iter != ranges::end(range); i++, iter++)
 				m_vec[i] = *iter;
 		} else {
-			m_vec.resize((v.size() + 7) / 8);
-			m_size = v.size();
-			I iter = v.begin();
-			for (idx_t i = 0; iter != v.end(); i++, iter++)
+			m_vec.resize((std::size(range) + 7) / 8);
+			m_size = std::size(range);
+			auto iter = ranges::begin(range);
+			for (std::ptrdiff_t i = 0; iter != ranges::end(range); i++, iter++)
 				set(i, *iter);
 		}
 	}
 
 	template <std::size_t N2>
-	constexpr void copy(const bitset<N2>& other, idx_t start, idx_t count) {
-		for (idx_t i = 0; i < count; i++)
+	constexpr void copy(const bitset<N2>& other, std::ptrdiff_t start, std::ptrdiff_t count) {
+		for (std::ptrdiff_t i = 0; i < count; i++)
 			set(start + i, other.at(i));
 	}
 	template <std::size_t N2>
-	constexpr void copy(const bitset<N2>& other, idx_t start = 0) {
+	constexpr void copy(const bitset<N2>& other, std::ptrdiff_t start = 0) {
 		copy(other, start, other.size());
 	}
 
-	constexpr bitset_reference at(idx_t idx) {
+	constexpr bitset_reference at(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
 		return bitset_reference{ m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7) };
 	}
-	constexpr bitset_reference at(idx_t idx) const {
+	constexpr bitset_reference at(std::ptrdiff_t idx) const {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
 		return bitset_reference{ m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7) };
 	}
 	template <typename Derived>
-	constexpr const bitset_reference operator[](this Derived& self, idx_t idx) {
+	constexpr const bitset_reference operator[](this Derived& self, std::ptrdiff_t idx) {
 		return self.at(idx);
 	}
-	constexpr void set(idx_t idx, bool value) {
+	constexpr void set(std::ptrdiff_t idx, bool value) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.set()\n");
 		if (value)
 			m_vec[idx >> 3] |= 1 << (idx & 7);
 		else
 			m_vec[idx >> 3] &= ~(1 << (idx & 7));
 	}
-	constexpr void flip(idx_t idx) {
+	constexpr void flip(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.set()\n");
 		m_vec[idx >> 3] ^= 1 << (idx & 7);
 	}
-	constexpr idx_t first_equal(bool value = false) const {
-		for (idx_t i = 0; i < size(); i++) {
+	constexpr std::ptrdiff_t first_equal(bool value = false) const {
+		for (std::ptrdiff_t i = 0; i < size(); i++) {
 			if (m_vec[i] == value)
 				return i;
 		}
 		return -1;
 	}
-	constexpr idx_t contiguous_span_equal(idx_t how_many, bool value = false) {
-		idx_t counter = 0;
-		for (idx_t i = 0; i < size(); i++) {
+	constexpr std::ptrdiff_t contiguous_span_equal(std::ptrdiff_t how_many, bool value = false) {
+		std::ptrdiff_t counter = 0;
+		for (std::ptrdiff_t i = 0; i < size(); i++) {
 			if (m_vec[i] == value) {
 				counter++;
 				if (counter == how_many)
@@ -248,5 +243,5 @@ public:
 	constexpr auto end(this Derived& self) {
 		return bitset_iterator(self.m_vec.begin() + self.size() / 8, self.size() & 0x7);
 	}
-	constexpr idx_t size() const { return m_size; }
+	constexpr std::ptrdiff_t size() const { return m_size; }
 };

@@ -29,7 +29,7 @@ public:
 };
 
 template <typename Key, typename Value, std::integral Hash>
-class unordered_map_iterator : public iterator_crtp<unordered_map_iterator<Key, Value, Hash>> {
+class unordered_map_iterator : public random_access_iterator_interface<unordered_map_iterator<Key, Value, Hash>> {
 public:
 	span<Hash> hashes;
 	pointer<std::pair<const Key, Value>, type_cast> values;
@@ -38,7 +38,7 @@ public:
 		: hashes(h), values(v), offset(o) {}
 	constexpr std::pair<const Key, Value>& operator*() { return values[offset]; }
 	constexpr const std::pair<const Key, Value>& operator*() const { return values[offset]; }
-	constexpr unordered_map_iterator& operator+=(idx_t v) {
+	constexpr unordered_map_iterator& operator+=(std::ptrdiff_t v) {
 		while (v) {
 			int sign = v > 0 ? 1 : -1;
 			do {
@@ -55,20 +55,20 @@ public:
 	}
 };
 
-template <typename Key, typename Value, std::integral Hash, allocator A>
+template <typename Key, typename Value, std::integral HashT, allocator A>
 class unordered_map {
 protected:
-	friend class unordered_map_iterator<Key, Value, Hash>;
+	friend class unordered_map_iterator<Key, Value, HashT>;
 	A alloc;
-	heap_array<Hash, allocator_reference<A>> key_hashes;
+	heap_array<HashT, allocator_reference<A>> key_hashes;
 	heap_array<std::pair<Key, Value>, allocator_reference<A>> values;
 	std::size_t m_size;
 
 	static constexpr double max_load = 0.7;
 	static constexpr double resize_ratio = 4;
 
-	Hash (*hash_fn)(const Key&) = &default_hash;
-	static constexpr Hash default_hash(const Key& k) {
+	HashT (*hash_fn)(const Key&) = &default_hash;
+	static constexpr HashT default_hash(const Key& k) {
 		if constexpr (std::same_as<Key, cstr_t> || std::same_as<Key, ccstr_t>) {
 			return simple_hash(k, strlen(k));
 		} else {
@@ -78,8 +78,8 @@ protected:
 	//Hash (*double_hash)(Hash) = &default_double_hash;
 	//static Hash default_double_hash(Hash h) { return simple_hash(&h, sizeof(h)); }
 
-	constexpr idx_t m_hash(Hash key_hash, Hash expected) {
-		Hash i = key_hash;
+	constexpr std::ptrdiff_t m_hash(HashT key_hash, HashT expected) {
+		HashT i = key_hash;
 		while (key_hashes[i % capacity()] != expected) {
 			// Linear search (Good for sparse maps, as on average 8 or 4 (depending on hash width) keys are read
 			//   per cache line, so searches shorter than this are effectively instant)
@@ -91,8 +91,8 @@ protected:
 		}
 		return i % capacity();
 	}
-	constexpr idx_t m_find(const Key& k, Hash key_hash) {
-		Hash i = key_hash;
+	constexpr std::ptrdiff_t m_find(const Key& k, HashT key_hash) {
+		HashT i = key_hash;
 		do {
 			i = m_hash(i, key_hash);
 			if (values[i].first == k)
@@ -105,7 +105,7 @@ protected:
 
 public:
 	using value_type = std::pair<const Key, Value>;
-	using iterator_type = unordered_map_iterator<Key, Value, Hash>;
+	using iterator_type = unordered_map_iterator<Key, Value, HashT>;
 
 	constexpr unordered_map(A _alloc = A()) : alloc(_alloc), key_hashes(0, alloc), values(0, alloc), m_size(0) {}
 	constexpr unordered_map(std::size_t capacity, A _alloc = A())
@@ -116,7 +116,7 @@ public:
 		: alloc(_alloc), key_hashes(capacity, alloc), values(capacity, alloc), m_size(0), hash_fn(hash_fn) {}
 
 	constexpr value_type& at(const Key& key) {
-		idx_t i = m_find(key, hash_fn(key));
+		std::ptrdiff_t i = m_find(key, hash_fn(key));
 		kassert(DEBUG_ONLY, WARNING, i >= 0, "Accessed missing key in hashmap.");
 		return pointer<value_type, type_cast>(values.begin())[i];
 	}
@@ -135,8 +135,8 @@ public:
 		*this = new_map;
 	}
 	constexpr void insert(Key&& key, Value&& value) {
-		Hash key_hash = hash_fn(key);
-		idx_t i = m_hash(key, 0);
+		HashT key_hash = hash_fn(key);
+		std::ptrdiff_t i = m_hash(key, 0);
 		key_hashes[i] = key_hash;
 		values[i].first = std::move(key);
 		values[i].second = std::move(value);
@@ -147,8 +147,8 @@ public:
 	}
 	template <typename KP, typename VP>
 	constexpr void insert(KP&& key, VP&& value) {
-		Hash key_hash = hash_fn(key);
-		idx_t i = m_hash(key, 0);
+		HashT key_hash = hash_fn(key);
+		std::ptrdiff_t i = m_hash(key, 0);
 		key_hashes[i] = key_hash;
 		values[i].first = std::forward<KP>(key);
 		values[i].second = std::forward<VP>(value);
@@ -159,7 +159,7 @@ public:
 	}
 
 	constexpr void erase(const Key& key) {
-		idx_t i = m_find(key, hash_fn(key));
+		std::ptrdiff_t i = m_find(key, hash_fn(key));
 		kassert(DEBUG_ONLY, WARNING, i >= 0, "Accessed missing key in hashmap.");
 		key_hashes[i] = 0;
 		values[i] = {};
@@ -173,7 +173,7 @@ public:
 	constexpr std::size_t size() const { return m_size; }
 	constexpr std::size_t capacity() const { return key_hashes.size(); }
 	constexpr ~unordered_map() {
-		key_hashes.~heap_array<Hash, allocator_reference<A>>();
+		key_hashes.~heap_array<HashT, allocator_reference<A>>();
 		values.~heap_array<std::pair<Key, Value>, allocator_reference<A>>();
 		alloc.~A();
 	}

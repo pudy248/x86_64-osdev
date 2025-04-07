@@ -18,11 +18,11 @@ CFLAGS_DBG:=-g -fno-omit-frame-pointer -DDEBUG $(CFLAGS_CC_SPECIFIC_DBG)
 CFLAGS_OPT_TARGETS=
 
 CFLAGS:=\
--m64 -march=haswell -std=c++26 -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
+-m64 -march=haswell -std=c++26 -stdlib=libstdc++ -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
 -Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
--Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 \
--Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter \
+-Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 -Werror=return-type \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -fsanitize=undefined -fsanitize-trap=undefined \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 
 CFLAGS_HOST:=-Og -march=native -std=c++26 -lstdc++ -g
@@ -81,6 +81,8 @@ start-trace-2: disk.img
 start-dbg: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null -d cpu_reset &
 	lldb -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
+start-dbg-noattatch: disk.img
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null -d cpu_reset
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5555

@@ -5,7 +5,7 @@
 #include <net/net.hpp>
 #include <stl/vector.hpp>
 
-struct udp_header {
+struct [[gnu::packed]] udp_header {
 	uint16_t src_port;
 	uint16_t dst_port;
 	uint16_t length;

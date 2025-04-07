@@ -1,12 +1,13 @@
 #pragma once
+#include "stl/iterator/iterator_interface.hpp"
 #include <cstdint>
 #include <kstddef.hpp>
 #include <kstring.hpp>
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
+#include <stl/ranges.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 
 namespace TCP_STATE {
 enum TCP_STATE {
@@ -44,7 +45,7 @@ struct alignas(2) tcp_flags {
 	tcp_flags(uint16_t f);
 };
 
-struct tcp_header {
+struct [[gnu::packed]] tcp_header {
 	uint16_t src_port;
 	uint16_t dst_port;
 	uint32_t seq_num;
@@ -98,39 +99,24 @@ struct tcp_connection {
 using tcp_conn_t = tcp_connection*;
 
 template <>
-struct std::indirectly_readable_traits<struct tcp_input_iterator> {
-public:
-	using value_type = char;
-};
-
-struct tcp_input_iterator : iterator_crtp<tcp_input_iterator> {
-private:
-	bool in_bounds() const;
-	void get_packet() const;
-	tcp_fragment& cur_frag() const;
-
+struct std::iterator_traits<struct tcp_input_iterator> {
 public:
 	using value_type = char;
 	using difference_type = std::ptrdiff_t;
+	using iterator_category = std::input_iterator_tag;
+	using pointer = const char*;
+	using reference = const char&;
+};
 
+struct tcp_input_iterator : public pure_input_iterator_interface<tcp_input_iterator, const char> {
+public:
+	using pure_input_iterator_interface::operator++;
 	tcp_conn_t conn;
-	std::size_t fragment_index;
-	std::size_t fragment_offset;
 
-	tcp_input_iterator() = default;
 	tcp_input_iterator(tcp_conn_t conn);
-	tcp_input_iterator(tcp_conn_t conn, std::size_t fragment_index, std::size_t fragment_offset);
-	char& operator*() const;
-	tcp_input_iterator& operator+=(int);
-	bool operator==(const tcp_input_iterator& other) const;
-	void flush();
+	const char& operator*() const;
+	tcp_input_iterator& operator++();
 };
-struct tcp_sentinel {
-	tcp_conn_t conn;
-	bool operator==(const tcp_input_iterator& other) const;
-};
-using tcp_istream = basic_istream<char, tcp_input_iterator, tcp_sentinel>;
-using tcp_istringstream = basic_istringstream<char, cast_iterator<tcp_input_iterator, char>, tcp_sentinel>;
 
 extern vector<tcp_conn_t> open_connections;
 

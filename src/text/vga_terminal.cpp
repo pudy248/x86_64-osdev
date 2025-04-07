@@ -7,7 +7,7 @@ int vga_text_dimensions[2] = { 80, 25 };
 
 void vga_text_init() {
 	//mprotect(fb, 0x8000, 0, MAP_INITIALIZE);
-	kmemset<4096>(fb, 0, vga_text_dimensions[0] * vga_text_dimensions[1] * 2);
+	kmemset<4096>(fb, 0, 4096);
 }
 void vga_text_set_char(uint32_t x, uint32_t y, char c) { fb[80 * y + x] = c | 0x0f00; }
 void vga_text_update() {}

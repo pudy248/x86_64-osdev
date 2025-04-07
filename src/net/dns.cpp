@@ -9,10 +9,10 @@
 
 static string dns_name(ibinstream<>& s) {
 	string name;
-	while (uint8_t len = s.read_b<uint8_t>()) {
+	while (uint8_t len = s.read_raw<uint8_t>()) {
 		if (name.size())
 			name.append('.');
-		span<const std::byte> frag = s.read_n(len);
+		span<const std::byte> frag = s.reference_read(len);
 		name.append((const char*)frag.begin(), len);
 	}
 	return name;
@@ -21,8 +21,8 @@ static string dns_name(ibinstream<>& s) {
 static string dns_compressed_name(ibinstream<>& s, dns_header* hdr) {
 	uint8_t len = (uint8_t)*s.begin();
 	if (len >= 0xc0) {
-		s.read_b<uint8_t>();
-		uint8_t off = s.read_b<uint8_t>();
+		++s;
+		uint8_t off = s.read_raw<uint8_t>();
 		ibinstream<> s2{ (std::byte*)hdr + off };
 		return dns_name(s2);
 	}
@@ -31,29 +31,29 @@ static string dns_compressed_name(ibinstream<>& s, dns_header* hdr) {
 
 static dns_question get_question(ibinstream<>& s, dns_header* hdr) {
 	string name = dns_compressed_name(s, hdr);
-	uint16_t type = s.read_b<uint16_t>();
-	uint16_t cc = s.read_b<uint16_t>();
+	uint16_t type = s.read_raw<uint16_t>();
+	uint16_t cc = s.read_raw<uint16_t>();
 	return { name, type, cc };
 }
 static dns_answer get_answer(ibinstream<>& s, dns_header* hdr) {
 	string name = dns_compressed_name(s, hdr);
-	uint16_t type = htons(s.read_b<uint16_t>());
-	uint16_t cc = htons(s.read_b<uint16_t>());
-	uint32_t ttl = htonl(s.read_b<uint32_t>());
-	uint16_t len = htons(s.read_b<uint16_t>());
-	span<const std::byte> d{ s.read_n(len) };
+	uint16_t type = htons(s.read_raw<uint16_t>());
+	uint16_t cc = htons(s.read_raw<uint16_t>());
+	uint32_t ttl = htonl(s.read_raw<uint32_t>());
+	uint16_t len = htons(s.read_raw<uint16_t>());
+	span<const std::byte> d{ s.reference_read(len) };
 	return { name, type, cc, ttl, d };
 }
 
 static void write_question(obinstream<>& s, dns_question q) {
 	vector<rostring> v = rostring(q.name).split('.');
 	for (rostring frag : v) {
-		s.write_b(frag.size());
+		s.write_raw<uint8_t>(frag.size());
 		s.write((std::byte*)frag.begin(), frag.size());
 	}
-	s.write_b<uint8_t>(0);
-	s.write_b(htons(q.type));
-	s.write_b(htons(q.class_code));
+	s.write_raw<uint8_t>(0);
+	s.write_raw(htons(q.type));
+	s.write_raw(htons(q.class_code));
 }
 
 static bool dns_get(uint16_t xid, dns_packet& out_packet) {
@@ -79,6 +79,7 @@ static bool dns_get(uint16_t xid, dns_packet& out_packet) {
 }
 
 ipv4_t dns_query(rostring domain) {
+retry:
 	net_buffer_t b = udp_new(sizeof(dns_header) + 96);
 	dns_header* dns = (dns_header*)b.data_begin;
 	dns->flags = htons(DNS_FMASK::RECURSIVE | DNS_FMASK::NON_AUTH);
@@ -92,7 +93,6 @@ ipv4_t dns_query(rostring domain) {
 	npi.dst_ip = active_lease.dns;
 	npi.src_port = 12345;
 	npi.dst_port = DNS_PORT;
-retry:
 	uint16_t xid = rdtsc();
 	timepoint t1 = timepoint::now();
 	dns->xid = xid;
@@ -118,11 +118,16 @@ retry:
 	for (int i = 0; i < htons(dns2->n_ans); i++) {
 		dns_answer ans = get_answer(is, dns2);
 		rostring aname = q.name;
-		if (DNS_LOG)
-			qprintf<128>("\"%S\" %I A IN\n", &aname, *(ipv4_t*)ans.data.begin());
+		if (DNS_LOG) {
+			ipv4_t ip;
+			kmemcpy(&ip, ans.data.begin(), 4);
+			qprintf<128>("\"%S\" %I A IN\n", &aname, ip);
+		}
 		if (ans.type == DNS_TYPE::A && ans.class_code && DNS_CLASS_CODE::IN) {
+			ipv4_t ip;
+			kmemcpy(&ip, ans.data.begin(), 4);
 			kfree(p.b.frame_begin);
-			return *(ipv4_t*)ans.data.begin();
+			return ip;
 		}
 	}
 	if (DNS_LOG)

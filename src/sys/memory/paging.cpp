@@ -108,7 +108,7 @@ struct page_resolution {
 	// 4 = PML4E
 };
 static page_resolution resolve_page(pointer<void, reinterpret> virtual_addr, int stop_level) {
-	uint64_t addr = virtual_addr;
+	uint64_t addr(virtual_addr);
 	uint64_t pml4_idx = (addr >> 39) & 0x1ff;
 	uint64_t pdpt_idx = (addr >> 30) & 0x1ff;
 	uint64_t pdt_idx = (addr >> 21) & 0x1ff;
@@ -235,7 +235,7 @@ void paging_init() {
 	mprotect(0xA0000, 0x70000, 0, MAP_RESERVED | MAP_NEW);
 	mprotect(0x1F0000, 0x10000, 0, MAP_KERNEL | MAP_NEW);
 
-	write_cr3(fixed_globals->pml4);
+	write_cr3(uint64_t(fixed_globals->pml4));
 	fixed_globals->dynamic_globals = mmap(nullptr, 0x1000, 0, MAP_INITIALIZE);
 	void* new_frame_info = mmap(0x400000, 0x100000 * sizeof(frame_info), 0, MAP_RESERVED | MAP_INITIALIZE);
 	kmemcpy<4096>(new_frame_info, (void*)0x65000, 0x1000);

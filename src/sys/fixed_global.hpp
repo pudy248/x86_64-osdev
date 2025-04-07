@@ -16,4 +16,4 @@ struct fixed_global_data_t {
 	pointer<void, reinterpret> register_file_ptr_swap;
 };
 
-#define fixed_globals ((fixed_global_data_t*)(0x60000))
+#define fixed_globals ((fixed_global_data_t*)0x60000)

@@ -60,7 +60,7 @@ class array_allocator;
 template <std::size_t N>
 class allocator_traits<array_allocator<N>> {
 public:
-	using ptr_t = pointer<void, reinterpret>;
+	using ptr_t = pointer<void, type_cast>;
 };
 template <std::size_t N>
 class array_allocator : public default_allocator {
@@ -77,10 +77,10 @@ public:
 		kassert(DEBUG_ONLY, WARNING, !waterline, "Array allocator does not support multiple allocations.");
 		kassert(DEBUG_ONLY, WARNING, size <= N, "Array allocator overflow.");
 		waterline += size;
-		return &arr;
+		return arr;
 	}
 	void dealloc(ptr_t ptr, uint64_t = 0) {
-		kassert(DEBUG_ONLY, ERROR, ptr == this, "Tried to free pointer out of range of array allocator.");
+		kassert(DEBUG_ONLY, ERROR, (uint8_t*)ptr == arr, "Tried to free pointer out of range of array allocator.");
 		waterline = 0;
 	}
 	ptr_t realloc(ptr_t ptr, uint64_t size, uint64_t new_size, uint16_t = 0x10) {
@@ -89,8 +89,34 @@ public:
 	}
 	template <typename Derived>
 	ptr_t move(this Derived& self, Derived& other, ptr_t other_ptr) {
-		kassert(DEBUG_ONLY, ERROR, !other_ptr || other_ptr == &other,
+		kassert(DEBUG_ONLY, ERROR, !other_ptr || (uint8_t*)other_ptr == other.arr,
 				"Tried to move pointer out of range of array allocator.");
-		return &self.arr;
+		return self.arr;
+	}
+};
+
+template <typename T, std::size_t N>
+class consteval_allocator;
+template <typename T, std::size_t N>
+class allocator_traits<consteval_allocator<T, N>> {
+public:
+	using ptr_t = T*;
+};
+template <typename T, std::size_t N>
+class consteval_allocator : public default_allocator {
+public:
+	using ptr_t = allocator_traits<consteval_allocator>::ptr_t;
+	T arr[N] = {};
+	consteval consteval_allocator() {}
+
+	consteval ptr_t alloc(uint64_t, uint16_t = 0x10) { return arr; }
+	consteval void dealloc(ptr_t, uint64_t = 0) {}
+	consteval ptr_t realloc(ptr_t ptr, uint64_t size, uint64_t new_size, uint16_t = 0x10) {
+		dealloc(ptr, size);
+		return alloc(new_size);
+	}
+	template <typename Derived>
+	consteval ptr_t move(this Derived& self, Derived&, ptr_t) {
+		return self.arr;
 	}
 };

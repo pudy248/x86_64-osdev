@@ -6,7 +6,7 @@ bits 64
 db 0xeb, 0x58, 0x90
 
 FAT_BPB:
-    oem_name: db "KATEOS  "
+    oem_name: db "IVYOS   "
     bytes_per_sector: dw 512
     sectors_per_cluster: db SECTORS_PER_CLUSTER
     reserved_sectors: dw FAT32_RESERVED_SECTORS

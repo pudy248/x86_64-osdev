@@ -155,7 +155,7 @@ handle_interrupt:
     call restore_regs
     iretq
 
-isr_stub_30:
+isr_30:
     call save_regs
     mov rax, qword [REGISTER_FILE_PTR]
     xchg rax, qword [REGISTER_FILE_PTR_SWAP]
@@ -163,7 +163,7 @@ isr_stub_30:
     call restore_regs
     iretq
 
-isr_stub_31:
+isr_31:
     iretq
 
 swap_context:
@@ -193,62 +193,60 @@ swap_context:
     mov qword [REGISTER_FILE_PTR], rax
     ret
 
-%macro isr_err_stub 1
-isr_stub_%+%1:
+%macro isr_stub 3
+isr_%+%1:
+%if %2
     xchg rax, qword [rsp]
     mov qword [rsp - 0x08], %1
     mov qword [rsp - 0x10], rax
-    mov qword [rsp - 0x18], 1
+    mov qword [rsp - 0x18], %3
     pop rax
-    jmp handle_interrupt
-%endmacro
-
-%macro isr_no_err_stub 1
-isr_stub_%+%1:
+%else
     mov qword [rsp - 0x10], %1
     mov qword [rsp - 0x18], 0
-    mov qword [rsp - 0x20], 0
+    mov qword [rsp - 0x20], %3
+%endif
     jmp handle_interrupt
 %endmacro
 
 %macro irq_stub 1
-isr_stub_%+%1:
+isr_%+%1:
     mov qword [rsp - 0x10], %1
     mov qword [rsp - 0x18], 0
     mov qword [rsp - 0x20], 0
     jmp handle_interrupt
 %endmacro
 
-isr_no_err_stub 0
-isr_no_err_stub 1
-isr_no_err_stub 2
-isr_no_err_stub 3
-isr_no_err_stub 4
-isr_no_err_stub 5
-isr_no_err_stub 6
-isr_no_err_stub 7
-isr_err_stub    8
-isr_no_err_stub 9
-isr_err_stub    10
-isr_err_stub    11
-isr_err_stub    12
-isr_err_stub    13
-isr_err_stub    14
-isr_no_err_stub 15
-isr_no_err_stub 16
-isr_err_stub    17
-isr_no_err_stub 18
-isr_no_err_stub 19
-isr_no_err_stub 20
-isr_no_err_stub 21
-isr_no_err_stub 22
-isr_no_err_stub 23
-isr_no_err_stub 24
-isr_no_err_stub 25
-isr_no_err_stub 26
-isr_no_err_stub 27
-isr_no_err_stub 28
-isr_no_err_stub 29
+isr_stub 0, 0, 0 ; Divide by zero
+isr_stub 1, 0, 0 ; Debug
+isr_stub 2, 0, 0 ; NMI
+isr_stub 3, 0, 0 ; Breakpoint
+isr_stub 4, 0, 0 ; Overflow
+isr_stub 5, 0, 0 ; OOB
+isr_stub 6, 0, 1 ; Invalid opcode
+isr_stub 7, 0, 1 ; No coprocessor
+isr_stub 8, 1, 1 ; Double fault
+isr_stub 9, 0, 1 ; Coprocessor segment overrun
+isr_stub 10, 1, 1 ; Bad TSS
+isr_stub 11, 1, 1 ; Segment not present
+isr_stub 12, 1, 1 ; Stack fault
+isr_stub 13, 1, 1 ; General protection fault
+isr_stub 14, 1, 1 ; Page fault
+isr_stub 15, 0, 1 ; Unrecognized interrupt
+isr_stub 16, 0, 1 ; Coprocessor fault
+isr_stub 17, 1, 1 ; Alignment check
+isr_stub 18, 0, 1 ; Machine check
+isr_stub 19, 0, 1
+isr_stub 20, 0, 1
+isr_stub 21, 0, 1
+isr_stub 22, 0, 1
+isr_stub 23, 0, 1
+isr_stub 24, 0, 1
+isr_stub 25, 0, 1
+isr_stub 26, 0, 1
+isr_stub 27, 0, 1
+isr_stub 28, 0, 1
+isr_stub 29, 0, 1
 ; Context switch
 ; Debug no-op
 irq_stub        32
@@ -268,11 +266,11 @@ irq_stub        45
 irq_stub        46
 irq_stub        47
 
-global isr_stub_table
-isr_stub_table:
+global isr_table
+isr_table:
 %assign i 0 
 %rep    48
-    dd isr_stub_%+i
+    dd isr_%+i
 %assign i i+1 
 %endrep
 

@@ -100,8 +100,8 @@ void arp_process(eth_packet p) {
 			printf("[ARP] %M wants to know: Is %I available?\n", selfMac, targetIP);
 		if (targetIP == global_ip) {
 			if (ARP_LOG)
-				printf("[ARP] No, %I belongs to %M.\n", global_ip, global_mac);
-			arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
+				printf("[ARP] No, %I belongs to %M.\n", global_ip, global_mac.as_int);
+			arp_send(2, arp_entry(global_mac.as_int, global_ip), arp_entry(selfMac, selfIP));
 		}
 		break;
 	case 0x1B:
@@ -113,8 +113,8 @@ void arp_process(eth_packet p) {
 
 			if (targetIP == global_ip) {
 				if (ARP_LOG)
-					printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
-				arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
+					printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac.as_int);
+				arp_send(2, arp_entry(global_mac.as_int, global_ip), arp_entry(selfMac, selfIP));
 			}
 		} else { //Gratuitous announcement
 			if (ARP_LOG)
@@ -124,8 +124,8 @@ void arp_process(eth_packet p) {
 	case 0x1F:
 		if (targetIP == global_ip) {
 			if (ARP_LOG)
-				printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac);
-			arp_send(2, arp_entry(global_mac, global_ip), arp_entry(selfMac, selfIP));
+				printf("[ARP] Responding to %I: %I is %M.\n", selfIP, global_ip, global_mac.as_int);
+			arp_send(2, arp_entry(global_mac.as_int, global_ip), arp_entry(selfMac, selfIP));
 		}
 		break;
 	case 0x2F:
@@ -173,15 +173,15 @@ net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target) {
 }
 
 net_async_t arp_whois(mac_t mac) {
-	return arp_send(ARP::TYPE_REQUEST, arp_entry(global_mac, global_ip), arp_entry(mac, 0));
+	return arp_send(ARP::TYPE_REQUEST, arp_entry(global_mac.as_int, global_ip), arp_entry(mac, 0));
 }
 net_async_t arp_whois(ipv4_t ip) {
-	return arp_send(ARP::TYPE_PROBE, arp_entry(global_mac, global_ip), arp_entry(0, ip));
+	return arp_send(ARP::TYPE_PROBE, arp_entry(global_mac.as_int, global_ip), arp_entry(0, ip));
 }
 
 net_async_t arp_announce(ipv4_t ip) {
 	net_update_ip(ip);
 	if (ARP_LOG)
-		printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac);
-	return arp_send(ARP::TYPE_PROBE, arp_entry(global_mac, global_ip), arp_entry(0, global_ip));
+		printf("[ARP] Announcement: %I belongs to %M.\n", global_ip, global_mac.as_int);
+	return arp_send(ARP::TYPE_PROBE, arp_entry(global_mac.as_int, global_ip), arp_entry(0, global_ip));
 }

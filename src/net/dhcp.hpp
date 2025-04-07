@@ -36,7 +36,7 @@ enum DHCP_MTYPE : uint8_t {
 };
 }
 
-struct dhcp_header {
+struct [[gnu::packed]] dhcp_header {
 	uint8_t op;
 	uint8_t htype;
 	uint8_t hlen;
@@ -49,7 +49,7 @@ struct dhcp_header {
 	ipv4_t siaddr;
 	ipv4_t giaddr;
 	mac_bits_t chaddr;
-	uint8_t padding[0xc8];
+	uint8_t padding[0xca];
 	uint32_t cookie;
 };
 

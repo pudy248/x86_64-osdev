@@ -39,9 +39,9 @@ void kbzero(void* __restrict dest, uint64_t size) {
 }
 
 void mem_init();
-[[gnu::returns_nonnull, gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment);
-[[gnu::returns_nonnull, gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment = 0x10);
-[[gnu::returns_nonnull, gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment = 0x10);
+[[gnu::malloc]] void* walloc(uint64_t size, uint16_t alignment);
+[[gnu::malloc]] void* kmalloc(uint64_t size, uint16_t alignment = 0x10);
+[[gnu::malloc]] void* kcalloc(uint64_t size, uint16_t alignment = 0x10);
 void kfree(void* ptr);
 
 extern uint64_t waterline;
@@ -55,20 +55,18 @@ void operator delete(void* ptr) noexcept;
 void operator delete(void* ptr, unsigned long) noexcept;
 void operator delete[](void* ptr) noexcept;
 void operator delete[](void* ptr, unsigned long) noexcept;
+
 template <typename T>
-static inline void destruct(T* ptr, int count) {
+static constexpr inline void destruct(T* ptr, int count) {
 	if constexpr (std::is_destructible_v<T>)
 		for (int i = 0; i < count; i++)
 			ptr[i].~T();
 }
 template <typename T>
-static inline void construct(T* ptr, int count) {
+static constexpr inline void construct(T* ptr, int count) {
 	if constexpr (std::is_default_constructible_v<T>) {
-		if constexpr (std::is_trivial_v<T>)
-			memset(ptr, 0, count * sizeof(T));
-		else
-			for (int i = 0; i < count; i++)
-				new (ptr + i) T();
+		for (int i = 0; i < count; i++)
+			new (ptr + i) T();
 	}
 }
 

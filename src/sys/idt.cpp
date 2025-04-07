@@ -1,3 +1,4 @@
+#include "kassert.hpp"
 #include <asm.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -36,7 +37,7 @@ void idt_set(uint8_t index, uint64_t base, uint8_t flags, uint8_t ist) {
 		idt_entry{ (uint16_t)base, 0x18, ist, flags, 0x8, (uint16_t)(base >> 16U), (uint32_t)(base >> 32U), 0 };
 }
 
-extern uint32_t isr_stub_table[48];
+extern uint32_t isr_table[48];
 static const ccstr_t exceptions[] = { "Divide by zero",
 									  "Debug",
 									  "NMI",
@@ -117,7 +118,7 @@ extern "C" void handle_exception(uint64_t int_num, register_file* registers, uin
 	errorf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
 #endif
 
-	stacktrace::trace((uint64_t*)registers->rbp, registers->rip).print();
+	stacktrace::trace((uint64_t*)registers->rbp, registers->rip).eprint();
 
 	if (is_fatal) {
 		print("Unrecoverable exception - halting...\n");
@@ -139,16 +140,16 @@ void idt_reinit() {
 	idt_pointer.base = (uint64_t)&((pointer<idt_t>)fixed_globals->idt)->entries[0];
 	int i = 0;
 	for (; i < 30; i++) {
-		idt_set(i, isr_stub_table[i], 0xe);
+		idt_set(i, isr_table[i], 0xe);
 	}
 	for (; i < 32; i++) {
-		idt_set(i, isr_stub_table[i], 0xe);
+		idt_set(i, isr_table[i], 0xe);
 	}
 	for (; i < 48; i++) {
-		idt_set(i, isr_stub_table[i], 0xe);
+		idt_set(i, isr_table[i], 0xe);
 	}
 	for (; i < 256; i++) {
-		idt_set(i, isr_stub_table[0], 0xe);
+		idt_set(i, isr_table[0], 0xe);
 	}
 	for (int i = 0; i < 48; i++) {
 		isr_fns[i] = NULL;

@@ -46,10 +46,8 @@ static double angle_shift(double alpha, double beta) {
 }
 
 void cossin_cordic(double beta, int n, double* c, double* s) {
-#define ANGLES_LENGTH 60
-#define KPROD_LENGTH 33
-
-	double angle;
+	constexpr int ANGLES_LENGTH = 60;
+	constexpr int KPROD_LENGTH = 33;
 	double angles[ANGLES_LENGTH] = {
 		7.8539816339744830962E-01, 4.6364760900080611621E-01, 2.4497866312686415417E-01, 1.2435499454676143503E-01,
 		6.2418809995957348474E-02, 3.1239833430268276254E-02, 1.5623728620476830803E-02, 7.8123410601011112965E-03,
@@ -67,9 +65,6 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 		2.2204460492503130808E-16, 1.1102230246251565404E-16, 5.5511151231257827021E-17, 2.7755575615628913511E-17,
 		1.3877787807814456755E-17, 6.9388939039072283776E-18, 3.4694469519536141888E-18, 1.7347234759768070944E-18,
 	};
-	double c2;
-	double factor;
-	int j;
 	double kprod[KPROD_LENGTH] = {
 		0.70710678118654752440, 0.63245553203367586640, 0.61357199107789634961, 0.60883391251775242102,
 		0.60764825625616820093, 0.60735177014129595905, 0.60727764409352599905, 0.60725911229889273006,
@@ -82,12 +77,9 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 		0.60725293500888125617,
 	};
 	double pi = 3.141592653589793;
-	double poweroftwo;
-	double s2;
 	double sigma;
 	double sign_factor;
-	double theta;
-	theta = angle_shift(beta, -pi);
+	double theta = angle_shift(beta, -pi);
 	if (theta < -0.5 * pi) {
 		theta = theta + pi;
 		sign_factor = -1.0;
@@ -100,19 +92,19 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 	*c = 1.0;
 	*s = 0.0;
 
-	poweroftwo = 1.0;
-	angle = angles[0];
-	for (j = 1; j <= n; j++) {
+	double poweroftwo = 1.0;
+	double angle = angles[0];
+	for (int j = 1; j <= n; j++) {
 		if (theta < 0.0) {
 			sigma = -1.0;
 		} else {
 			sigma = 1.0;
 		}
 
-		factor = sigma * poweroftwo;
+		double factor = sigma * poweroftwo;
 
-		c2 = *c - factor * *s;
-		s2 = factor * *c + *s;
+		double c2 = *c - factor * *s;
+		double s2 = factor * *c + *s;
 
 		*c = c2;
 		*s = s2;
@@ -133,8 +125,6 @@ void cossin_cordic(double beta, int n, double* c, double* s) {
 	*s = sign_factor * *s;
 
 	return;
-#undef ANGLES_LENGTH
-#undef KPROD_LENGTH
 }
 
 double fmod(double n, double m) { return n - m * (double)(int)(n / m); }

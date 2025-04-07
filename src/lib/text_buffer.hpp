@@ -1,5 +1,4 @@
 #pragma once
-#include <cstdint>
 #include <stl/vector.hpp>
 
 class text_buffer {

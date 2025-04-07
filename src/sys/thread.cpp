@@ -78,9 +78,9 @@ thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... a
 
 	context->registers.rip = (uint64_t)&thread_entry<R, Args...>;
 	context->registers.rflags = 0x202;
-	context->registers.rsp = context->stack_bottom;
+	context->registers.rsp = uint64_t(context->stack_bottom);
 	context->registers.isr_rsp = context->registers.rsp - 0x38;
-	context->registers.rdi = context;
+	context->registers.rdi = uint64_t(context);
 
 	if (opts.run_now)
 		thread_switch(context->handle());

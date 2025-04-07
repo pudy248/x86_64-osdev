@@ -1,9 +1,13 @@
 #pragma once
+#include "stl/iterator/iterator_interface.hpp"
 #include <bit>
 #include <compare>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <kassert.hpp>
+#include <stl/iterator.hpp>
 #include <type_traits>
 #include <utility>
 
@@ -23,8 +27,9 @@ void kfree(void* ptr);
 
 struct safe {}; // Illegal to dereference if null
 struct nonnull {}; // Illegal to assign null
-struct owning {}; // Illegal to copy to another owning pointer, auto-frees, auto-moves when possible
-struct nofree : owning {}; // Illegal to free if not null
+struct owning {}; // Illegal to copy to another owning pointer or from a non-owning pointer, auto-moves when possible
+struct autofree : owning {}; // Auto-frees on destruction
+struct nofree : owning {}; // Illegal to destroy or free if not null
 struct unique : owning {}; // Illegal to copy at all
 struct shared {}; // Reference-counted, frees when all references lost
 struct integer {}; // Can convert to and from uintptr_t
@@ -32,10 +37,11 @@ struct type_cast {}; // Can convert to other pointer types
 struct reinterpret : integer, type_cast {};
 
 template <typename T, typename... Traits>
-struct pointer : public Traits... {
+struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	constexpr static bool is_safe = pack_contains<safe, Traits...>;
 	constexpr static bool is_nonnull = pack_contains<nonnull, Traits...>;
 	constexpr static bool is_owning = pack_contains<owning, Traits...>;
+	constexpr static bool is_autofree = pack_contains<nofree, Traits...>;
 	constexpr static bool is_nofree = pack_contains<nofree, Traits...>;
 	constexpr static bool is_unique = pack_contains<unique, Traits...>;
 	constexpr static bool is_shared = pack_contains<shared, Traits...>;
@@ -43,9 +49,6 @@ struct pointer : public Traits... {
 	constexpr static bool is_type_cast = pack_contains<type_cast, Traits...>;
 	constexpr static bool is_reinterpret = pack_contains<reinterpret, Traits...>;
 	//constexpr static bool is_sized = pack_contains<sized, Traits...>;
-
-	using value_type = T;
-	using difference_type = std::ptrdiff_t;
 
 	//static_assert(!(is_sized && is_integer), "Integer-convertible pointers cannot be sized.");
 
@@ -176,7 +179,7 @@ struct pointer : public Traits... {
 	template <typename R>
 	constexpr pointer(R*& p)
 		requires(!is_unique && is_type_cast)
-		: pointer(reinterpret_cast<T*>(p), vis_tag{}) {
+		: pointer((T*)(p), vis_tag{}) {
 		if constexpr (is_owning) {
 			p = nullptr;
 		}
@@ -184,7 +187,7 @@ struct pointer : public Traits... {
 	template <typename R>
 	constexpr pointer(R* const& p)
 		requires(!is_unique && is_type_cast)
-		: pointer(reinterpret_cast<T*>(p), vis_tag{}) {}
+		: pointer((T*)(p), vis_tag{}) {}
 
 	template <typename R, typename... OtherTraits>
 	constexpr pointer(const pointer<R, OtherTraits...>& other)
@@ -220,10 +223,18 @@ struct pointer : public Traits... {
 			kassert(ALWAYS_ACTIVE, ERROR, other, "Constructed non-null pointer with nullptr.");
 		this->ptr = std::bit_cast<T*>(other);
 	}
-	constexpr operator uintptr_t() const
+	constexpr explicit operator uintptr_t() const
 		requires(!is_unique && is_integer)
 	{
 		return std::bit_cast<uintptr_t>(ptr);
+	}
+
+	constexpr T* release()
+		requires(is_unique)
+	{
+		T* tmp = ptr;
+		ptr = nullptr;
+		return tmp;
 	}
 
 	constexpr ~pointer() {
@@ -254,27 +265,9 @@ struct pointer : public Traits... {
 	constexpr R& operator*() const {
 		return *(*this)();
 	}
-	template <typename R = T>
-		requires(!std::is_void_v<R>)
-	constexpr R& operator[](std::int64_t i) const {
-		return (*this)()[i];
-	}
-	constexpr std::ptrdiff_t operator-(const pointer& other) const { return ptr - other.ptr; }
 	constexpr pointer& operator+=(const int64_t& other) {
 		ptr += other;
 		return *this;
-	}
-	constexpr pointer operator+(const int64_t& other) const { return pointer(*this) += other; }
-	constexpr pointer& operator-=(const int64_t& other) {
-		ptr -= other;
-		return *this;
-	}
-	constexpr pointer operator-(const int64_t& other) const { return pointer(*this) -= other; }
-	constexpr pointer& operator++() { return *this += 1; }
-	constexpr pointer operator++(int) {
-		pointer tmp = *this;
-		*this += 1;
-		return tmp;
 	}
 	constexpr bool operator==(const pointer& other) const { return ptr == other.ptr; }
 	constexpr std::strong_ordering operator<=>(const pointer& other) const { return ptr <=> other.ptr; }
@@ -282,4 +275,22 @@ struct pointer : public Traits... {
 	constexpr std::strong_ordering operator<=>(const pointer<R, OtherTraits...>& other) const {
 		return ptr <=> other.ptr;
 	}
+};
+
+template <typename T, typename... Traits>
+struct std::iterator_traits<pointer<T, Traits...>> {
+	using value_type = T;
+	using difference_type = std::ptrdiff_t;
+	using iterator_category = std::contiguous_iterator_tag;
+	using pointer = T*;
+	using reference = void;
+};
+template <typename T, typename... Traits>
+	requires(!std::is_void_v<T>)
+struct std::iterator_traits<pointer<T, Traits...>> {
+	using value_type = T;
+	using difference_type = std::ptrdiff_t;
+	using iterator_category = std::contiguous_iterator_tag;
+	using pointer = T*;
+	using reference = T&;
 };

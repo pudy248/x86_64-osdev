@@ -13,3 +13,6 @@ int cmd_touch(int argc, const ccstr_t* argv);
 int cmd_rm(int argc, const ccstr_t* argv);
 int cmd_mv(int argc, const ccstr_t* argv);
 int cmd_save_output(int argc, const ccstr_t* argv);
+
+int cmd_stacktrace(int argc, const ccstr_t* argv);
+int cmd_dump_allocs(int argc, const ccstr_t* argv);

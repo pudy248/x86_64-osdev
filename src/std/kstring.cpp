@@ -3,50 +3,64 @@
 #include <kstring.hpp>
 #include <net/net.hpp>
 #include <stl/container.hpp>
+#include <stl/ranges.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 
-template <typename CharT, iterator_of<CharT> I, std::sentinel_for<I> S>
-template <template <typename> typename C, comparable_iter_I<I> I2, typename S2, typename Derived>
-	requires requires {
-		requires container_template<C>;
-		requires(!view<I2, S2>::Infinite);
-	}
-C<Derived> basic_string<CharT, I, S>::split(this const Derived& self, const view<I2, S2>& any) {
-	std::size_t sz = self.count(any) + 1;
+template <typename CharT, std::forward_iterator I, std::sentinel_for<I> S>
+template <template <typename> typename C, std::forward_iterator I2, typename S2, typename Derived>
+	requires container_template<C>
+C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, I2 begin2, S2 end2) {
+	std::size_t sz = ranges::count_all(self, view(begin2, end2)) + 1;
 	C<Derived> container{ sz };
 	std::size_t i = 0;
 	istringstream stream(self);
 	while (i < sz) {
-		container.at(i++) = stream.read_until_v(any);
-		stream.read_c();
+		I i1 = stream.begin();
+		I i2 = ranges::find_first_of(stream, view(begin2, end2));
+		stream.begin() = i2;
+		container.at(i++) = { i1, i2 };
+		++stream;
 	}
 	return container;
 }
-template <typename CharT, iterator_of<CharT> I, std::sentinel_for<I> S>
-template <template <typename...> typename C, typename Derived>
+template <typename CharT, std::forward_iterator I, std::sentinel_for<I> S>
+template <template <typename> typename C, ranges::forward_range R, typename Derived>
 	requires container_template<C>
-C<Derived> basic_string<CharT, I, S>::split(this const Derived& self, CharT c) {
-	std::size_t sz = self.count(c) + 1;
+C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, const R& range) {
+	std::size_t sz = ranges::count_all(self, range) + 1;
 	C<Derived> container{ sz };
 	std::size_t i = 0;
 	istringstream stream(self);
 	while (i < sz) {
-		container.at(i++) = stream.read_until_v(c);
-		stream.read_c();
+		I i1 = stream.begin();
+		I i2 = ranges::find_first_of(stream, range);
+		stream.begin() = i2;
+		container.at(i++) = { i1, i2 };
+		++stream;
 	}
 	return container;
 }
-template <typename CharT, iterator_of<CharT> I, std::sentinel_for<I> S>
+template <typename CharT, std::forward_iterator I, std::sentinel_for<I> S>
 template <template <typename...> typename C, typename Derived>
 	requires container_template<C>
-C<Derived> basic_string<CharT, I, S>::split(this const Derived& self, ccstr_t c) {
-	return self.template split<C>(rostring(c));
+C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, CharT c) {
+	std::size_t sz = ranges::count(self, c) + 1;
+	C<Derived> container{ sz };
+	std::size_t i = 0;
+	istringstream stream(self);
+	while (i < sz) {
+		I i1 = stream.begin();
+		I i2 = ranges::find(stream, c);
+		stream.begin() = i2;
+		container.at(i++) = { i1, i2 };
+		++stream;
+	}
+	return container;
 }
 
-template <iterator_of<char> I>
-int formats(const I& output, const rostring fmt, ...) {
+template <std::output_iterator<char> I>
+constexpr int formats(I output, const rostring fmt, ...) {
 	va_list l;
 	va_start(l, fmt);
 
@@ -87,7 +101,7 @@ int formats(const I& output, const rostring fmt, ...) {
 
 			while (fmtArg.readable()) {
 				char front = fmtArg.peek();
-				if (fmtchars.contains(front))
+				if (ranges::count(fmtchars, front))
 					break;
 				parseOption(front);
 			}
@@ -101,8 +115,8 @@ int formats(const I& output, const rostring fmt, ...) {
 			else if (c2 == 'x')
 				ostr.writei(va_arg(l, uint64_t), leadingChars, 16, leadingChar, hasLeading, "0123456789abcdef");
 			else if (c2 == 'p') {
-				ostr.write('0');
-				ostr.write('x');
+				ostr.put('0');
+				ostr.put('x');
 				ostr.writei(va_arg(l, uint64_t), hasLeading ? leadingChars : 8, 16, '0', true);
 			} else if (c2 == 'b')
 				ostr.writei(va_arg(l, uint64_t), leadingChars, 2, leadingChar);
@@ -121,21 +135,21 @@ int formats(const I& output, const rostring fmt, ...) {
 				for (int i = 0; i < 4; i++) {
 					ostr.writei(((uint8_t*)&ip)[i]);
 					if (i < 3)
-						ostr.write('.');
+						ostr.put('.');
 				}
 			} else if (c2 == 'M') {
 				mac_t mac = va_arg(l, mac_t);
 				for (int i = 0; i < 6; i++) {
 					ostr.writei(((uint8_t*)&mac)[i], 2, 16, '0', false, "0123456789abcdef");
 					if (i < 5)
-						ostr.write(':');
+						ostr.put(':');
 				}
 			}
 		} else
-			ostr.write(c);
+			ostr.put(c);
 	}
 	if (fmt.begin() + (fmt.size() - 1))
-		ostr.write((char)0);
+		ostr.put((char)0);
 	va_end(l);
 
 	return ostr.begin() - output;
@@ -144,6 +158,6 @@ int formats(const I& output, const rostring fmt, ...) {
 template <typename... Args>
 string format(rostring fmt, Args... args) {
 	string s;
-	formats(s.obegin(), fmt, args...);
+	formats(s.oend(), fmt, args...);
 	return s;
 }

@@ -13,7 +13,7 @@ class queue_iterator;
 template <typename T>
 class std::incrementable_traits<queue_iterator<T>> {
 public:
-	using difference_type = idx_t;
+	using difference_type = std::ptrdiff_t;
 };
 template <typename T>
 class std::indirectly_readable_traits<queue_iterator<T>> {
@@ -22,19 +22,19 @@ public:
 };
 
 template <typename T>
-class queue_iterator : public iterator_crtp<queue_iterator<T>> {
+class queue_iterator : public random_access_iterator_interface<queue_iterator<T>> {
 public:
 	T* ptr;
-	idx_t length;
-	idx_t offset;
+	std::ptrdiff_t length;
+	std::ptrdiff_t offset;
 
 	constexpr T& operator*() const { return ptr[offset]; }
 	constexpr operator T*() { return ptr + offset; }
-	constexpr queue_iterator& operator+=(idx_t v) {
+	constexpr queue_iterator& operator+=(std::ptrdiff_t v) {
 		offset = ((offset + v) % length + length) % length;
 		return *this;
 	}
-	constexpr idx_t operator-(const queue_iterator& other) {
+	constexpr std::ptrdiff_t operator-(const queue_iterator& other) {
 		kassert(DEBUG_ONLY, WARNING, ptr == other.ptr && length == other.length,
 				"Attempted to compare queue iterators from different objects.");
 		return ((other.offset - offset) % length + length) % length;
@@ -92,8 +92,7 @@ public:
 		tail = 0;
 	}
 
-	constexpr void enqueue(T&& elem) { (*this)[inc_head()] = std::move(elem); }
-	template <std::same_as<std::remove_reference_t<T>> TF>
+	template <typename TF>
 	constexpr void enqueue(TF&& elem) {
 		(*this)[inc_head()] = std::forward<TF>(elem);
 	}
@@ -101,7 +100,7 @@ public:
 	constexpr void enqueue(Args&&... args) {
 		(*this)[inc_head()] = T(std::forward<Args>(args)...);
 	}
-	constexpr T&& dequeue() { return std::move((*this)[inc_tail()]); }
+	constexpr T dequeue() { return std::move((*this)[inc_tail()]); }
 	constexpr T& peek() {
 		kassert(DEBUG_ONLY, WARNING, head != tail, "OOB access in queue.");
 		return (*this)[tail];

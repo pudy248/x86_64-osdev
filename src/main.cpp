@@ -51,9 +51,10 @@ static void http_main() {
 				continue;
 			}
 			if (conn->received_packets.size()) {
-				tcp_istream stream({ conn }, { conn });
-				auto v = stream.read_until_cv<view<tcp_input_iterator, tcp_input_iterator>>("\r\n\r\n"_RO, true);
-				vector<char> http_packet{ v.begin(), v.end() };
+				basic_istringstream<char, tcp_input_iterator, std::unreachable_sentinel_t> stream({ conn }, {});
+				vector<char> h;
+				ranges::mut::copy_through_block(ranges::unbounded_range(h.oend()), stream, "\r\n\r\n"_RO);
+				vector<char> http_packet{ h.begin(), h.end() };
 				rostring s = http_packet;
 				printf("%S\n", &s);
 				if (http_process(conn, s)) {
@@ -62,7 +63,6 @@ static void http_main() {
 					conns.erase(i);
 					i--;
 				}
-				stream.begin().flush();
 			}
 		}
 	}
@@ -72,7 +72,7 @@ static void dhcp_main() {
 	dhcp_set_active(dhcp_query());
 	// ping(new_ipv4(8, 8, 8, 8));
 	// ping("www.google.com");
-	rostring s = "www.google.com";
+	rostring s("www.google.com");
 	ipv4_t ip = dns_query(s);
 	tcp_conn_t conn = tcp_connect(ip, 54321, HTTP_PORT);
 	http_response r = http_req_get(conn, s);
@@ -99,34 +99,34 @@ static void graphics_main() {
 
 	uint32_t vi = 0;
 	uint32_t ti = 0;
-	file_t f = file_open("/cow.obj"_RO);
+	file_t f = fs::open("/cow.obj"_RO);
 	istringstream obj(f.rodata());
 	while (obj.readable()) {
-		if (rostring(obj.begin(), obj.end()).starts_with("v "_RO)) {
-			obj.read_c();
-			obj.read_until_v(' ', false, true);
+		if (ranges::starts_with(obj, "v ")) {
+			++obj;
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			float x = obj.read_f();
-			obj.read_until_v(' ', false, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			float y = obj.read_f();
-			obj.read_until_v(' ', false, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			float z = obj.read_f();
-			obj.read_until_v(' ', true, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			p.vertexBuffer[vi++] = (Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
-		} else if (rostring(obj.begin(), obj.end()).starts_with("f "_RO)) {
+		} else if (ranges::starts_with(obj, "f ")) {
 			obj.read_c();
-			obj.read_until_v(' ', false, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			int v1 = obj.read_i();
-			obj.read_until_v(' ', false, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			int v2 = obj.read_i();
-			obj.read_until_v(' ', false, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			int v3 = obj.read_i();
-			obj.read_until_v(' ', true, true);
+			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			p.triangleBuffer[3 * ti] = v1 - 1;
 			p.triangleBuffer[3 * ti + 1] = v2 - 1;
 			p.triangleBuffer[3 * ti + 2] = v3 - 1;
 			ti++;
 		} else {
-			rostring s = obj.read_until_v(' ', true, true);
+			rostring s = { obj.begin(), ranges::find(obj, ' ') };
 			printf("%S\n", &s);
 		}
 	}
@@ -187,8 +187,10 @@ static void dealloc_fat() {
 }
 
 static void console_init() {
+	do_pit_readout = false;
 	graphics_text_init();
 	replace_console(console(&graphics_text_set_char, &graphics_text_update, graphics_text_dimensions));
+	do_pit_readout = true;
 }
 
 static int generator(int start) {
@@ -217,11 +219,11 @@ extern "C" void kernel_main(void) {
 
 	//graphics_main();
 	//dealloc_fat();
-	//console_init();
+	console_init();
 	//http_main();
-	//dhcp_main();
+	dhcp_main();
 	//thread_main();
-	cli_init();
+	//cli_init();
 
 	//tag_dump();
 	print("Kernel reached end of execution.\n");

@@ -16,7 +16,7 @@
 #include <sys/ktime.hpp>
 #include <text/text_display.hpp>
 
-mac_t global_mac;
+mac_union global_mac;
 ipv4_t global_ip;
 
 bool eth_connected;
@@ -33,7 +33,7 @@ void net_init() {
 	}
 	qprintf<64>("Detected Ethernet device: %04x:%04x\n", e1000_pci->vendor_id, e1000_pci->device_id);
 	e1000_init(*e1000_pci, &ethernet_recieve, &ethernet_link);
-	global_mac = globals->e1000->mac;
+	global_mac.as_int = globals->e1000->mac;
 	e1000_enable();
 	if (e1000_pci->device_id == 0x100E)
 		ethernet_link();
@@ -49,12 +49,12 @@ void ethernet_link() {
 
 void net_update_ip(ipv4_t ip) {
 	global_ip = ip;
-	arp_update(global_mac, global_ip);
+	arp_update(global_mac.as_int, global_ip);
 }
 
 void ethernet_recieve(net_buffer_t buf) {
 	eth_packet p = eth_process(buf);
-	if (!PROMISCUOUS && p.i.dst_mac != global_mac && p.i.dst_mac != MAC_BCAST)
+	if (!PROMISCUOUS && p.i.dst_mac != global_mac.as_int && p.i.dst_mac != MAC_BCAST)
 		return;
 	if (PACKET_LOG)
 		qprintf<64>("R %M -> %M (%i bytes)\n", p.i.src_mac, p.i.dst_mac, buf.data_size);
@@ -154,14 +154,14 @@ uint16_t net_checksum(const void* data, uint16_t len) { return net_checksum(net_
 template <typename T, bool FL>
 tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {
 	tlv_option_t<T, FL> opt;
-	opt.opt = s.read_b<T>();
-	T len = s.read_b<T>();
-	opt.value = s.read_n(len - FL * 2 * sizeof(T));
+	opt.opt = s.read_raw<T>();
+	T len = s.read_raw<T>();
+	opt.value = s.reference_read(len - FL * 2 * sizeof(T));
 	return opt;
 }
 template <typename T, bool FL>
 void write_tlv(const tlv_option_t<T, FL>& opt, obinstream<>& s) {
-	s.write_b<T>(opt.opt);
-	s.write_b<T>(opt.value.size() + FL * 2 * sizeof(T));
+	s.write_raw<T>(opt.opt);
+	s.write_raw<T>(opt.value.size() + FL * 2 * sizeof(T));
 	s.write(opt.value);
 }

@@ -14,8 +14,7 @@ public:
 	using vector<T, A>::clear;
 	using vector<T, A>::reserve;
 
-	constexpr void push(T&& elem) { this->append(elem); }
-	template <std::same_as<std::remove_reference_t<T>> TF>
+	template <typename TF>
 	constexpr void push(TF&& elem) {
 		this->append(std::forward<TF>(elem));
 	}
@@ -23,9 +22,9 @@ public:
 	constexpr void enqueue(Args&&... args) {
 		this->append(std::forward<Args>(args)...);
 	}
-	constexpr T&& pop() {
+	constexpr T pop() {
 		kassert(DEBUG_ONLY, WARNING, this->size(), "OOB access in stack.");
-		T&& tmp = std::move(this->at(this->size() - 1));
+		T tmp = std::move(this->at(this->size() - 1));
 		this->erase(this->size() - 1);
 		return tmp;
 	}

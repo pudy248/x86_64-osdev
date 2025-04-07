@@ -1,6 +1,6 @@
 #pragma once
-#include <kstring.hpp>
 #include <net/tcp.hpp>
+#include <stl/vector.hpp>
 
 constexpr uint16_t HTTP_PORT = 80;
 

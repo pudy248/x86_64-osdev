@@ -41,7 +41,7 @@ private:
 	static constexpr uint64_t protector_head_magic = 0xF0F1F2F3F4F5F6F7ULL;
 	static constexpr uint64_t protector_tail_magic = 0x08090A0B0C0D0E0FULL;
 
-	static inline blk_ptr heap_next(blk_ptr blk) { return blk->data + blk->blk_size - sizeof(heap_blk); }
+	static inline blk_ptr heap_next(blk_ptr blk) { return blk_ptr(blk->data + blk->blk_size - sizeof(heap_blk)); }
 	static inline uint64_t heap_alloc_size(uint64_t requested_size) {
 		return (requested_size + sizeof(heap_meta_head) + sizeof(heap_meta_tail) + (sizeof(heap_blk) - 1)) & ~0xFLLU;
 	}
@@ -66,7 +66,7 @@ public:
 	uint64_t mem_used() { return used; }
 
 	ptr_t alloc(uint64_t size, uint16_t alignment = 0x10) {
-		alignment = min(alignment, sizeof(heap_blk));
+		alignment = max(alignment, sizeof(heap_blk));
 		uint64_t adj_size = heap_alloc_size(size);
 		kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, (uint64_t)end - (uint64_t)begin - used > adj_size,
 				"Malloc out of space!");
@@ -111,8 +111,8 @@ public:
 			target_block->data += alloc_size;
 		}
 
-		head_ptr head = aligned_addr;
-		tail_ptr tail = (aligned_addr + sizeof(heap_meta_head) + blk_size);
+		head_ptr head = head_ptr(aligned_addr);
+		tail_ptr tail = tail_ptr((aligned_addr + sizeof(heap_meta_head) + blk_size));
 		head->size = blk_size;
 		head->alignment_offset = align_offset;
 		tail->flags = 0;
@@ -139,8 +139,8 @@ public:
 				dbg_block = heap_next(dbg_block);
 			}
 		}
-		head_ptr head = (uint64_t)ptr - sizeof(heap_meta_head);
-		tail_ptr tail = (uint64_t)ptr + head->size;
+		head_ptr head = head_ptr((uint64_t)ptr - sizeof(heap_meta_head));
+		tail_ptr tail = tail_ptr((uint64_t)ptr + head->size);
 		kassert(ALWAYS_ACTIVE, ERROR, !tail->flags, "Double free in heap.");
 		tail->flags = 1;
 #ifdef HEAP_ALLOC_PROTECTOR

@@ -59,7 +59,7 @@ bool icmp_get(icmp_packet& out) {
 units::milliseconds ping(ipv4_t ip, uint8_t ttl) {
 retry:
 	timepoint sent_time = timepoint::now();
-	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "KATEOS PING :3"_RO, {});
+	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "IVYOS PING :3"_RO, {});
 	icmp_packet p;
 	while (1) {
 		if (icmp_get(p))
@@ -77,7 +77,7 @@ units::milliseconds ping(rostring domain, uint8_t ttl) {
 	ipv4_t ip = dns_query(domain);
 retry:
 	timepoint sent_time = timepoint::now();
-	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "KATEOS PING :3"_RO, domain);
+	icmp_send(ip, ICMP_TYPE::ECHO_REQUEST, ttl, "IVYOS PING :3"_RO, domain);
 	icmp_packet p;
 	while (1) {
 		if (icmp_get(p))

@@ -1,22 +1,24 @@
 #pragma once
 #include <cstdint>
+#include <iterator>
 #include <kassert.hpp>
 #include <kcstring.hpp>
 #include <limits>
+#include <stl/allocator.hpp>
 #include <stl/array.hpp>
+#include <stl/ranges.hpp>
 #include <stl/stream.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 
-template <iterator_of<char> I>
-constexpr idx_t strilen(const I& cstr) {
+template <std::forward_iterator I>
+constexpr std::ptrdiff_t strilen(const I& cstr) {
 	I iter = cstr;
-	idx_t i = 0;
+	std::ptrdiff_t i = 0;
 	for (; *iter; i++, iter++)
 		;
 	return i;
 }
-template <iterator_of<char> I>
+template <std::forward_iterator I>
 constexpr I striend(const I& cstr) {
 	I iter = cstr;
 	while (*iter)
@@ -24,95 +26,94 @@ constexpr I striend(const I& cstr) {
 	return iter;
 }
 
-template <typename CharT, iterator_of<CharT> I = CharT*, std::sentinel_for<I> S = I>
-class basic_string : public view<I, S> {
+template <typename CharT, std::forward_iterator I = CharT*, std::sentinel_for<I> S = I>
+class basic_string_interface {
 public:
-	using view<I, S>::view;
+	template <typename Derived>
+	constexpr operator span<CharT>(this const Derived& self) {
+		return span<const CharT>(ranges::begin(self), ranges::end(self));
+	}
 
-	constexpr basic_string(const I& begin, const S& end) : view<I, S>(begin, end) {}
-	template <iterator_of<CharT> I2, typename S2>
-	constexpr basic_string(const view<I2, S2>& other) : view<I, S>(other.begin(), other.end()) {}
+	template <typename Derived, ranges::range R>
+	bool operator==(this const Derived& self, const R& other) {
+		bool self_empty = !ranges::size(self) || !ranges::at(self, 0);
+		bool other_empty = !ranges::size(other) || !ranges::at(other, 0);
+		if (self_empty && other_empty)
+			return true;
+		if (self_empty != other_empty)
+			return false;
+		return ranges::equal(view(ranges::begin(self), ranges::find(self, 0)),
+							 view(ranges::begin(other), ranges::find(other, 0)));
+	}
 
-	constexpr operator span<const CharT>() const { return span<const CharT>(this->begin(), this->end()); }
-	constexpr operator span<CharT>() { return span<CharT>(this->begin(), this->end()); }
+	template <template <typename> typename C = vector, std::forward_iterator I2, typename S2, typename Derived>
+		requires container_template<C>
+	C<Derived> split(this const Derived& self, I2 begin2, S2 end2);
 
-	constexpr basic_string(const I& cstr) : view<I, S>(cstr, striend(cstr)) {}
-
-	template <template <typename> typename C = vector, comparable_iter_I<I> I2, typename S2, typename Derived>
-		requires requires {
-			requires container_template<C>;
-			requires(!view<I2, S2>::Infinite);
-		}
-	C<Derived> split(this const Derived& self, const view<I2, S2>& any);
+	template <template <typename> typename C = vector, ranges::forward_range R, typename Derived>
+		requires container_template<C>
+	C<Derived> split(this const Derived& self, const R& range);
 
 	template <template <typename...> typename C = vector, typename Derived>
 		requires container_template<C>
 	C<Derived> split(this const Derived& self, CharT c);
-
-	template <template <typename...> typename C = vector, typename Derived>
-		requires container_template<C>
-	C<Derived> split(this const Derived& self, ccstr_t c);
 };
+
+template <typename CharT, std::forward_iterator I = CharT*, std::sentinel_for<I> S = I>
+class basic_rostring : public view<I, S>, public basic_string_interface<CharT, I, S> {
+public:
+	constexpr basic_rostring() = default;
+	constexpr basic_rostring(I begin, S end) : view<I, S>(begin, end) {
+		if (this->iter != this->sentinel)
+			this->sentinel = ranges::find(*this, 0);
+	}
+	constexpr basic_rostring(I begin, std::iter_difference_t<I> length) : view<I, S>(begin, length) {};
+	template <ranges::range R>
+	constexpr basic_rostring(R&& range) : view<I, S>(ranges::begin(range), ranges::end(range)) {
+		if (this->iter != this->sentinel)
+			this->sentinel = ranges::find(*this, 0);
+	}
+	//template <std::forward_iterator I2>
+	//constexpr basic_rostring(I2 begin) : view<I, S>(begin, striend(begin)) {}
+};
+using rostring = basic_rostring<const char>;
 
 template <typename I>
-basic_string(const I& i) -> basic_string<I, I>;
-
-class rostring : public basic_string<char, ccstr_t> {
-public:
-	using basic_string<char, ccstr_t>::basic_string;
-	rostring(ccstr_t cstr) : basic_string(cstr) {}
-};
+basic_rostring(I i) -> basic_rostring<I, I>;
 constexpr rostring operator""_RO(const char* literal, uint64_t) { return rostring(literal); }
 
-template <allocator A = default_allocator>
-class alloc_string : public vector<char, A> {
+template <typename CharT, allocator A = default_allocator>
+class basic_string : public vector<CharT, A>, public basic_string_interface<CharT> {
 public:
-	using vector<char, A>::vector;
-	char* c_str() {
+	using vector<CharT, A>::vector;
+	CharT* c_str() {
 		if (!this->size() || this->at(this->size() - 1) != '\0')
 			this->append(0);
 		return &*this->begin();
 	}
-	bool operator==(const rostring& other) const {
-		auto v = view(*this);
-		auto o = other;
-		if (view(*this).contains(0))
-			v = view(this->begin(), this->begin() + view(*this).find(0));
-		if (other.contains(0))
-			o = other.subspan(0, other.find(0));
-		return v == o;
-	}
 };
-using string = alloc_string<default_allocator>;
+using string = basic_string<char>;
 
-template <convertible_elem_I<rostring> I, typename S>
-constexpr string concat(const view<I, S>& v) {
-	string s;
-	for (const rostring& str : v)
-		s.append(str);
+template <typename S = string, ranges::range R>
+	requires ranges::range<ranges::value_t<R>>
+constexpr auto concat(const R& range) {
+	S s = {};
+	for (const auto& str : range)
+		ranges::copy(ranges::unbounded_range(s.oend()), str);
 	return s;
-}
-template <typename C>
-constexpr string concat(const C& c) {
-	return concat(view(c.cbegin(), c.cend()));
 }
 
 template <typename CharT, iterator_of<CharT> I>
 class basic_ostringstream : public basic_ostream<CharT, I> {
 public:
 	using basic_ostream<CharT, I>::basic_ostream;
+	using basic_ostream<CharT, I>::write;
 
-	constexpr void write(const CharT elem) { *(this->iter++) = elem; }
-	void write(ccstr_t dat) { write(rostring(dat)); }
-	void write(const rostring& dat) {
-		kassert(DEBUG_VERBOSE, ERROR, dat.begin(), "Null string.");
-		for (CharT c : dat)
-			write(c);
-	}
-	void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ', bool enforce_width = false,
-				CharT* letters = "0123456789ABCDEF", bool is_signed = true) {
+	constexpr void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ',
+						  bool enforce_width = false, const CharT* letters = "0123456789ABCDEF",
+						  bool is_signed = true) {
 		if (is_signed && n < 0) {
-			write('-');
+			this->put('-');
 			writei(-n, max(field_width - 1, 1), radix, enforce_width, lead_char, letters, false);
 			return;
 		}
@@ -128,7 +129,7 @@ public:
 			tmpstr[i] = lead_char;
 		write(tmpstr + i + 1);
 	}
-	void writef(double n, int leading = 0, int trailing = 3, CharT leadChar = ' ') {
+	constexpr void writef(double n, int leading = 0, int trailing = 3, CharT leadChar = ' ') {
 		if ((((uint32_t*)&n)[1] & 0x7ff00000) == 0x7ff00000)
 			write("NaN");
 		else if (n == 1. / 0.)
@@ -138,7 +139,7 @@ public:
 		else {
 			if (n < 0) {
 				n = -n;
-				write('-');
+				this->put('-');
 			}
 			double tmp = n;
 			int ctr = 0;
@@ -149,7 +150,7 @@ public:
 			int tmpctr = ctr--;
 
 			for (int i = 0; i < leading - ctr - 1; i++)
-				write(leadChar);
+				this->put(leadChar);
 
 			array<CharT, 32> tmpstr;
 			tmp = n;
@@ -157,38 +158,38 @@ public:
 				tmpstr.at(ctr--) = '0' + (int)tmp % 10;
 				tmp /= 10;
 			} while ((int)tmp > 0);
-			write(rostring(tmpstr.begin(), tmpstr.begin() + tmpctr));
+			this->write(tmpstr.begin(), tmpctr);
 
 			if (trailing > 0) {
-				write('.');
+				this->put('.');
 
 				tmp = n - (int)n;
 				for (int i = 0; i < trailing; i++) {
 					tmp *= 10;
 					tmpstr.at(i) = '0' + (int)tmp % 10; // + (i == trailing - 1);
 				}
-				write(rostring(tmpstr.begin(), tmpstr.begin() + trailing));
+				this->write(tmpstr.begin(), trailing);
 			}
 		}
 	}
 };
 
-template <typename CharT, iterator_of<CharT> I = const CharT*, std::sentinel_for<I> S = I>
-class basic_istringstream : public basic_istream<CharT, I, S> {
+template <typename CharT, std::input_iterator I = const CharT*, std::sentinel_for<I> S = I>
+class basic_istringstream : public basic_istream<I, S> {
 public:
-	using basic_istream<CharT, I, S>::basic_istream;
+	using basic_istream<I, S>::basic_istream;
 
-	constexpr basic_istringstream(const I& i, const S& s) : basic_istream<CharT, I, S>(i, s) {}
+	constexpr basic_istringstream(const I& i, const S& s) : basic_istream<I, S>(i, s) {}
 
-	CharT read_c() { return this->read(); }
-	int64_t read_i() {
+	constexpr CharT read_c() { return this->get(); }
+	constexpr int64_t read_i() {
 		int64_t val = 0;
 		char neg = 0;
-		if (*this->begin() == '-') {
+		if (this->peek() == '-') {
 			neg = 1;
 			read_c();
 		}
-		while (*this->begin() >= '0' && *this->begin() <= '9') {
+		while (this->peek() >= '0' && this->peek() <= '9') {
 			val *= 10;
 			val += read_c() - '0';
 		}
@@ -196,7 +197,7 @@ public:
 			val = -val;
 		return val;
 	}
-	uint64_t read_x() {
+	constexpr uint64_t read_x() {
 		uint64_t val = 0;
 		for (I& it = this->begin(); it != this->end(); ++it) {
 			if (*it >= '0' && *it <= '9')
@@ -210,7 +211,7 @@ public:
 		}
 		return val;
 	}
-	double read_f() {
+	constexpr double read_f() {
 		constexpr int trailingMax = 10;
 		double val = 0;
 		int afterDecimal = 0;
@@ -221,7 +222,7 @@ public:
 			neg = true;
 			++it;
 		}
-		if (view<I, S>(*this).starts_with("NaN"_RO))
+		if (ranges::starts_with(*this, "NaN"))
 			return std::numeric_limits<double>::quiet_NaN();
 		//else if (view<I, S>(*this).starts_with("Inf"_RO))
 		//	return neg ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
@@ -240,6 +241,16 @@ public:
 		}
 		return neg ? -val : val;
 	}
+
+	template <ranges::range R>
+	constexpr bool match(const R& range) {
+		if (ranges::starts_with(*this, range)) {
+			for (auto _ : range)
+				++*this;
+			return true;
+		} else
+			return false;
+	}
 };
 class ostringstream : public basic_ostringstream<char, vector<char>::iterator_type> {
 public:
@@ -250,7 +261,7 @@ public:
 	using basic_istringstream<char>::basic_istringstream;
 };
 
-template <iterator_of<char> I>
-int formats(const I& output, const rostring fmt, ...);
+template <std::output_iterator<char> I>
+constexpr int formats(I output, const rostring fmt, ...);
 template <typename... Args>
 string format(rostring fmt, Args... args);

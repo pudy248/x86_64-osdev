@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
-#include <stl/view.hpp>
+#include <stl/ranges/concepts.hpp>
+#include <stl/ranges/view.hpp>
 
 void refresh_tty();
 
@@ -26,7 +27,7 @@ class text_layer& default_output();
 
 void disable_log();
 void clear_log();
-class rostring output_log();
+span<const char> output_log();
 
 void error(const char* str);
 template <std::size_t N, typename... Args>

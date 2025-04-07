@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include <cstdint>
 #include <kcstring.hpp>
 #include <kstdio.hpp>
@@ -56,6 +55,7 @@ public:
 	[[gnu::noinline]] static stacktrace trace();
 	static stacktrace trace(pointer<uint64_t, integer> rbp, uint64_t return_addr);
 	void print() const;
+	void eprint() const;
 };
 
 struct heap_tag {

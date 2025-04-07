@@ -6,7 +6,7 @@
 #include <text/console.hpp>
 #include <text/text_display.hpp>
 
-static string log_string;
+static constinit string log_string;
 static bool do_logging = true;
 
 void refresh_tty() {
@@ -57,15 +57,17 @@ void hexdump(const void* ptr, uint32_t bytes, uint32_t block_width, uint32_t num
 }
 
 void replace_console(console&& con) {
+	text_layer t1{ default_output() };
+	text_layer t2{ con };
+	t2.copy(t1);
+	t2.fill_zeroes(' ');
 	default_console() = std::move(con);
-	text_layer l{ default_console() };
-	default_output().display(l);
-	l = default_output();
+	default_output() = t2;
 }
 
 void disable_log() { do_logging = false; }
 void clear_log() { log_string.clear(); }
-rostring output_log() { return log_string; }
+span<const char> output_log() { return log_string; }
 
 void error(const char* str) {
 	disable_log();

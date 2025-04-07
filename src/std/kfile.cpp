@@ -4,6 +4,7 @@
 #include <kassert.hpp>
 #include <kfile.hpp>
 #include <kstring.hpp>
+#include <stl/ranges.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 
@@ -69,15 +70,48 @@ void file_inode::move(pointer<file_inode> new_dir, bool no_write) {
 	}
 }
 
-static file_t file_open_nocheck(const file_t& directory, const rostring& filename) {
+namespace fs {
+namespace unsafe {
+file_t open(const file_t& directory, const rostring& filename, int) {
 	for (file_t it = directory.safe_child(); it; it = it.safe_sibling())
 		if (it.n->filename == filename)
 			return it;
-	kassert(ALWAYS_ACTIVE, ERROR, 0, "File not found - nocheck.");
+	kassert(ALWAYS_ACTIVE, ERROR, 0, "fs::unsafe: File not found.");
 	return {};
 }
+file_t open_rel(const file_t& directory, const path& relative_path, int) {
+	file_t file(directory);
 
-ACCESS_RESULT file_access(const file_t& directory, const rostring& filename, int flags) {
+	for (std::size_t i = 0; i < relative_path.fragments.size(); i++) {
+		string& frag = relative_path.fragments[i];
+		if (!file)
+			break;
+		if (!frag.size() && i != relative_path.fragments.size() - 1) {
+			kassertf(DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).",
+					 concat(relative_path.fragments).c_str());
+			continue;
+		}
+		if (ranges::equal(frag, "."))
+			continue;
+		if (ranges::equal(frag, "..")) {
+			file = file_t(file.n->parent);
+			continue;
+		}
+		file = fs::unsafe::open(file, frag);
+	}
+	return file;
+}
+file_t open(const path& path, int flags) {
+	if (path.fragments.size() && path.fragments[0] == ""_RO)
+		return fs::unsafe::open_rel(file_t(globals->fs->root), path, flags);
+	else if (path.fragments.size() && path.fragments[0] == "."_RO)
+		return fs::unsafe::open_rel(file_t(globals->fs->current), path, flags);
+	else
+		return fs::unsafe::open_rel(file_t(globals->fs->current), path, flags);
+}
+}
+
+ACCESS_RESULT access(const file_t& directory, const rostring& filename, int flags) {
 	if (!directory)
 		return ACCESS_RESULT::ERR_PATH_NOT_FOUND;
 	//printf("FILE ACCESS %s -> %S\n", directory.n->filename.c_str(), &filename);
@@ -108,7 +142,7 @@ ACCESS_RESULT file_access(const file_t& directory, const rostring& filename, int
 	}
 	return ACCESS_RESULT::ERR_NOT_FOUND;
 }
-ACCESS_RESULT file_access_rel(const file_t& directory, const path& relative_path, int flags) {
+ACCESS_RESULT access_rel(const file_t& directory, const path& relative_path, int flags) {
 	file_t file(directory);
 
 	int intermediate_flags = ACCESS_FLAGS::DIRECTORY | ACCESS_FLAGS::READ;
@@ -116,7 +150,7 @@ ACCESS_RESULT file_access_rel(const file_t& directory, const path& relative_path
 		intermediate_flags |= ACCESS_FLAGS::CREATE_IF_MISSING;
 
 	for (std::size_t i = 0; i < relative_path.fragments.size(); i++) {
-		rostring frag = relative_path.fragments[i];
+		string& frag = relative_path.fragments[i];
 		if (!file)
 			return ACCESS_RESULT::ERR_PATH_NOT_FOUND;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
@@ -124,15 +158,15 @@ ACCESS_RESULT file_access_rel(const file_t& directory, const path& relative_path
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (frag == "."_RO)
+		if (ranges::equal(frag, "."))
 			continue;
-		if (frag == ".."_RO) {
+		if (ranges::equal(frag, "..")) {
 			file = file_t(file.n->parent);
 			continue;
 		}
 		if (i == relative_path.fragments.size() - 1)
 			intermediate_flags = flags;
-		ACCESS_RESULT result = file_access(file, frag, intermediate_flags);
+		ACCESS_RESULT result = fs::access(file, frag, intermediate_flags);
 		if (result != ACCESS_RESULT::SUCCESS) {
 			if (i != relative_path.fragments.size() - 1) {
 				if (result == ACCESS_RESULT::ERR_NOT_FOUND)
@@ -142,27 +176,26 @@ ACCESS_RESULT file_access_rel(const file_t& directory, const path& relative_path
 			}
 			return result;
 		}
-		file = file_open_nocheck(file, frag);
+		file = fs::unsafe::open(file, frag);
 	}
 	return ACCESS_RESULT::SUCCESS;
 }
-ACCESS_RESULT file_access(const path& path, int flags) {
+ACCESS_RESULT access(const path& path, int flags) {
 	if (path.fragments.size() && path.fragments[0] == ""_RO)
-		return file_access_rel(file_t(globals->fs->root), path, flags);
+		return fs::access_rel(file_t(globals->fs->root), path, flags);
 	else if (path.fragments.size() && path.fragments[0] == "."_RO)
-		return file_access_rel(file_t(globals->fs->current), path, flags);
+		return fs::access_rel(file_t(globals->fs->current), path, flags);
 	else
-		return file_access_rel(file_t(globals->fs->current), path, flags);
-	//kassertf(DEBUG_VERBOSE, COMMENT, 0, "Ambiguous absolute/relative path %s.", concat(path.fragments).c_str());
+		return fs::access_rel(file_t(globals->fs->current), path, flags);
 }
 
-file_t file_open(const file_t& directory, const rostring& filename, int flags) {
-	if (file_access(directory, filename, flags) != ACCESS_RESULT::SUCCESS)
+file_t open(const file_t& directory, const rostring& filename, int flags) {
+	if (fs::access(directory, filename, flags) != ACCESS_RESULT::SUCCESS)
 		return {};
-	return file_open_nocheck(directory, filename);
+	return fs::unsafe::open(directory, filename);
 }
-file_t file_open_rel(const file_t& directory, const path& relative_path, int flags) {
-	if (file_access_rel(directory, relative_path, flags) != ACCESS_RESULT::SUCCESS)
+file_t open_rel(const file_t& directory, const path& relative_path, int flags) {
+	if (fs::access_rel(directory, relative_path, flags) != ACCESS_RESULT::SUCCESS)
 		return {};
 	file_t file(directory);
 
@@ -171,7 +204,7 @@ file_t file_open_rel(const file_t& directory, const path& relative_path, int fla
 		intermediate_flags |= ACCESS_FLAGS::CREATE_IF_MISSING;
 
 	for (std::size_t i = 0; i < relative_path.fragments.size(); i++) {
-		rostring frag = relative_path.fragments[i];
+		string& frag = relative_path.fragments[i];
 		if (!file)
 			break;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
@@ -179,62 +212,61 @@ file_t file_open_rel(const file_t& directory, const path& relative_path, int fla
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (frag == "."_RO)
+		if (ranges::equal(frag, "."))
 			continue;
-		if (frag == ".."_RO) {
+		if (ranges::equal(frag, "..")) {
 			file = file_t(file.n->parent);
 			continue;
 		}
 		if (i == relative_path.fragments.size() - 1)
 			intermediate_flags = flags;
-		file = file_open(file, frag, intermediate_flags);
+		file = fs::unsafe::open(file, frag, intermediate_flags);
 	}
 	return file;
 }
-file_t file_open(const path& path, int flags) {
-	if (file_access(path, flags) != ACCESS_RESULT::SUCCESS)
+file_t open(const path& path, int flags) {
+	if (fs::access(path, flags) != ACCESS_RESULT::SUCCESS)
 		return {};
 	if (path.fragments.size() && path.fragments[0] == ""_RO)
-		return file_open_rel(file_t(globals->fs->root), path, flags);
+		return fs::unsafe::open_rel(file_t(globals->fs->root), path, flags);
 	else if (path.fragments.size() && path.fragments[0] == "."_RO)
-		return file_open_rel(file_t(globals->fs->current), path, flags);
+		return fs::unsafe::open_rel(file_t(globals->fs->current), path, flags);
 	else
-		return file_open_rel(file_t(globals->fs->current), path, flags);
-	//kassertf(DEBUG_VERBOSE, COMMENT, 0, "Ambiguous absolute/relative path %s.", concat(path.fragments).c_str());
+		return fs::unsafe::open_rel(file_t(globals->fs->current), path, flags);
 }
 
-ACCESS_RESULT file_move(const file_t& file, const file_t& directory, const rostring& filename, int flags) {
-	ACCESS_RESULT a = file_access(directory, filename, flags);
+ACCESS_RESULT move(const file_t& file, const file_t& directory, const rostring& filename, int flags) {
+	ACCESS_RESULT a = fs::access(directory, filename, flags);
 	if (a == ACCESS_RESULT::ERR_NOT_FOUND) {
 		file.n->filename = filename;
 		file.n->move(directory);
 		return ACCESS_RESULT::SUCCESS;
 	} else if (a != ACCESS_RESULT::SUCCESS)
 		return a;
-	file_t dst_file = file_open(directory, filename, flags);
+	file_t dst_file = fs::unsafe::open(directory, filename, flags);
 	if (dst_file.n->is_directory)
-		return file_move(file, dst_file, file.n->filename, flags | ACCESS_FLAGS::FILE);
+		return fs::move(file, dst_file, file.n->filename, flags | ACCESS_FLAGS::FILE);
 	else if (file.n->is_directory)
 		return ACCESS_RESULT::ERR_TYPE_FILE;
 	else {
-		file_delete(dst_file);
+		fs::remove(dst_file);
 		file.n->move(directory);
 		return ACCESS_RESULT::SUCCESS;
 	}
 }
-ACCESS_RESULT file_move(const path& src, const path& dst, int flags) {
-	ACCESS_RESULT a = file_access(src, flags);
+ACCESS_RESULT move(const path& src, const path& dst, int flags) {
+	ACCESS_RESULT a = fs::access(src, flags);
 	if (a != ACCESS_RESULT::SUCCESS)
 		return a;
 	path dir = dst.parent();
 	rostring f = dst.fragments.back();
-	a = file_access(dir, flags);
+	a = fs::access(dir, flags);
 	if (a != ACCESS_RESULT::SUCCESS)
 		return a;
-	return file_move(file_open(src, flags), file_open(dir, flags), f, flags);
+	return fs::move(fs::unsafe::open(src, flags), fs::unsafe::open(dir, flags), f, flags);
 }
 
-ACCESS_RESULT file_delete(file_t& file) {
+ACCESS_RESULT remove(file_t& file) {
 	if (!file)
 		return ACCESS_RESULT::ERR_NOT_FOUND;
 	if (file.safe_child())
@@ -250,7 +282,7 @@ ACCESS_RESULT file_delete(file_t& file) {
 	file.n = nullptr;
 	return ACCESS_RESULT::SUCCESS;
 }
-ACCESS_RESULT file_delete_rel(const file_t& directory, const path& relative_path, int flags) {
+ACCESS_RESULT remove_rel(const file_t& directory, const path& relative_path, int flags) {
 	file_t file(directory);
 
 	int intermediate_flags = ACCESS_FLAGS::DIRECTORY | ACCESS_FLAGS::READ;
@@ -266,15 +298,15 @@ ACCESS_RESULT file_delete_rel(const file_t& directory, const path& relative_path
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (frag == "."_RO)
+		if (ranges::equal(frag, "."))
 			continue;
-		if (frag == ".."_RO) {
+		if (ranges::equal(frag, "..")) {
 			file = file_t(file.n->parent);
 			continue;
 		}
 		if (i == relative_path.fragments.size() - 1)
 			intermediate_flags = flags;
-		ACCESS_RESULT result = file_access(file, frag, intermediate_flags);
+		ACCESS_RESULT result = fs::access(file, frag, intermediate_flags);
 		if (result != ACCESS_RESULT::SUCCESS) {
 			if (i != relative_path.fragments.size() - 1) {
 				if (result == ACCESS_RESULT::ERR_NOT_FOUND)
@@ -284,17 +316,17 @@ ACCESS_RESULT file_delete_rel(const file_t& directory, const path& relative_path
 			}
 			return result;
 		}
-		file = file_open_nocheck(file, frag);
+		file = fs::unsafe::open(file, frag);
 	}
-	file_delete(file);
+	fs::remove(file);
 	return ACCESS_RESULT::SUCCESS;
 }
-ACCESS_RESULT file_delete(const path& path, int flags) {
+ACCESS_RESULT remove(const path& path, int flags) {
 	if (path.fragments.size() && path.fragments[0] == ""_RO)
-		return file_delete_rel(file_t(globals->fs->root), path, flags);
+		return fs::remove_rel(file_t(globals->fs->root), path, flags);
 	else if (path.fragments.size() && path.fragments[0] == "."_RO)
-		return file_delete_rel(file_t(globals->fs->current), path, flags);
+		return fs::remove_rel(file_t(globals->fs->current), path, flags);
 	else
-		return file_delete_rel(file_t(globals->fs->current), path, flags);
-	//kassertf(DEBUG_VERBOSE, COMMENT, 0, "Ambiguous absolute/relative path %s.", concat(path.fragments).c_str());
+		return fs::remove_rel(file_t(globals->fs->current), path, flags);
+}
 }

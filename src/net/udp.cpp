@@ -6,6 +6,7 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/udp.hpp>
+#include <stl/ranges.hpp>
 #include <sys/global.hpp>
 
 vector<udp_conn_t> open_connections_udp;
@@ -14,11 +15,11 @@ vector<uint16_t> blocked_ports_udp = vector<uint16_t>({ 7423 });
 
 void udp_block(uint16_t port, bool is_blocked) {
 	if (is_blocked) {
-		int idx = span(blocked_ports_udp).find(port);
+		int idx = ranges::where_is(blocked_ports_udp, port);
 		if (idx >= 0)
 			blocked_ports_udp.erase(idx);
 	} else {
-		if (!span(blocked_ports_udp).contains(port))
+		if (!ranges::count(blocked_ports_udp, port))
 			blocked_ports_udp.append(port);
 	}
 }

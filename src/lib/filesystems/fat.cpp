@@ -128,7 +128,7 @@ static constexpr uint8_t fat_lfn_checksum(const char* pFCBName) {
 }
 
 void fat_init() {
-	pointer<partition_table, integer> partTable = 0x7c00 + MBR_PARTITION_START;
+	pointer<partition_table, integer> partTable(0x7c00 + MBR_PARTITION_START);
 	int i = 0;
 	for (; i < 4; i++)
 		if (partTable->entries[i].sysid == SIG_MBR_FAT32)
@@ -156,7 +156,7 @@ void fat_init() {
 	}
 
 	new (&globals->fat32->root_directory)
-		file_t(new file_inode(0, FILE_ATTRIBS::SYSTEM | FILE_ATTRIBS::DIRECTORY, NULL,
+		file_t(new file_inode(0, fs::FILE_ATTRIBS::SYSTEM | fs::FILE_ATTRIBS::DIRECTORY, NULL,
 							  FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
 							  globals->fat32->bpb->root_cluster_num));
 	globals->fat32->root_directory.n->filename = "ROOT"_RO;
@@ -251,7 +251,8 @@ static void to_disk_layout(vector<fat_disk_span>& disk_layout, pointer<const voi
 	for (std::size_t i = 0; i < disk_layout.size(); i++) {
 		write_disk(ptr, cluster_lba(disk_layout[i].cluster_start),
 				   disk_layout[i].span_length * globals->fat32->sectors_per_cluster);
-		ptr = (uint64_t)ptr + disk_layout[i].span_length * globals->fat32->bytes_per_cluster;
+		ptr = pointer<const void, reinterpret>((uint64_t)ptr +
+											   disk_layout[i].span_length * globals->fat32->bytes_per_cluster);
 	}
 }
 
@@ -261,13 +262,13 @@ static pointer<file_inode> from_dir_ent(pointer<file_inode> parent, pointer<cons
 	pointer<file_inode> inode = new file_inode(file->file_size, 0, parent, file->attributes,
 											   (uint64_t)file->cluster_high << 16 | file->cluster_low);
 	if (inode->fs_attribs & FAT_ATTRIBS::READONLY)
-		inode->attributes |= FILE_ATTRIBS::READONLY;
+		inode->attributes |= fs::FILE_ATTRIBS::READONLY;
 	if (inode->fs_attribs & FAT_ATTRIBS::HIDDEN)
-		inode->attributes |= FILE_ATTRIBS::HIDDEN;
+		inode->attributes |= fs::FILE_ATTRIBS::HIDDEN;
 	if (inode->fs_attribs & FAT_ATTRIBS::SYSTEM)
-		inode->attributes |= FILE_ATTRIBS::SYSTEM;
+		inode->attributes |= fs::FILE_ATTRIBS::SYSTEM;
 	if (inode->fs_attribs & FAT_ATTRIBS::DIRECTORY)
-		inode->attributes |= FILE_ATTRIBS::DIRECTORY;
+		inode->attributes |= fs::FILE_ATTRIBS::DIRECTORY;
 
 	inode->filename.reserve(nLFNs * 13);
 	for (std::size_t lfnIdx = 0; lfnIdx < nLFNs; lfnIdx++) {
@@ -295,7 +296,7 @@ end:
 }
 static void to_dir_ents(pointer<file_inode> directory) {
 	directory->data.clear();
-	auto tmp = directory->data.obegin();
+	auto tmp = directory->data.oend();
 	obinstream out{ *(vector_iterator<std::byte, default_allocator>*)&tmp };
 	vector<file_t> children = file_t(directory).children();
 	vector<fat_file_entry> files(children.size(), vec_resize{});
@@ -360,7 +361,7 @@ static void to_dir_ents(pointer<file_inode> directory) {
 
 	for (std::size_t i = 0; i < children.size(); i++) {
 		if (files[i].attributes & FAT_ATTRIBS::VOL_ID) {
-			out.write(&files[i], sizeof(fat_file_entry));
+			out.write_raw(&files[i], sizeof(fat_file_entry));
 			continue;
 		}
 		int nLFNs = (children[i].n->filename.size() + 12) / 13;
@@ -394,9 +395,9 @@ static void to_dir_ents(pointer<file_inode> directory) {
 					goto end_lfn;
 			}
 end_lfn:
-			out.write(&lfn, sizeof(fat_file_lfn));
+			out.write_raw(&lfn, sizeof(fat_file_lfn));
 		}
-		out.write(&files[i], sizeof(fat_file_entry));
+		out.write_raw(&files[i], sizeof(fat_file_entry));
 	}
 	std::size_t sz = directory->data.size();
 	std::size_t nsz =
@@ -430,7 +431,7 @@ void fat_read_directory(pointer<file_inode> dir) {
 	for (std::size_t idx = 0; entries[idx].file.attributes; idx++) {
 		if ((entries[idx].file.attributes & FAT_ATTRIBS::VOL_ID) && entries[idx].file.attributes != FAT_ATTRIBS::LFN) {
 			pointer<file_inode> vol = from_dir_ent(dir, &entries[idx], 0);
-			vol->attributes = FILE_ATTRIBS::HIDDEN | FILE_ATTRIBS::SYSTEM;
+			vol->attributes = fs::FILE_ATTRIBS::HIDDEN | fs::FILE_ATTRIBS::SYSTEM;
 			vol->filename = rostring(entries[idx].file.filename, 11);
 			vol->move(dir, true);
 			continue;

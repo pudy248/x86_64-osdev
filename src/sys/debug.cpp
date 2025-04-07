@@ -1,3 +1,4 @@
+#include "stl/ranges/mutable.hpp"
 #include <asm.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -9,13 +10,13 @@
 #include <kstring.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <stl/array.hpp>
+#include <stl/ranges.hpp>
 #include <stl/vector.hpp>
-#include <stl/view.hpp>
 #include <sys/debug.hpp>
 #include <sys/global.hpp>
 #include <sys/memory/paging.hpp>
 
-vector<debug_symbol, mmap_allocator> symbol_table;
+constinit vector<debug_symbol, mmap_allocator> symbol_table;
 static bool is_enabled = false;
 
 bool tags_enabled() { return globals->tag_allocs; }
@@ -28,40 +29,38 @@ void debug_init() {
 void* __walloc(uint64_t size, uint16_t alignment);
 
 void load_debug_symbs(ccstr_t filename) {
-	file_t f = file_open(filename);
+	file_t f = fs::open(filename);
 	kassert(DEBUG_ONLY, WARNING, f, "Failed to open file.");
 	if (!f)
 		return;
+	istringstream str(f.rodata());
 
-	auto v1 = f.rodata();
-	auto v2 = v1.reinterpret_as<char>();
-
-	istringstream str(v2);
-
-	symbol_table.reserve(f.rodata().size() / 100);
+	vector<debug_symbol, mmap_allocator> symbs2;
 
 	// llvm-objdump --syms
 	str.read_c();
-	str.read_until_v('\n', true);
+	ranges::mut::iterate_through(str, algo::equal_to_v{ '\n' });
 	str.read_c();
-	str.read_until_v('\n', true);
+	ranges::mut::iterate_through(str, algo::equal_to_v{ '\n' });
 
 	while (str.end() - str.begin() > 1) {
 		debug_symbol symb;
-		symb.addr = str.read_x();
-		array<char, 16> tmp2;
-		view(tmp2).blit(str.read_n(9));
-		str.read_until_v('\t', true);
+		symb.addr = pointer<void, integer>(str.read_x());
+		array<char, 10> tmp2;
+		str.read(tmp2.begin(), 9);
+		ranges::mut::copy_through(ranges::null_range{}, str, algo::equal_to_v{ '\t' });
 		symb.size = str.read_x();
 		str.read_c();
-		rostring tmp = str.read_until_v('\n');
+		rostring tmp = { str.begin(), ranges::find(str, '\n') };
 		pointer<char, type_cast> name = __walloc(tmp.size() + 1, 0x10);
 		memcpy(name, tmp.begin(), tmp.size());
 		name[tmp.size()] = 0;
 		symb.name = name;
+		str.begin() = tmp.end();
 		str.read_c();
 
 		symbol_table.append(symb);
+		symbs2.append(symb);
 	}
 	is_enabled = true;
 }
@@ -102,27 +101,35 @@ void wait_until_kbhit() {
 	stacktrace r = {};
 	pointer<uint64_t, reinterpret> rbp = __builtin_frame_address(0);
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = { rbp[1], rbp[0] };
-		rbp = *rbp;
+		r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0]) };
+		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
 }
 
 [[gnu::noinline]] stacktrace stacktrace::trace(pointer<uint64_t, integer> rbp, uint64_t return_addr) {
 	stacktrace r = {};
-	r.ptrs.at(r.num_ptrs++) = { return_addr, rbp };
+	r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(return_addr), pointer<void, reinterpret>(rbp) };
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = { rbp[1], rbp[0] };
-		rbp = *rbp;
+		r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0]) };
+		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
 }
 
 stacktrace::stacktrace(const stacktrace& other, int start) : num_ptrs(other.num_ptrs - start) {
-	view(ptrs).blit(view(other.ptrs).subspan(start, other.num_ptrs), 0);
+	ranges::copy(ranges::subrange(other.ptrs, start, other.num_ptrs), ptrs);
 }
 
 void stacktrace::print() const {
+	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
+	for (uint32_t i = 0; i < num_ptrs; i++) {
+		pointer<debug_symbol> nearest = nearest_symbol(ptrs.at(i).ret);
+		printf("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret(), ptrs.at(i).rbp(), nearest ? nearest->name : "(none)");
+	}
+	::print("\n");
+}
+void stacktrace::eprint() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (uint32_t i = 0; i < num_ptrs; i++) {
 		pointer<debug_symbol> nearest = nearest_symbol(ptrs.at(i).ret);
@@ -156,8 +163,9 @@ void tag_free(pointer<void> ptr) {
 }
 void tag_dump() {
 	for (const heap_tag& tag : globals->heap_allocations) {
-		errorf<64>("Allocation %p (%i bytes)\n", tag.ptr(), tag.size);
+		printf("Allocation %p (%i bytes)\n", tag.ptr(), tag.size);
 		tag.alloc_trace.print();
-		delay(units::seconds{ 3. });
+		wait_until_kbhit();
+		//delay(units::seconds{ 3. });
 	}
 }

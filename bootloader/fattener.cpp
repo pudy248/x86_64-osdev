@@ -3,7 +3,6 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
-#include <ranges>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -164,8 +163,8 @@ void write_dir(const fs::path& p) {
 			for (int i = 0; i < 8 && i < stem.size(); i++)
 				f.filename[i] = toupper(stem[i]);
 
-		for (int i = 0; i < 8 && i < ext.size(); i++)
-			f.extension[i] = toupper(ext[i]);
+		for (int i = 0; i < 3 && i < ext.size() - 1; i++)
+			f.extension[i] = toupper(ext[i - 1]);
 
 		int nLFNs = (fname.size() + 12) / 13;
 		fat_disk_lfn* names = new fat_disk_lfn[nLFNs];
