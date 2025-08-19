@@ -16,10 +16,10 @@ struct Fragment {
 	float depth;
 };
 
-typedef uint32_t* __attribute__((align_value(64))) uint32_ptr_a64;
-typedef Vertex* __attribute__((align_value(64))) vertex_ptr_a64;
-typedef ProjectedVertex* __attribute__((align_value(64))) proj_vertex_ptr_a64;
-typedef Fragment* __attribute__((align_value(64))) fragment_ptr_a64;
+using uint32_ptr_a64 __attribute__((align_value(64))) = uint32_t*;
+using vertex_ptr_a64 __attribute__((align_value(64))) = Vertex*;
+using proj_vertex_ptr_a64 __attribute__((align_value(64))) = ProjectedVertex*;
+using fragment_ptr_a64 __attribute__((align_value(64))) = Fragment*;
 
 void _default_vertex_shader(struct RenderPipeline* pipeline, void** params);
 void _default_raster_shader(struct RenderPipeline* pipeline, void** params);

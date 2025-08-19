@@ -24,7 +24,7 @@ public:
 	constexpr bool has_args() { return args_data.has_value(); }
 	constexpr R operator()() {
 		kassert(DEBUG_ONLY, WARNING, args_data.has_value(),
-				"Function instances cannot be evaluated when no argument pack exists!");
+			"Function instances cannot be evaluated when no argument pack exists!");
 		return std::apply(function, std::move(*args_data));
 	}
 	template <typename... Args2>

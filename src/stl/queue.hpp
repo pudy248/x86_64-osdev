@@ -41,7 +41,7 @@ public:
 	}
 };
 
-template <typename T, allocator A = default_allocator_t<T>>
+template <typename T, allocator A = default_allocator<T>>
 class queue : protected vector<T, A> {
 protected:
 	static constexpr std::size_t resize_ratio = 2;

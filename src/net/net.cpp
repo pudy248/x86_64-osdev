@@ -11,7 +11,6 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <stl/queue.hpp>
-#include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
 #include <text/text_display.hpp>
@@ -149,7 +148,9 @@ uint16_t net_checksum(uint64_t sum) {
 	sum = ~sum;
 	return sum;
 }
-uint16_t net_checksum(const void* data, uint16_t len) { return net_checksum(net_partial_checksum(data, len)); }
+uint16_t net_checksum(const void* data, uint16_t len) {
+	return net_checksum(net_partial_checksum(data, len));
+}
 
 template <typename T, bool FL>
 tlv_option_t<T, FL> read_tlv(ibinstream<>& s) {

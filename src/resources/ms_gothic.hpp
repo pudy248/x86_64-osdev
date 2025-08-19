@@ -1,11 +1,10 @@
 #pragma once
 #include <cstdint>
 
-// Same data as the Linux kernel uses, extracted from the PC VGA font.
 static uint8_t fontDims[] = { 8, 16 };
 static uint8_t fontStart = 0;
 
-static uint8_t fontBitmap[] = {
+static uint8_t fontBitmap[16 * 256] = {
 	// 0 0x00 NUL
 	0b00000000,
 	0b00000000,

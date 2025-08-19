@@ -1,7 +1,13 @@
 #pragma once
+#include <cstddef>
 #include <iterator>
-#include <optional>
+#include <kassert.hpp>
+#include <lib/allocators/waterline.hpp>
+#include <stl/iterator.hpp>
+#include <stl/iterator/iterator_interface.hpp>
+#include <stl/iterator/utilities.hpp>
 #include <stl/ranges.hpp>
+#include <stl/vector.hpp>
 #include <type_traits>
 
 template <typename S, typename CharT>
@@ -14,13 +20,134 @@ concept ostream = requires(S s) {
 	requires requires(CharT* p, std::size_t sz) { s.write(p, sz); };
 	requires requires(CharT c) { s.write(c); };
 };
+template <std::input_iterator I>
+class istreambuf_iterator;
 
-template <std::input_iterator I, std::sentinel_for<I> S = std::unreachable_sentinel_t>
+template <std::input_iterator I>
+class istream_buffer : protected vector<std::iter_value_t<I>> {
+	friend class istreambuf_iterator<I>;
+	I backing_iter;
+	std::ptrdiff_t base_offset;
+	std::ptrdiff_t create_offset;
+
+public:
+	constexpr explicit istream_buffer(I begin)
+		: vector<std::iter_value_t<I>>(0), backing_iter(std::move(begin)), base_offset(0), create_offset(0) {}
+	constexpr istreambuf_iterator<I> begin() { return istreambuf_iterator(*this); }
+	constexpr istreambuf_iterator<I> end() {
+		istreambuf_iterator it = istreambuf_iterator(*this);
+		it.offset = this->size() + 1;
+		return it;
+	}
+	constexpr void advance_to(istreambuf_iterator<I> it) {
+		this->erase(0, min(std::ptrdiff_t(this->size()), it.offset - base_offset));
+		base_offset = it.offset;
+		create_offset = max(create_offset, base_offset);
+	}
+	constexpr void advance_creation(istreambuf_iterator<I> it) { create_offset = it.offset; }
+};
+template <typename I>
+struct std::indirectly_readable_traits<istreambuf_iterator<I>> {
+	using value_type = std::iter_value_t<I>;
+};
+template <std::input_iterator I>
+class istreambuf_iterator : public forward_iterator_interface<istreambuf_iterator<I>> {
+	friend class istream_buffer<I>;
+	istream_buffer<I>* buf;
+	std::ptrdiff_t offset;
+
+public:
+	using forward_iterator_interface<istreambuf_iterator<I>>::operator++;
+
+	constexpr istreambuf_iterator(istream_buffer<I>& b) : buf(&b), offset(b.create_offset) {}
+	constexpr std::iter_value_t<I>& operator*() const {
+		while (offset >= buf->base_offset + buf->size()) {
+			buf->emplace_back(*buf->backing_iter);
+			++buf->backing_iter;
+		}
+		return buf->iat(offset - buf->base_offset);
+	}
+	constexpr istreambuf_iterator& operator++() {
+		++offset;
+		return *this;
+	}
+	constexpr bool operator==(const istreambuf_iterator& iter) const { return offset == iter.offset; }
+	template <typename R>
+		requires(!std::same_as<R, null_sentinel>)
+	constexpr bool operator==(const R& sent) const {
+		return buf->backing_iter == sent;
+	}
+	constexpr std::ptrdiff_t operator-(const istreambuf_iterator& iter) const { return offset - iter.offset; }
+};
+
+template <std::input_iterator I, std::sentinel_for<I> S = null_sentinel>
 class basic_istream {
+protected:
+	mutable istream_buffer<I> buffer;
+	S sentinel;
+
+public:
+	constexpr basic_istream() : buffer(I{}), sentinel(S{}) {};
+	constexpr basic_istream(I i, S s = {}) : buffer(std::move(i)), sentinel(std::move(s)) {}
+	template <ranges::range R>
+	constexpr basic_istream(const R& range) : buffer(ranges::begin(range)), sentinel(ranges::end(range)) {}
+	template <typename Derived>
+		requires(!std::is_const_v<Derived>)
+	constexpr auto begin(this Derived& self) {
+		return self.buffer.begin();
+	}
+	template <typename Derived>
+	constexpr const auto& end(this const Derived& self) {
+		return self.sentinel;
+	}
+	constexpr void advance_buf() { buffer.advance_to(buffer.end()); }
+	constexpr void advance_buf(istreambuf_iterator<I> it) { buffer.advance_to(it); }
+
+	constexpr bool readable() const { return sentinel != buffer.begin(); }
+	constexpr auto peek() { return *buffer.begin(); }
+	constexpr auto get() {
+		auto it = buffer.begin();
+		auto val = *it++;
+		buffer.advance_to(it);
+		return val;
+	}
+	constexpr operator bool() const { return readable(); }
+
+	constexpr void ignore(std::size_t sz) { buffer.advance_to(std::next(buffer.begin(), sz)); }
+
+	template <typename OutI>
+		requires impl::output_for<OutI, I>
+	constexpr void read(OutI&& out, std::size_t sz) {
+		auto it = buffer.begin();
+		algo::mut::copy_n(decay(out), it, end(), sz);
+		buffer.advance_to(it);
+	}
+
+	template <ranges::range R>
+	constexpr vector<std::remove_reference_t<std::iter_reference_t<I>>> read_until_v(const R& range, bool inclusive) {
+		auto i1 = begin();
+		auto i2 = ranges::find_first_of(*this, range);
+		if (inclusive)
+			++i2;
+		vector<std::remove_reference_t<std::iter_reference_t<I>>> v(i1, i2);
+		buffer.advance_to(i2);
+		return v;
+	}
+
+	template <ranges::range R>
+	constexpr bool match(const R& range) {
+		if (ranges::val::starts_with(*this, range)) {
+			this->ignore(ranges::size(range));
+			return true;
+		} else
+			return false;
+	}
+};
+template <std::forward_iterator I, std::sentinel_for<I> S>
+class basic_istream<I, S> {
 protected:
 	I iter;
 	S sentinel;
-	std::optional<std::iter_value_t<I>> peeked_val;
 
 public:
 	constexpr basic_istream() = default;
@@ -32,37 +159,26 @@ public:
 		return self.iter;
 	}
 	template <typename Derived>
-	constexpr const auto& end(this Derived& self) {
+	constexpr const auto& end(this const Derived& self) {
 		return self.sentinel;
 	}
+	constexpr void advance_buf() {}
+	constexpr void advance_buf(auto) {}
 
 	constexpr bool readable() const { return sentinel != iter; }
-	constexpr auto peek() {
-		if (!peeked_val.has_value())
-			peeked_val = std::move(*iter);
-		return peeked_val.value();
-	}
+	constexpr auto peek() { return *iter; }
 	constexpr auto get() {
-		if (peeked_val.has_value()) {
-			auto t = std::move(peeked_val.value());
-			peeked_val.reset();
-			++iter;
-			return t;
-		} else {
-			auto t = std::move(*iter);
-			++iter;
-			return t;
-		}
+		auto t = std::move(*iter);
+		++iter;
+		return t;
 	}
 	constexpr operator bool() const { return readable(); }
-	constexpr basic_istream& operator++() {
-		++iter;
-		return *this;
-	}
+	constexpr void ignore(std::size_t sz) { std::advance(iter, sz); }
 
-	template <std::output_iterator<std::iter_value_t<I>> OutI>
-	constexpr void read(OutI out, std::size_t sz) {
-		algo::mut::copy_n(out, begin(), end(), sz);
+	template <typename OutI>
+		requires impl::output_for<OutI, I>
+	constexpr void read(OutI&& out, std::size_t sz) {
+		algo::mut::copy_n(decay(out), begin(), end(), sz);
 	}
 	constexpr span<std::iter_value_t<I>> reference_read(std::size_t sz)
 		requires std::contiguous_iterator<I>
@@ -79,7 +195,16 @@ public:
 		if (inclusive)
 			++i2;
 		begin() = i2;
-		return { i1, i2 };
+		return {i1, i2};
+	}
+
+	template <ranges::range R>
+	constexpr bool match(const R& range) {
+		if (ranges::val::starts_with(*this, range)) {
+			this->ignore(ranges::size(range));
+			return true;
+		} else
+			return false;
 	}
 };
 
@@ -96,7 +221,7 @@ public:
 		return self.iter;
 	}
 
-	constexpr operator view<I, std::unreachable_sentinel_t>() const { return view(begin(), {}); }
+	//constexpr operator view<I, null_sentinel>() const { return view(begin(), {}); }
 
 	constexpr void put(const T& elem) {
 		*iter = elem;
@@ -126,9 +251,7 @@ template <std::output_iterator<std::byte> I = std::byte*>
 class obinstream : public basic_ostream<std::byte, I> {
 public:
 	using basic_ostream<std::byte, I>::basic_ostream;
-	void write_raw(const void* ptr, std::ptrdiff_t size) {
-		this->write(span<std::iter_value_t<I>>((std::iter_value_t<I>*)ptr, size));
-	}
+	void write_raw(const void* ptr, std::ptrdiff_t size) { this->write(span((std::byte*)ptr, size)); }
 	template <typename T>
 	void write_raw(const T& val) {
 		this->write_raw(&val, sizeof(T));
@@ -149,7 +272,7 @@ public:
 };
 
 template <typename I>
-basic_istream(I) -> basic_istream<I, std::unreachable_sentinel_t>;
+basic_istream(I) -> basic_istream<I, null_sentinel>;
 template <iterator_of<std::byte> I>
 obinstream(I i) -> obinstream<I>;
 template <iterator_of<std::byte> I, std::sentinel_for<I> S>

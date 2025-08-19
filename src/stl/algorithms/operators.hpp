@@ -3,10 +3,6 @@
 #include <utility>
 
 namespace algo {
-template <typename Op, typename T>
-using unary_op_result_t = decltype(std::declval<Op&>()(std::declval<T>()));
-template <typename Op, typename LHS, typename RHS = LHS>
-using binary_op_result_t = decltype(std::declval<Op&>()(std::declval<LHS>(), std::declval<RHS>()));
 
 struct identity {
 	constexpr auto operator()(auto value) const { return value; }

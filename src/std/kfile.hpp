@@ -12,13 +12,13 @@ struct path {
 			fragments.erase(fragments.size() - 1);
 		}
 		if (!fragments.size())
-			fragments.append("");
+			fragments.push_back("");
 	}
 	constexpr path(ccstr_t s) : path(rostring(s)) {}
 	template <ranges::range R>
 	constexpr path(const R& frags) : fragments(frags) {}
 	constexpr path& operator+=(const path& other) {
-		fragments.append(other.fragments);
+		fragments.push_back(other.fragments);
 		return (*this);
 	}
 	constexpr path operator+(const path& other) const { return path(*this) += other; }

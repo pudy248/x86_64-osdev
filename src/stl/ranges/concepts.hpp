@@ -1,5 +1,6 @@
 #pragma once
 #include <iterator>
+#include <stl/iterator.hpp>
 
 namespace ranges {
 template <typename T>
@@ -45,7 +46,7 @@ template <typename PChar>
 struct _end_t<PChar> {
 	constexpr static PChar end(PChar p) {
 		std::remove_cv_t<PChar> tmp = p;
-		for (; *tmp; tmp++)
+		for (; *tmp; ++tmp)
 			;
 		return tmp;
 	}
@@ -80,9 +81,9 @@ using iterator_t = std::remove_reference_t<decltype(ranges::begin(std::declval<T
 template <typename T>
 using sentinel_t = std::remove_reference_t<decltype(ranges::end(std::declval<T&>()))>;
 template <typename T>
-using iter_category_t = typename std::iterator_traits<iterator_t<T>>::iterator_category;
+using iter_category_t = std::iterator_traits<iterator_t<T>>::iterator_category;
 template <typename T>
-using difference_t = typename std::iterator_traits<std::remove_cv_t<iterator_t<T>>>::difference_type;
+using difference_t = std::iterator_traits<std::remove_cv_t<iterator_t<T>>>::difference_type;
 template <typename T>
 using value_t = std::remove_reference_t<decltype(*ranges::begin(std::declval<T&>()))>;
 template <typename T>
@@ -93,7 +94,8 @@ template <typename T>
 using rvalue_reference_t = value_t<T>&&;
 
 template <typename T>
-concept bounded_range = range<T> && !std::same_as<sentinel_t<T>, std::unreachable_sentinel_t>;
+concept bounded_range = range<T> && !std::same_as<sentinel_t<T>, std::unreachable_sentinel_t> &&
+						!std::same_as<sentinel_t<T>, null_sentinel>;
 template <typename R>
 concept sized_range = range<R> && std::sized_sentinel_for<sentinel_t<R>, iterator_t<R>>;
 template <typename R>

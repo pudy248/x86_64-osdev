@@ -1,4 +1,5 @@
 #pragma once
+#include <concepts>
 #include <initializer_list>
 #include <iterator>
 #include <kassert.hpp>
@@ -10,7 +11,7 @@
 #include <stl/ranges.hpp>
 #include <utility>
 
-template <typename T, allocator A = default_allocator>
+template <typename T, allocator A = default_allocator<T>>
 class heap_array {
 protected:
 	allocator_traits<A>::ptr_t m_arr = {};
@@ -93,9 +94,9 @@ public:
 	constexpr auto& back(this Derived& self) {
 		return self.at(self.size() - 1);
 	}
-	constexpr iterator_type begin() { return pointer<T, reinterpret>{ m_arr }(); }
+	constexpr iterator_type begin() { return pointer<T, reinterpret>{m_arr}(); }
 	constexpr iterator_type data() { return begin(); }
-	constexpr const iterator_type begin() const { return pointer<T, reinterpret>{ m_arr }(); }
+	constexpr const iterator_type begin() const { return pointer<T, reinterpret>{m_arr}(); }
 	constexpr iterator_type end() { return begin() + m_size; }
 	constexpr const iterator_type end() const { return begin() + m_size; }
 	constexpr const iterator_type cbegin() const { return begin(); }
@@ -104,7 +105,7 @@ public:
 	constexpr bool empty() const { return !size(); }
 };
 
-template <typename T, allocator A = default_allocator_t<T>>
+template <typename T, allocator A = default_allocator<T>>
 class vector;
 template <typename T, typename A>
 class vector_iterator;
@@ -167,19 +168,17 @@ protected:
 			this->m_arr = (T*)this->alloc.realloc(this->m_arr, sizeof(T) * m_capacity, sizeof(T) * size);
 		else
 			this->m_arr = (T*)this->alloc.alloc(sizeof(T) * size);
-		if (m_capacity < size) {
+		if (m_capacity < size)
 			construct<T>(this->begin() + m_capacity, size - m_capacity);
-		}
-		if (m_capacity >= size) {
+		if (m_capacity >= size)
 			this->m_size = size;
-		}
 		m_capacity = size;
 	}
 
 public:
 	using value_type = T;
 	using iterator_type = T*;
-	using output_iterator_type = vector_iterator<T, A>;
+	using output_iterator_type = std::back_insert_iterator<vector<T, A>>;
 
 	using heap_array<T, A>::heap_array;
 
@@ -190,9 +189,8 @@ public:
 		: heap_array<T, A>(size, _alloc), m_capacity(this->m_size) {}
 	template <std::input_iterator I, std::sentinel_for<I> S>
 	constexpr vector(const I& begin, const S& end, const A& _alloc = A()) : vector(0, _alloc) {
-		for (I iter = begin; iter != end; ++iter) {
-			append(*iter);
-		}
+		for (I iter = begin; iter != end; ++iter)
+			push_back(*iter);
 	}
 	template <std::input_iterator I, std::sized_sentinel_for<I> S>
 	constexpr vector(const I& begin, const S& end, const A& _alloc = A())
@@ -209,6 +207,8 @@ public:
 	constexpr vector& operator=(const vector& other) = default;
 	constexpr vector& operator=(vector&& other) = default;
 
+	constexpr std::size_t capacity() const { return m_capacity; }
+
 	constexpr void unsafe_clear() {
 		this->m_arr = nullptr;
 		this->m_size = 0;
@@ -220,7 +220,7 @@ public:
 		this->m_capacity = c;
 	}
 
-	constexpr T& at(std::size_t idx) {
+	constexpr T& iat(std::size_t idx) {
 		if (this->capacity() <= idx) {
 			std::size_t newCap = m_capacity < 1 ? 1 : m_capacity;
 			while (newCap <= idx)
@@ -228,6 +228,10 @@ public:
 			reserve(newCap);
 		}
 		this->m_size = max(this->m_size, idx + 1);
+		return this->m_at(idx);
+	}
+	constexpr T& at(std::ptrdiff_t idx) {
+		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < (std::ptrdiff_t)this->size(), "OOB access in vector.at()\n");
 		return this->m_at(idx);
 	}
 	constexpr const T& at(std::ptrdiff_t idx) const {
@@ -239,14 +243,17 @@ public:
 		return self.m_at(idx);
 	}
 
-	constexpr iterator_type begin() { return (iterator_type)this->m_arr.ptr; }
-	constexpr const iterator_type begin() const { return (const iterator_type)this->m_arr.ptr; }
+	constexpr iterator_type begin() { return (iterator_type)this->m_arr; }
+	constexpr const iterator_type begin() const { return (const iterator_type)this->m_arr; }
 	constexpr iterator_type end() { return begin() + this->size(); }
 	constexpr const iterator_type end() const { return begin() + this->size(); }
-	constexpr const T* cbegin() const { return (T*)this->m_arr.ptr; }
+	constexpr const T* cbegin() const { return (T*)this->m_arr; }
 	constexpr const T* cend() const { return cbegin() + this->size(); }
 	//constexpr output_iterator_type obegin() { return vector_iterator<T, A>{ {}, { this }, 0 }; }
-	constexpr output_iterator_type oend() { return vector_iterator<T, A>{ {}, { this }, this->size() }; }
+	constexpr output_iterator_type oend() {
+		return std::back_inserter(*this);
+		// return vector_iterator<T, A>{ {}, { this }, this->size() };
+	}
 
 	constexpr void reserve(std::size_t size) {
 		if (m_capacity >= size)
@@ -260,33 +267,40 @@ public:
 	}
 	constexpr void shrink_to_fit() { m_reserve(this->size()); }
 
-	constexpr void append(const T& elem) { this->at(this->size()) = elem; }
+	constexpr void push_back(const T& elem) { this->iat(this->size()) = elem; }
+	template <typename... Ts>
+		requires std::constructible_from<T, Ts...>
+	constexpr void push_back(Ts&&... args) {
+		this->iat(this->size()) = T(args...);
+	}
 	template <ranges::range R>
-	constexpr void append(const R& other) {
+	constexpr void push_back(const R& other) {
 		if constexpr (ranges::sized_range<R>)
 			reserve(this->size() + ranges::size(other));
 		auto iter = ranges::begin(other);
 		for (; iter != ranges::end(other); iter++)
-			append(*iter);
+			push_back(*iter);
 	}
-	constexpr void append(const T* elems, std::size_t count) { append(view<const T*, const T*>(elems, elems + count)); }
+	constexpr void push_back(const T* elems, std::size_t count) {
+		push_back(view<const T*, const T*>(elems, elems + count));
+	}
 
-	constexpr void emplace_back(T&& elem) { this->at(this->size()) = elem; }
+	constexpr void emplace_back(T&& elem) { this->iat(this->size()) = elem; }
 	template <std::same_as<std::remove_reference_t<T>> TF>
 	constexpr void emplace_back(TF&& elem) {
-		this->at(this->size()) = std::forward<TF>(elem);
+		this->iat(this->size()) = std::forward<TF>(elem);
 	}
 	template <typename... Args>
 	constexpr void emplace_back(Args&&... args) {
-		this->at(this->size()) = T(std::forward<Args>(args)...);
+		this->iat(this->size()) = T(std::forward<Args>(args)...);
 	}
 
 	constexpr void insert(T& elem, std::size_t idx) {
 		if (idx >= this->size())
-			this->at(idx) = elem;
+			this->iat(idx) = elem;
 		else {
 			std::size_t i = this->size();
-			this->at(i) = this->m_at(i - 1);
+			this->iat(i) = this->m_at(i - 1);
 			for (i--; i > idx; i--)
 				this->m_at(i) = std::move(this->m_at(i - 1));
 			this->m_at(i) = std::forward<T>(elem);
@@ -294,7 +308,7 @@ public:
 	}
 	constexpr void insert(T&& elem, std::size_t idx) {
 		if (idx >= this->size())
-			this->at(idx) = elem;
+			this->iat(idx) = elem;
 		else {
 			resize(this->size() + 1);
 			for (std::ptrdiff_t i = this->size() - 1; i > idx; i--)
@@ -303,14 +317,14 @@ public:
 		}
 	}
 
-	void erase(std::size_t idx) {
+	constexpr void erase(std::size_t idx) {
 		if (idx >= this->size())
 			return;
 		for (std::size_t i = idx + 1; i < this->size(); i++)
 			this->m_at(i - 1) = this->m_at(i);
 		this->m_size--;
 	}
-	void erase(std::size_t idx, std::size_t count) {
+	constexpr void erase(std::size_t idx, std::size_t count) {
 		if (idx >= this->size())
 			return;
 		for (std::size_t i = 0; i < count; i++)
@@ -323,7 +337,6 @@ public:
 			arr2[i] = this->m_at(i);
 		return arr2;
 	}
-	constexpr std::size_t capacity() const { return m_capacity; }
 };
 
 template <typename T>

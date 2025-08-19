@@ -17,7 +17,7 @@ static uint32_t simple_hash(pointer<const void, type_cast> key, size_t key_size)
 	}
 	return hash;
 }
-template <typename Key, typename Value, std::integral Hash = uint32_t, allocator A = default_allocator>
+template <typename Key, typename Value, std::integral Hash = uint32_t, allocator A = default_allocator<void>>
 class unordered_map;
 template <typename Key, typename Value, std::integral Hash = uint32_t>
 class unordered_map_iterator;

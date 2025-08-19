@@ -1,8 +1,5 @@
 #include <asm.hpp>
 #include <cstdint>
-#include <graphics/color.hpp>
-#include <graphics/graphics.hpp>
-#include <graphics/math.hpp>
 #include <graphics/pipeline.hpp>
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>

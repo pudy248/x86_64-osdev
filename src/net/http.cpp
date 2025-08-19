@@ -1,6 +1,6 @@
-#include "stl/ranges/algorithms.hpp"
+#include "stl/iterator/utilities.hpp"
+#include <iterator>
 #include <kfile.hpp>
-#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <net/http.hpp>
@@ -10,9 +10,9 @@
 
 http_response http_get(tcp_conn_t conn) {
 	vector<char> http_header;
-	ranges::copy_through_block(ranges::unbounded_range{ http_header.oend() },
-							   ranges::unbounded_range{ tcp_input_iterator{ conn } }, "\r\n\r\n"_RO);
-	istringstream s{ http_header };
+	ranges::val::copy_through_block(
+		ranges::unbounded_range{http_header.oend()}, ranges::unbounded_range{tcp_input_iterator{conn}}, "\r\n\r\n"_RO);
+	istringstream s{http_header};
 
 	bool chunked = false;
 	int64_t length = 0;
@@ -36,34 +36,32 @@ http_response http_get(tcp_conn_t conn) {
 	}
 
 	vector<char> output;
-	basic_istringstream<char, tcp_input_iterator, std::unreachable_sentinel_t> stream2{ { conn }, {} };
+	basic_istringstream<char, tcp_input_iterator, null_sentinel> stream2{{conn}, {}};
 
 	if (chunked) {
 		while (1) {
 			int64_t frag_length = stream2.read_x();
-			stream2.match("\r\n"_RO);
+			if (!stream2.match("\r\n"_RO))
+				print("HTTP chunked encoding error.\n");
 			if (!frag_length)
 				break;
 			length += frag_length + 2;
-			output.reserve(output.size() + frag_length);
-			while (frag_length--)
-				output.append(stream2.read_c());
-			stream2.match("\r\n"_RO);
+			printf("frag length %i\n", frag_length);
+			ranges::mut::copy_n(ranges::unbounded_range(std::back_inserter(output)), stream2, frag_length);
+			stream2.ignore(frag_length);
+			if (!stream2.match("\r\n"_RO))
+				print("HTTP chunked encoding error 2.\n");
 		}
-	} else {
-		int64_t frag_length = length;
-		output.reserve(output.size() + frag_length);
-		while (frag_length--)
-			output.append(stream2.read_c());
-	}
-	return { status, std::move(http_header), std::move(output) };
+	} else
+		ranges::mut::copy_n(ranges::unbounded_range(std::back_inserter(output)), stream2, length);
+	return {status, std::move(http_header), std::move(output)};
 }
 
 bool http_process(tcp_conn_t conn, rostring p) {
 	vector<rostring> lines = p.split<vector>("\n");
 	vector<rostring> args = lines[0].split<vector>(' ');
 
-	if (!ranges::equal(args[0], "GET")) {
+	if (!ranges::equal(args[0], "GET"_RO)) {
 		http_error(conn, "400 Bad Request");
 		return true;
 	}
@@ -81,15 +79,15 @@ bool http_process(tcp_conn_t conn, rostring p) {
 		}
 	}
 
-	if (ranges::ends_with(file.n->filename, ".jpg"))
+	if (ranges::ends_with(file.n->filename, ".jpg"_RO))
 		http_send(conn, "image/png"_RO, file.rodata());
-	else if (ranges::ends_with(file.n->filename, ".webp"))
+	else if (ranges::ends_with(file.n->filename, ".webp"_RO))
 		http_send(conn, "image/webp"_RO, file.rodata());
-	else if (ranges::ends_with(file.n->filename, ".wasm"))
+	else if (ranges::ends_with(file.n->filename, ".wasm"_RO))
 		http_send(conn, "application/wasm"_RO, file.rodata());
-	else if (ranges::ends_with(file.n->filename, ".css"))
+	else if (ranges::ends_with(file.n->filename, ".css"_RO))
 		http_send(conn, "text/css"_RO, file.rodata());
-	else if (ranges::ends_with(file.n->filename, ".js"))
+	else if (ranges::ends_with(file.n->filename, ".js"_RO))
 		http_send(conn, "text/javascript"_RO, file.rodata());
 	else
 		http_send(conn, "text/html"_RO, file.rodata());
@@ -106,7 +104,7 @@ void http_send(tcp_conn_t conn, rostring type, rostring response) {
 				  "\r\n%S");
 
 	string fresponse = format(fstr, &type, response.size(), &response);
-	tcp_await(conn->send({ span(fresponse.begin(), fresponse.end() - 1) }));
+	tcp_await(conn->send({span(fresponse.begin(), fresponse.end() - 1)}));
 }
 
 void http_error(tcp_conn_t conn, rostring code) {
@@ -115,7 +113,7 @@ void http_error(tcp_conn_t conn, rostring code) {
 				  "Content-Length: 0\r\n"
 				  "Connection: close\r\n\r\n");
 	string fresponse = format(fstr, &code);
-	tcp_await(conn->send({ span(fresponse.begin(), fresponse.end() - 1) }));
+	tcp_await(conn->send({span(fresponse.begin(), fresponse.end() - 1)}));
 }
 
 http_response http_req_get(tcp_conn_t conn, rostring uri) {
@@ -124,6 +122,6 @@ http_response http_req_get(tcp_conn_t conn, rostring uri) {
 				  "Connection: keep-alive\r\n"
 				  "Accept: text/html\r\n\r\n");
 	string fresponse = format(fstr, &uri);
-	tcp_await(conn->send({ span(fresponse.begin(), fresponse.end() - 1) }));
+	tcp_await(conn->send({span(fresponse.begin(), fresponse.end() - 1)}));
 	return http_get(conn);
 }

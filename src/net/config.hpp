@@ -9,7 +9,7 @@ constexpr bool ARP_LOG_UPDATE = false;
 constexpr int ARP_MAX_RETRIES = 1;
 
 constexpr bool TCP_ENABLED = true;
-constexpr bool TCP_LOG = false;
+constexpr bool TCP_LOG = true;
 constexpr bool TCP_LOG_VERBOSE = false;
 
 constexpr bool UDP_ENABLED = true;

@@ -139,6 +139,8 @@ struct e1000_device {
 	uint64_t mmio_base;
 	uint16_t pio_base;
 	mac_t mac;
+	void** rx_vaddrs;
+	void** tx_vaddrs;
 	e1000_rx_desc* rx_descs;
 	e1000_tx_desc* tx_descs;
 	uint16_t rx_cur;

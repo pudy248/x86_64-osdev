@@ -30,25 +30,27 @@ struct nonnull {}; // Illegal to assign null
 struct owning {}; // Illegal to copy to another owning pointer or from a non-owning pointer, auto-moves when possible
 struct autofree : owning {}; // Auto-frees on destruction
 struct nofree : owning {}; // Illegal to destroy or free if not null
-struct unique : owning {}; // Illegal to copy at all
+struct nocopy : owning {}; // Illegal to copy at all
 struct shared {}; // Reference-counted, frees when all references lost
 struct integer {}; // Can convert to and from uintptr_t
 struct type_cast {}; // Can convert to other pointer types
 struct reinterpret : integer, type_cast {};
 
 template <typename T, typename... Traits>
-struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
+struct [[clang::trivial_abi]] pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	constexpr static bool is_safe = pack_contains<safe, Traits...>;
 	constexpr static bool is_nonnull = pack_contains<nonnull, Traits...>;
 	constexpr static bool is_owning = pack_contains<owning, Traits...>;
 	constexpr static bool is_autofree = pack_contains<nofree, Traits...>;
 	constexpr static bool is_nofree = pack_contains<nofree, Traits...>;
-	constexpr static bool is_unique = pack_contains<unique, Traits...>;
+	constexpr static bool is_nocopy = pack_contains<nocopy, Traits...>;
 	constexpr static bool is_shared = pack_contains<shared, Traits...>;
 	constexpr static bool is_integer = pack_contains<integer, Traits...>;
 	constexpr static bool is_type_cast = pack_contains<type_cast, Traits...>;
 	constexpr static bool is_reinterpret = pack_contains<reinterpret, Traits...>;
 	//constexpr static bool is_sized = pack_contains<sized, Traits...>;
+
+	using type = T;
 
 	//static_assert(!(is_sized && is_integer), "Integer-convertible pointers cannot be sized.");
 
@@ -57,27 +59,26 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 		requires(!is_nonnull)
 	{}
 	constexpr pointer(T*& p)
-		requires(!is_unique) // && !is_sized
+		requires(!is_nocopy) // && !is_sized
 		: pointer(p, vis_tag{}) {
-		if constexpr (is_owning) {
+		if constexpr (is_owning)
 			p = nullptr;
-		}
 	}
 	constexpr pointer(T* const& p)
-		requires(!is_unique) // && !is_sized
+		requires(!is_nocopy) // && !is_sized
 		: pointer(p, vis_tag{}) {}
 	constexpr pointer(T* const& p, vis_tag) : ptr(p) {
 		if constexpr (is_nonnull)
 			kassert(ALWAYS_ACTIVE, ERROR, ptr, "Constructed non-null pointer with nullptr.");
 	}
-	static constexpr pointer make_unique(T* p)
-		requires(is_unique) // && !is_sized
+	static constexpr pointer make_nocopy(T* p)
+		requires(is_nocopy) // && !is_sized
 	{
 		return pointer(p, vis_tag{});
 	}
 	template <typename R>
-	static constexpr pointer make_unique(R* p)
-		requires(is_unique && is_type_cast) // && !is_sized
+	static constexpr pointer make_nocopy(R* p)
+		requires(is_nocopy && is_type_cast) // && !is_sized
 	{
 		return pointer((T*)p, vis_tag{});
 	}
@@ -104,14 +105,15 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	constexpr pointer(const pointer& other)
 		requires(!is_owning)
 	{
-		if constexpr (is_nonnull)
-			kassert(ALWAYS_ACTIVE, ERROR, other.ptr, "Constructed non-null pointer with nullptr.");
+		// Redundant?
+		//if constexpr (is_nonnull)
+		//	kassert(ALWAYS_ACTIVE, ERROR, other.ptr, "Constructed non-null pointer with nullptr.");
 		this->ptr = other.ptr;
 		//if constexpr (is_sized) this->size = other->size;
 	}
 	constexpr pointer(pointer&& other) {
-		if constexpr (is_nonnull)
-			kassert(ALWAYS_ACTIVE, ERROR, other.ptr, "Constructed non-null pointer with nullptr.");
+		//if constexpr (is_nonnull)
+		//	kassert(ALWAYS_ACTIVE, ERROR, other.ptr, "Constructed non-null pointer with nullptr.");
 		this->ptr = other.ptr;
 		//if constexpr (is_sized) this->size = other.size;
 		if constexpr (is_owning) {
@@ -135,7 +137,7 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	template <typename... OtherTraits>
 	constexpr pointer(const pointer<T, OtherTraits...>& other)
 		requires(!is_owning &&
-				 !pointer<T, OtherTraits...>::is_unique) // && (is_sized == pointer<T, OtherTraits...>::is_sized)
+				 !pointer<T, OtherTraits...>::is_nocopy) // && (is_sized == pointer<T, OtherTraits...>::is_sized)
 	{
 		if constexpr (is_nonnull)
 			kassert(ALWAYS_ACTIVE, ERROR, other.ptr, "Constructed non-null pointer with nullptr.");
@@ -152,7 +154,7 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 		this->ptr = other.ptr;
 		//if constexpr (is_sized) this->size = other.size;
 		if constexpr ((is_owning && pointer<T, OtherTraits...>::is_owning) ||
-					  (is_unique || pointer<T, OtherTraits...>::is_unique)) {
+					  (is_nocopy || pointer<T, OtherTraits...>::is_nocopy)) {
 			other.ptr = 0;
 			//if constexpr (pointer<T, OtherTraits...>::is_sized) other.size = 0;
 		}
@@ -160,7 +162,7 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	template <typename... OtherTraits>
 	constexpr pointer& operator=(const pointer<T, OtherTraits...>& other)
 		requires(!is_owning &&
-				 !pointer<T, OtherTraits...>::is_unique) // && (is_sized == pointer<T, OtherTraits...>::is_sized)
+				 !pointer<T, OtherTraits...>::is_nocopy) // && (is_sized == pointer<T, OtherTraits...>::is_sized)
 	{
 		this->~pointer();
 		new (this) pointer(other);
@@ -178,21 +180,20 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 
 	template <typename R>
 	constexpr pointer(R*& p)
-		requires(!is_unique && is_type_cast)
+		requires(!is_nocopy && is_type_cast)
 		: pointer((T*)(p), vis_tag{}) {
-		if constexpr (is_owning) {
+		if constexpr (is_owning)
 			p = nullptr;
-		}
 	}
 	template <typename R>
 	constexpr pointer(R* const& p)
-		requires(!is_unique && is_type_cast)
+		requires(!is_nocopy && is_type_cast)
 		: pointer((T*)(p), vis_tag{}) {}
 
 	template <typename R, typename... OtherTraits>
 	constexpr pointer(const pointer<R, OtherTraits...>& other)
 		requires(!is_owning &&
-				 !pointer<R, OtherTraits...>::is_unique && // (is_sized == pointer<R, OtherTraits...>::is_sized) &&
+				 !pointer<R, OtherTraits...>::is_nocopy && // (is_sized == pointer<R, OtherTraits...>::is_sized) &&
 				 (is_type_cast || pointer<R, OtherTraits...>::is_type_cast))
 	{
 		if constexpr (is_nonnull)
@@ -203,7 +204,7 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	template <typename R, typename... OtherTraits>
 	constexpr pointer(pointer<R, OtherTraits...>&& other)
 		requires(!(!is_owning &&
-				   pointer<R, OtherTraits...>::is_owning) && // (is_sized == pointer<R, OtherTraits...>::is_sized) &&
+					 pointer<R, OtherTraits...>::is_owning) && // (is_sized == pointer<R, OtherTraits...>::is_sized) &&
 				 (is_type_cast || pointer<R, OtherTraits...>::is_type_cast))
 	{
 		if constexpr (is_nonnull)
@@ -217,20 +218,20 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	}
 
 	constexpr pointer(const uintptr_t& other)
-		requires(!is_unique && is_integer)
+		requires(!is_nocopy && is_integer)
 	{
 		if constexpr (is_nonnull)
 			kassert(ALWAYS_ACTIVE, ERROR, other, "Constructed non-null pointer with nullptr.");
 		this->ptr = std::bit_cast<T*>(other);
 	}
 	constexpr explicit operator uintptr_t() const
-		requires(!is_unique && is_integer)
+		requires(!is_nocopy && is_integer)
 	{
 		return std::bit_cast<uintptr_t>(ptr);
 	}
 
 	constexpr T* release()
-		requires(is_unique)
+		requires(is_nocopy)
 	{
 		T* tmp = ptr;
 		ptr = nullptr;
@@ -238,9 +239,8 @@ struct pointer : public contiguous_iterator_interface<pointer<T, Traits...>> {
 	}
 
 	constexpr ~pointer() {
-		if constexpr (is_nofree) {
+		if constexpr (is_nofree)
 			kassert(ALWAYS_ACTIVE, ERROR, !ptr, "Destroyed a no-free pointer.");
-		}
 		if constexpr (is_owning) {
 			kfree(ptr);
 			ptr = 0;

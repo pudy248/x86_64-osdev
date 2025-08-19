@@ -24,7 +24,7 @@ void arp_update(mac_t mac, ipv4_t ip) {
 			return;
 		}
 	}
-	arp_table.append({ mac, ip });
+	arp_table.push_back({ mac, ip });
 }
 
 ipv4_t arp_translate_mac(mac_t mac) {

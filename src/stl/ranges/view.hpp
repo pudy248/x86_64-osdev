@@ -49,7 +49,7 @@ public:
 	constexpr const S end() const { return sentinel; }
 	constexpr const S cend() const { return sentinel; }
 	constexpr std::size_t size() const {
-		if (std::same_as<S, std::unreachable_sentinel_t>)
+		if (std::same_as<S, null_sentinel>)
 			return -1;
 		if constexpr (std::sized_sentinel_for<S, I>)
 			return end() - begin();
@@ -78,16 +78,16 @@ public:
 	constexpr span(std::initializer_list<T> list) : span(list.begin(), list.end()) {}
 };
 template <typename T>
-class ispan : public view<T*, std::unreachable_sentinel_t> {
+class ispan : public view<T*, null_sentinel> {
 public:
 	using value_type = T;
-	using view<T*, std::unreachable_sentinel_t>::view;
+	using view<T*, null_sentinel>::view;
 };
 template <typename T>
-class ispan<const T> : public view<const T*, std::unreachable_sentinel_t> {
+class ispan<const T> : public view<const T*, null_sentinel> {
 public:
 	using value_type = const T;
-	using view<const T*, std::unreachable_sentinel_t>::view;
+	using view<const T*, null_sentinel>::view;
 };
 class bytespan : public view<pointer<std::byte, type_cast>, pointer<std::byte, type_cast>> {
 public:
@@ -116,7 +116,7 @@ public:
 //template <container C>
 //view(const C&) -> view<container_const_iterator_t<C>>;
 template <typename T>
-view(T*) -> view<T*, std::unreachable_sentinel_t>;
+view(T*) -> view<T*, null_sentinel>;
 
 template <typename I>
 span(const I&, const I&) -> span<decltype(*std::declval<I>())>;

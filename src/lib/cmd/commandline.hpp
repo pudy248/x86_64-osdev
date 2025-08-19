@@ -15,7 +15,7 @@ struct command {
 	command { #name, cmd_##name }
 constexpr auto cmd_arr = array(cmd(help), cmd(echo), cmd(exec), cmd(cd), cmd(ls), cmd(tree), cmd(cat), cmd(mkdir),
 							   command{ "add", cmd_touch }, cmd(rm), cmd(mv), cmd(save_output), cmd(stacktrace),
-							   cmd(dump_allocs));
+							   cmd(dump_allocs), cmd(lspci));
 
-void cli_init();
+[[noreturn]] void cli_init();
 int sh_exec(const rostring& s);

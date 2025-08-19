@@ -1,11 +1,9 @@
-#include "stl/ranges/mutable.hpp"
 #include <asm.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <kassert.hpp>
 #include <kcstring.hpp>
 #include <kfile.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/allocators/waterline.hpp>
@@ -16,13 +14,13 @@
 #include <sys/global.hpp>
 #include <sys/memory/paging.hpp>
 
-constinit vector<debug_symbol, mmap_allocator> symbol_table;
+constinit vector<debug_symbol> symbol_table;
 static bool is_enabled = false;
 
 bool tags_enabled() { return globals->tag_allocs; }
 void debug_init() {
-	new (&globals->heap_allocations)
-		vector<heap_tag, waterline_allocator>(1000, waterline_allocator(mmap(nullptr, 0x100000, 0, 0), 0x100000));
+	new (&globals->heap_allocations) vector<heap_tag, waterline_allocator<heap_tag>>(
+		1000, waterline_allocator<heap_tag>(mmap(nullptr, 0x100000, 0), 0x100000));
 	//globals->tag_allocs = true;
 }
 
@@ -35,23 +33,23 @@ void load_debug_symbs(ccstr_t filename) {
 		return;
 	istringstream str(f.rodata());
 
-	vector<debug_symbol, mmap_allocator> symbs2;
+	vector<debug_symbol> symbs2;
 
 	// llvm-objdump --syms
 	str.read_c();
-	ranges::mut::iterate_through(str, algo::equal_to_v{ '\n' });
+	ranges::mut::iterate_through(str, algo::equal_to_v{'\n'});
 	str.read_c();
-	ranges::mut::iterate_through(str, algo::equal_to_v{ '\n' });
+	ranges::mut::iterate_through(str, algo::equal_to_v{'\n'});
 
 	while (str.end() - str.begin() > 1) {
 		debug_symbol symb;
 		symb.addr = pointer<void, integer>(str.read_x());
 		array<char, 10> tmp2;
 		str.read(tmp2.begin(), 9);
-		ranges::mut::copy_through(ranges::null_range{}, str, algo::equal_to_v{ '\t' });
+		ranges::mut::iterate_through(str, algo::equal_to_v{'\t'});
 		symb.size = str.read_x();
 		str.read_c();
-		rostring tmp = { str.begin(), ranges::find(str, '\n') };
+		rostring tmp = {str.begin(), ranges::find(str, '\n')};
 		pointer<char, type_cast> name = __walloc(tmp.size() + 1, 0x10);
 		memcpy(name, tmp.begin(), tmp.size());
 		name[tmp.size()] = 0;
@@ -59,8 +57,8 @@ void load_debug_symbs(ccstr_t filename) {
 		str.begin() = tmp.end();
 		str.read_c();
 
-		symbol_table.append(symb);
-		symbs2.append(symb);
+		symbol_table.push_back(symb);
+		symbs2.push_back(symb);
 	}
 	is_enabled = true;
 }
@@ -101,7 +99,7 @@ void wait_until_kbhit() {
 	stacktrace r = {};
 	pointer<uint64_t, reinterpret> rbp = __builtin_frame_address(0);
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0]) };
+		r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
 		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
@@ -109,9 +107,9 @@ void wait_until_kbhit() {
 
 [[gnu::noinline]] stacktrace stacktrace::trace(pointer<uint64_t, integer> rbp, uint64_t return_addr) {
 	stacktrace r = {};
-	r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(return_addr), pointer<void, reinterpret>(rbp) };
+	r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(return_addr), pointer<void, reinterpret>(rbp)};
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = { pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0]) };
+		r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
 		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
@@ -133,8 +131,8 @@ void stacktrace::eprint() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (uint32_t i = 0; i < num_ptrs; i++) {
 		pointer<debug_symbol> nearest = nearest_symbol(ptrs.at(i).ret);
-		errorf<512>("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret(), ptrs.at(i).rbp(),
-					nearest ? nearest->name : "(none)");
+		errorf<512>(
+			"%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret(), ptrs.at(i).rbp(), nearest ? nearest->name : "(none)");
 	}
 	::print("\n");
 }
@@ -148,7 +146,7 @@ pointer<void> tag_alloc(uint64_t size, pointer<void> ptr) {
 			kassert_trace(ALWAYS_ACTIVE, ERROR);
 		}
 	}
-	globals->heap_allocations.append((heap_tag){ ptr, size, stacktrace(stacktrace::trace(), 1) });
+	globals->heap_allocations.push_back((heap_tag){ptr, size, stacktrace(stacktrace::trace(), 1)});
 	return ptr;
 }
 void tag_free(pointer<void> ptr) {

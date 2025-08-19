@@ -1,7 +1,5 @@
 #include <cstdint>
 #include <kassert.hpp>
-#include <kstddef.hpp>
-#include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <lib/allocators/heap.hpp>
 #include <lib/allocators/mmap.hpp>
@@ -12,19 +10,16 @@
 
 extern "C" {
 void memcpy(void* dest, const void* src, uint64_t size) {
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((char*)dest)[i] = ((char*)src)[i];
-	}
 }
 void memmove(void* dest, void* src, uint64_t size) {
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((char*)dest)[i] = ((char*)src)[i];
-	}
 }
 void memset(void* dest, uint8_t src, uint64_t size) {
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((uint8_t*)dest)[i] = src;
-	}
 }
 int memcmp(void* l, void* r, uint64_t size) {
 	for (uint64_t i = 0; i < size; i++) {
@@ -38,10 +33,10 @@ int memcmp(void* l, void* r, uint64_t size) {
 }
 
 void mem_init() {
-	new (&globals->global_waterline) waterline_allocator(mmap(nullptr, 0x100000, 0, 0), 0x100000);
-	new (&globals->global_heap) heap_allocator(mmap(nullptr, 0x200000, 0, 0), 0x200000);
+	new (&globals->global_waterline) waterline_allocator<void>(mmap(0x2000000, 0x400000, 0), 0x400000);
+	new (&globals->global_heap) heap_allocator<void>(mmap(0x2000000, 0x1000000, 0), 0x1000000);
+	new (&globals->global_mmap_alloc) mmap_allocator<void>();
 	new (&globals->global_pagemap) slab_pagemap();
-	new (&globals->global_mmap_alloc) mmap_allocator();
 }
 
 [[gnu::returns_nonnull, gnu::malloc]] void* __walloc(uint64_t size, uint16_t alignment) {
@@ -50,21 +45,20 @@ void mem_init() {
 
 [[gnu::returns_nonnull, gnu::malloc]] void* __malloc(uint64_t size, uint16_t alignment) {
 	void* ptr = globals->global_pagemap.alloc(size);
-	if (!ptr && size > 0x4000) {
+	if (!ptr && size > 0x10000)
 		ptr = globals->global_mmap_alloc.alloc(size);
-	}
 	if (!ptr)
 		ptr = globals->global_heap.alloc(size, alignment);
 	return ptr;
 }
 
 void __free(void* ptr) {
-	if (globals->global_heap.contains(ptr))
-		globals->global_heap.dealloc(ptr);
+	if (globals->global_pagemap.contains(ptr))
+		globals->global_pagemap.dealloc(ptr);
 	else if (globals->global_mmap_alloc.contains(ptr))
 		globals->global_mmap_alloc.dealloc(ptr);
-	else if (globals->global_pagemap.contains(ptr))
-		globals->global_pagemap.dealloc(ptr);
+	else if (globals->global_heap.contains(ptr))
+		globals->global_heap.dealloc(ptr);
 	else {
 		print("Freed non-freeable allocation!\n");
 		wait_until_kbhit();

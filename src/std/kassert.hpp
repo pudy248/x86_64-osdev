@@ -54,6 +54,7 @@ constexpr std::size_t WAIT_CYCLES = 30000000;
 
 template <bool halt>
 [[gnu::used]] static void kassert_impl(int severity, const char* location, const char* message) {
+	cpu_halt();
 	error(debug_severities[severity]);
 	error(location);
 	error(": ");

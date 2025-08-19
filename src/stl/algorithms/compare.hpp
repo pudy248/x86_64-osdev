@@ -1,18 +1,18 @@
 #pragma once
+#include "concepts.hpp"
 #include "operators.hpp"
 #include "predicate.hpp"
-#include <iterator>
 #include <stl/iterator.hpp>
 
 namespace algo {
-template <std::input_iterator I, std::sentinel_for<I> S, std::input_iterator I2, std::sentinel_for<I2> S2,
-		  typename BinaryPred = algo::equal_to>
+template <typename I, typename S, typename I2, typename S2, typename BinaryPred = algo::equal_to>
+	requires impl::bounded_input<I, S> && impl::bounded_input<I2, S2>
 constexpr bool equal(I begin, S end, I2 begin2, S2 end2, BinaryPred predicate = {}) {
 	return algo::all_of(begin, end, begin2, end2, std::move(predicate));
 }
 
-template <std::input_iterator I, std::sentinel_for<I> S, std::input_iterator I2, std::sentinel_for<I2> S2,
-		  typename BinaryPred = algo::equal_to>
+template <typename I, typename S, typename I2, typename S2, typename BinaryPred = algo::equal_to>
+	requires impl::bounded_input<I, S> && impl::bounded_input<I2, S2>
 constexpr bool starts_with(I begin, S end, I2 begin2, S2 end2, BinaryPred predicate = {}) {
 	for (; begin2 != end2; ++begin, ++begin2) {
 		if (begin == end)
@@ -22,8 +22,8 @@ constexpr bool starts_with(I begin, S end, I2 begin2, S2 end2, BinaryPred predic
 	}
 	return true;
 }
-template <std::bidirectional_iterator I, std::sentinel_for<I> S, std::input_iterator I2, std::sentinel_for<I2> S2,
-		  typename BinaryPred = algo::equal_to>
+template <typename I, typename S, typename I2, typename S2, typename BinaryPred = algo::equal_to>
+	requires impl::bidirectional<I> && impl::bounded_input<I, S> && impl::bounded_input<I2, S2>
 constexpr bool ends_with(I begin, S end, I2 begin2, S2 end2, BinaryPred predicate = {}) {
 	if (end2 - begin2 > end - begin)
 		return false;
@@ -33,20 +33,5 @@ constexpr bool ends_with(I begin, S end, I2 begin2, S2 end2, BinaryPred predicat
 			return false;
 	}
 	return true;
-}
-
-template <std::forward_iterator I, std::sentinel_for<I> S, std::forward_iterator I2, std::sentinel_for<I2> S2,
-		  typename BinaryPred = algo::equal_to>
-constexpr I search(I begin, S end, I2 begin2, S2 end2, BinaryPred predicate = {}) {
-	for (; begin != end; ++begin) {
-		I iter = begin;
-		I2 iter2 = begin2;
-		for (; iter2 != end2; ++iter, ++iter2)
-			if (!predicate(*iter, *iter2))
-				break;
-		if (iter2 == end2)
-			break;
-	}
-	return begin;
 }
 }

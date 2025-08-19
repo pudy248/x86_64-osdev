@@ -73,7 +73,9 @@ void pad_to(std::vector<T>& v, std::size_t size) {
 std::vector<uint32_t> fat_table = { FAT_TABLE_CHAIN_STOP, FAT_TABLE_CHAIN_STOP };
 std::vector<uint8_t> output;
 
-[[gnu::const]] std::size_t entry_sizeof(const fs::path& p) { return 16 * ((std::string{ p }.size() + 25) / 13); }
+[[gnu::const]] std::size_t entry_sizeof(const fs::path& p) {
+	return 16 * ((std::string{ p }.size() + 25) / 13);
+}
 
 [[gnu::const]] constexpr uint32_t num_clusters(std::size_t size) {
 	return (size + 512 * SECTORS_PER_CLUSTER - !!size) / (512 * SECTORS_PER_CLUSTER);
@@ -219,7 +221,7 @@ constexpr uint32_t FAT32_FSINFO_SECTOR = 1;
 constexpr uint32_t FAT32_BACKUP_BPB = 2;
 constexpr uint32_t FAT_TABLES = 2;
 
-int main(int argc, char** argv) {
+int main(int, char** argv) {
 	write_dir(argv[1]);
 
 	// Stage 0, 1, 2, before 1st partition

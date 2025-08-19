@@ -1,4 +1,5 @@
 #pragma once
+#include "kstddef.hpp"
 #include <cstdint>
 #include <kassert.hpp>
 #include <kstdio.hpp>
@@ -9,13 +10,15 @@ constexpr static bool HEAP_MERGE_FREE_BLOCKS = true;
 constexpr static bool HEAP_VERBOSE_LISTS = false;
 //#define HEAP_ALLOC_PROTECTOR
 
+template <typename T>
 class heap_allocator;
-template <>
-class allocator_traits<heap_allocator> {
+template <typename T>
+class allocator_traits<heap_allocator<T>> {
 public:
-	using ptr_t = pointer<void, reinterpret>;
+	using ptr_t = T*;
 };
-class heap_allocator : public default_allocator {
+template <typename T>
+class heap_allocator : public default_allocator<T> {
 private:
 	struct heap_blk {
 		uint64_t data;
@@ -60,7 +63,7 @@ public:
 		heap_next(begin_ptr)->data = 0;
 		heap_next(begin_ptr)->blk_size = 0;
 	}
-	heap_allocator(ptr_t begin, uint64_t size) : heap_allocator(begin, (ptr_t)((uint64_t)begin + size)) {}
+	heap_allocator(ptr_t begin, uint64_t size) : heap_allocator(begin, ptr_offset(begin, size)) {}
 
 	bool contains(ptr_t ptr) { return ptr >= begin && ptr < end; }
 	uint64_t mem_used() { return used; }
@@ -68,8 +71,8 @@ public:
 	ptr_t alloc(uint64_t size, uint16_t alignment = 0x10) {
 		alignment = max(alignment, sizeof(heap_blk));
 		uint64_t adj_size = heap_alloc_size(size);
-		kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, (uint64_t)end - (uint64_t)begin - used > adj_size,
-				"Malloc out of space!");
+		kassert(
+			ALWAYS_ACTIVE, TASK_EXCEPTION, (uint64_t)end - (uint64_t)begin - used > adj_size, "Malloc out of space!");
 		if constexpr (HEAP_VERBOSE_LISTS) {
 			errorf<64>("\nMALLOC HEAP DUMP: REQUESTED %08p BYTES\n", adj_size);
 			blk_ptr dbg_block = begin;
@@ -130,7 +133,7 @@ public:
 		if (!ptr)
 			return;
 		kassert(ALWAYS_ACTIVE, ERROR, (uint64_t)ptr >= (uint64_t)begin && (uint64_t)ptr <= (uint64_t)end,
-				"Tried to free pointer out of range of heap.");
+			"Tried to free pointer out of range of heap.");
 		if constexpr (HEAP_VERBOSE_LISTS) {
 			errorf<64>("\nFREE HEAP DUMP: PTR %08p\n", ptr);
 			blk_ptr dbg_block = begin;
@@ -139,26 +142,26 @@ public:
 				dbg_block = heap_next(dbg_block);
 			}
 		}
-		head_ptr head = head_ptr((uint64_t)ptr - sizeof(heap_meta_head));
-		tail_ptr tail = tail_ptr((uint64_t)ptr + head->size);
+		head_ptr head = (head_ptr)ptr_offset(ptr, -sizeof(heap_meta_head));
+		tail_ptr tail = (tail_ptr)ptr_offset(ptr, head->size);
 		kassert(ALWAYS_ACTIVE, ERROR, !tail->flags, "Double free in heap.");
 		tail->flags = 1;
 #ifdef HEAP_ALLOC_PROTECTOR
 		if (head->protector != protector_head_magic) {
 			errorf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at head, expected [%08X].\n",
-						ptr, head->protector, protector_head_magic);
+				ptr, head->protector, protector_head_magic);
 			kassert_trace(DEBUG_ONLY, ERROR);
 		}
 		if (tail->protector != protector_tail_magic) {
 			errorf<256>("FREE %08p: Heap alloc protector bytes corrupted! [%08X] found at tail, expected [%08X].\n",
-						ptr, tail->protector, protector_tail_magic);
+				ptr, tail->protector, protector_tail_magic);
 			kassert(false, "");
 		}
 		if (head->protector != protector_head_magic || tail->protector != protector_tail_magic)
 			inf_wait();
 #endif
-		uint64_t base_addr = (uint64_t)head - head->alignment_offset;
-		uint64_t end_addr = (uint64_t)tail + sizeof(heap_meta_tail);
+		uint64_t base_addr = (uint64_t)ptr_offset(head, head->alignment_offset);
+		uint64_t end_addr = (uint64_t)ptr_offset(tail, sizeof(heap_meta_tail));
 		if constexpr (HEAP_MERGE_FREE_BLOCKS) {
 			heap_blk* heap_iter = (blk_ptr)begin;
 			while (heap_iter->blk_size) {

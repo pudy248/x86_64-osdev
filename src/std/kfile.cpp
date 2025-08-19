@@ -1,4 +1,3 @@
-#include <cstddef>
 #include <cstdint>
 #include <drivers/ahci.hpp>
 #include <kassert.hpp>
@@ -19,7 +18,9 @@ file_inode::file_inode(uint64_t filesize, uint64_t attributes, pointer<file_inod
 	, child()
 	, sibling()
 	, parent(parent) {}
-file_inode::~file_inode() { close(); }
+file_inode::~file_inode() {
+	close();
+}
 
 void file_inode::open() {
 	if (loaded)
@@ -30,7 +31,9 @@ void file_inode::open() {
 	else
 		globals->fs->_read_file(this);
 }
-void file_inode::close() { purge(); }
+void file_inode::close() {
+	purge();
+}
 void file_inode::write() {
 	if (is_directory)
 		globals->fs->_write_directory(this);
@@ -91,9 +94,9 @@ file_t open_rel(const file_t& directory, const path& relative_path, int) {
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (ranges::equal(frag, "."))
+		if (ranges::equal(frag, "."_RO))
 			continue;
-		if (ranges::equal(frag, "..")) {
+		if (ranges::equal(frag, ".."_RO)) {
 			file = file_t(file.n->parent);
 			continue;
 		}
@@ -158,9 +161,9 @@ ACCESS_RESULT access_rel(const file_t& directory, const path& relative_path, int
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (ranges::equal(frag, "."))
+		if (ranges::equal(frag, "."_RO))
 			continue;
-		if (ranges::equal(frag, "..")) {
+		if (ranges::equal(frag, ".."_RO)) {
 			file = file_t(file.n->parent);
 			continue;
 		}
@@ -212,9 +215,9 @@ file_t open_rel(const file_t& directory, const path& relative_path, int flags) {
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (ranges::equal(frag, "."))
+		if (ranges::equal(frag, "."_RO))
 			continue;
-		if (ranges::equal(frag, "..")) {
+		if (ranges::equal(frag, ".."_RO)) {
 			file = file_t(file.n->parent);
 			continue;
 		}
@@ -298,9 +301,9 @@ ACCESS_RESULT remove_rel(const file_t& directory, const path& relative_path, int
 					 concat(relative_path.fragments).c_str());
 			continue;
 		}
-		if (ranges::equal(frag, "."))
+		if (ranges::equal(frag, "."_RO))
 			continue;
-		if (ranges::equal(frag, "..")) {
+		if (ranges::equal(frag, ".."_RO)) {
 			file = file_t(file.n->parent);
 			continue;
 		}

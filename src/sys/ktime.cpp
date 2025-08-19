@@ -1,6 +1,5 @@
 ﻿#include <asm.hpp>
 #include <cstdint>
-#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <stl/array.hpp>
@@ -35,7 +34,7 @@ void inc_pit(uint64_t, register_file*) {
 	//Print diagnostics
 	if (do_pit_readout) {
 		array<char, 32> arr;
-		text_layer o{ default_console() };
+		text_layer o{default_console()};
 		o.fill(0);
 
 		htimepoint t1(timepoint::tsc_time());
@@ -44,7 +43,11 @@ void inc_pit(uint64_t, register_file*) {
 		o.print(rostring(arr.begin()), true, o.dims[0], 0);
 		formats(arr.begin(), "PIT %02i:%02i:%02.3f\n", t2.hour, t2.minute, t2.second + t2.micros / 1000000.);
 		o.print(rostring(arr.begin()), true);
-		formats(arr.begin(), "   PT %i\n", fixed_globals->mapped_pages);
+		formats(arr.begin(), "   FA %i\n", fixed_globals->frames_allocated);
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "   FF %i\n", fixed_globals->frames_free);
+		o.print(rostring(arr.begin()), true);
+		formats(arr.begin(), "   PA %i\n", fixed_globals->pages_allocated);
 		o.print(rostring(arr.begin()), true);
 		formats(arr.begin(), "    W %i\n", globals->global_waterline.mem_used());
 		o.print(rostring(arr.begin()), true);
@@ -91,8 +94,8 @@ htimepoint htimepoint::cmos_time() {
 }
 
 static timepoint pit_time_override(uint32_t subcnt, int64_t pitcnt) {
-	units::pit_subcnts d{ (double)(pitcnt * 65536 + subcnt) };
-	return { d };
+	units::pit_subcnts d{(double)(pitcnt * 65536 + subcnt)};
+	return {d};
 }
 
 timepoint timepoint::pit_time() {
@@ -106,8 +109,8 @@ timepoint timepoint::pit_time_imprecise() { return pit_time_override(0, globals-
 
 timepoint timepoint::tsc_time() {
 	double n = rdtsc() - globals->reference_tsc;
-	units::microseconds diff = { n / globals->frequency };
-	return { diff };
+	units::microseconds diff = {n / globals->frequency};
+	return {diff};
 }
 
 timepoint timepoint::now() { return timepoint::tsc_time(); };
@@ -151,7 +154,7 @@ int clockspeed_MHz() {
 }
 
 void calibrate_frequency() {
-	units::pit_cnts pit{ (double)globals->elapsed_pits };
+	units::pit_cnts pit{(double)globals->elapsed_pits};
 	uint64_t tsc = rdtsc() - globals->reference_tsc;
 	globals->frequency = tsc / units::microseconds(pit);
 }

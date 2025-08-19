@@ -15,7 +15,7 @@ public:
 	using ptr_t = void*;
 };
 template <std::size_t SS, std::size_t PS>
-class [[gnu::packed]] slab_allocator : public default_allocator {
+class [[gnu::packed]] slab_allocator : public default_allocator<uint8_t> {
 	static_assert(std::has_single_bit(SS), "MSS should be a power of two");
 
 public:

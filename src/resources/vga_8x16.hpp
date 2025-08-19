@@ -5,7 +5,7 @@
 static uint8_t fontDims[] = { 8, 16 };
 static uint8_t fontStart = ' ';
 
-static uint8_t fontBitmap[] = {
+static uint8_t fontBitmap[16 * 236] = {
 	// 32 0x20 ' '
 	0b00000000,
 	0b00000000,

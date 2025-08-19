@@ -48,20 +48,19 @@ stage0_main:
     ; Build page structures
     mov ax, 0x7000
     mov es, ax
-    mov di, 0
-    push di
+    xor di, di
     mov ecx, 0x1000
     xor eax, eax
     rep stosd
-    pop di
     
     ; Build the Page Map Level 4.
+    xor di, di
     mov eax, 0x71000 | PAGE_FLAGS     ; Put the address of the Page Directory Pointer Table in to EAX.
     mov [es:di], eax                  ; Store the value of EAX as the first PML4E.
     
     ; Build the Page Directory Pointer Table.
     ; mov ecx, 1
-    mov eax, 0x72000 | PAGE_FLAGS     ; Put the address of the Page Directory in to EAX.
+    mov eax, PAGE_SIZE | PAGE_FLAGS     ; Put the address of the Page Directory in to EAX.
     mov di, 0x1000
     ; .PDPLoop:
         mov [es:di], eax
@@ -70,17 +69,28 @@ stage0_main:
     ;    dec ecx
     ; jnz .PDPLoop
     
-    ; Build the Page Directory Tables.
-    ; mov ecx, 1
-    mov eax, PAGE_FLAGS | PAGE_SIZE
-    mov di, 0x2000
-    ; .PDLoop:
-        mov [es:di], eax
-    ;    add eax, 0x200000
-    ;    add di, 8
-    ;    dec ecx
-    ; jnz .PDLoop
-    
+    mov ax, 0x0700
+    mov es, ax
+    xor edi, edi
+
+    xor eax, eax
+    mov ecx, 0x400
+    rep stosd
+
+    xor edi, edi
+    xor ebx, ebx
+    mov edx, 0x534D4150
+    .e820:
+        mov eax, 0xe820
+        mov ecx, 24
+        int 0x15
+        jc .e820_end
+        test ebx, ebx
+        jz .e820_end
+        add edi, 24
+        jmp .e820
+    .e820_end:
+
     jmp stage1_main
 
 ; block_err_msg: db "Loading more than 64 sectors in bootstrap not supported.", 0

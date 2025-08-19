@@ -1,5 +1,7 @@
 #include "commands.hpp"
 #include "commandline.hpp"
+#include "sys/ktime.hpp"
+#include <drivers/pci.hpp>
 #include <kfile.hpp>
 #include <kstdio.hpp>
 #include <stl/ranges.hpp>
@@ -178,5 +180,21 @@ int cmd_stacktrace(int, const ccstr_t*) {
 }
 int cmd_dump_allocs(int, const ccstr_t*) {
 	tag_dump();
+	return 0;
+}
+
+int cmd_lspci(int, const ccstr_t*) {
+	file_t f = fs::open("/pci.ids");
+	pci_ids ids = parse_pci_ids(f.rodata());
+
+	for (int i = 0; i < globals->pci->numDevs; i++) {
+		pci_device& d = globals->pci->devices[i];
+		rostring vname = pci_vendor_name(ids, d.vendor_id);
+		rostring dname = pci_device_name(ids, d.vendor_id, d.device_id);
+
+		printf("(%i:%i:%i) dev:%04x %S\n    vendor:%04x %S\n    class %02x:%02x:%02x:%02x\n", d.address.bus,
+			   d.address.slot, d.address.func, d.device_id, &dname, d.vendor_id, &vname, d.class_id, d.subclass,
+			   d.prog_if, d.rev_id);
+	}
 	return 0;
 }

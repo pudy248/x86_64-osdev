@@ -3,5 +3,6 @@ CompileFlags: # Tweak the parse settings
     - "--include-directory=/mnt/c/Users/pudy248/Desktop/dev-work/osdev/src"
     - "--include-directory=/mnt/c/Users/pudy248/Desktop/dev-work/osdev/src/std"
     - "--std=c++26"
+    - "-ftemplate-backtrace-limit=0"
     - "-Wall"
     - "-Wextra"

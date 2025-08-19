@@ -5,12 +5,12 @@
 #include <stl/iterator.hpp>
 
 namespace ranges {
-template <std::indirectly_readable I>
+template <typename I>
 struct unbounded_range {
 	I iter;
 	constexpr auto& begin() { return iter; }
 	constexpr const auto& begin() const { return iter; }
-	constexpr auto end() const { return std::unreachable_sentinel_t{}; }
+	constexpr auto end() const { return null_sentinel{}; }
 };
 template <std::indirectly_readable I, std::sentinel_for<I> S>
 struct reference_range {
@@ -44,4 +44,6 @@ constexpr decltype(auto) at(R& r, std::size_t idx) {
 }
 
 using null_range = unbounded_range<null_iterator>;
+template <std::forward_iterator I, std::sentinel_for<I> S>
+using ring_range = unbounded_range<ring_iterator<I, S>>;
 }

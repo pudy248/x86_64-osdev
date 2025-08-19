@@ -3,10 +3,10 @@
 #include <stl/stream.hpp>
 #include <sys/ktime.hpp>
 
-typedef uint64_t mac_t;
-typedef uint8_t mac_bits_t[6];
-typedef uint32_t ipv4_t;
-typedef uint16_t ethertype_t;
+using mac_t = uint64_t;
+using mac_bits_t = uint8_t[6];
+using ipv4_t = uint32_t;
+using ethertype_t = uint16_t;
 
 constexpr mac_t MAC_BCAST = 0xffffffffffffULL;
 

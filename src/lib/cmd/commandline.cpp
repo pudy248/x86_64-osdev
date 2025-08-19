@@ -27,17 +27,17 @@ static vector<string> argvify(const rostring& line) {
 			if (c == '\\') {
 				c = s.read_c();
 			}
-			arg.append(c);
+			arg.push_back(c);
 		}
 		if (!arg.size() || !strlen(arg.begin()))
 			continue;
-		arg.append(0);
-		v.append(arg);
+		arg.push_back(0);
+		v.push_back(arg);
 	}
 	return v;
 }
 
-void cli_init() {
+[[noreturn]] void cli_init() {
 	command_input = text_layer({ 0, default_output().dims[1] - 1 }, { default_output().dims[0], 1 },
 							   { 0, default_output().dims[0], 0, 1 });
 	default_output().dims[1]--;

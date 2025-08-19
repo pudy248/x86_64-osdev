@@ -3,12 +3,9 @@
 #include <cstdint>
 #include <kassert.hpp>
 #include <lib/allocators/waterline.hpp>
-#include <stl/function.hpp>
 #include <stl/map.hpp>
 #include <stl/optional.hpp>
-#include <stl/vector.hpp>
 #include <sys/fixed_global.hpp>
-#include <sys/memory/paging.hpp>
 #include <sys/thread.hpp>
 
 //#define INTERRUPT_SWAP
@@ -21,10 +18,9 @@ static bool allow_context_switching = false;
 extern "C" void swap_context();
 
 static pointer<thread_context<>> get_thread_context(thread_any t) {
-	for (auto& [_, c] : contexts) {
+	for (auto& [_, c] : contexts)
 		if (c->id == t.id)
 			return c;
-	}
 	kassert(ALWAYS_ACTIVE, CATCH_FIRE, true, "Failed to find thread.");
 	return NULL;
 }
@@ -44,7 +40,7 @@ static void thread_entry(thread_context<R>* context) {
 }
 
 void threading_init() {
-	new (&contexts) std::remove_reference_t<decltype(contexts)>{ 1 };
+	new (&contexts) std::remove_reference_t<decltype(contexts)>{1};
 	contexts.insert(++thread_id_ctr, new thread_context<>{});
 	pointer<thread_context<>> context = contexts[thread_id_ctr];
 	context->id = thread_id_ctr;
@@ -72,7 +68,7 @@ thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... a
 	pointer<thread_context<R>, integer> context = contexts[thread_id_ctr];
 	context->id = thread_id_ctr;
 	context->state = THREAD_STATE::UNSTARTED;
-	context->stack_bottom = mmap(nullptr, opts.stack_size, 0, 0);
+	context->stack_bottom = mmap(nullptr, opts.stack_size, 0);
 	context->args = dispatch;
 	context->registers = {};
 
@@ -112,18 +108,16 @@ void thread_switch(thread_any t) {
 	inf_wait();
 }
 void thread_yield() {
-	for (auto& [_, c] : contexts) {
+	for (auto& [_, c] : contexts)
 		if (c->state == THREAD_STATE::UNSTARTED || c->state == THREAD_STATE::SUSPENDED)
 			thread_switch(c->handle());
-	}
 }
 void thread_kill(thread_any t) { contexts.erase(t.id); }
 template <typename R>
 R thread_join(thread<R> t) {
 	volatile thread_context<R>* context = get_thread_context(t);
-	while (context->state != THREAD_STATE::JOIN_WAIT && context->state != THREAD_STATE::KILLED) {
+	while (context->state != THREAD_STATE::JOIN_WAIT && context->state != THREAD_STATE::KILLED)
 		thread_switch(t);
-	}
 	R val = context->return_val;
 	thread_kill(t);
 	return val;
@@ -131,17 +125,15 @@ R thread_join(thread<R> t) {
 template <>
 void thread_join<void>(thread<void> t) {
 	volatile thread_context<void>* context = get_thread_context(t);
-	while (context->state != THREAD_STATE::JOIN_WAIT && context->state != THREAD_STATE::KILLED) {
+	while (context->state != THREAD_STATE::JOIN_WAIT && context->state != THREAD_STATE::KILLED)
 		thread_switch(t);
-	}
 	thread_kill(t);
 }
 template <typename R>
 R thread_co_await(thread<R> t) {
 	volatile thread_context<R>* context = get_thread_context(t);
-	while (context->state != THREAD_STATE::COYIELD_WAIT && context->state != THREAD_STATE::JOIN_WAIT) {
+	while (context->state != THREAD_STATE::COYIELD_WAIT && context->state != THREAD_STATE::JOIN_WAIT)
 		thread_switch(t);
-	}
 	R val = context->return_val;
 	if (context->state == THREAD_STATE::COYIELD_WAIT)
 		context->state = THREAD_STATE::SUSPENDED;

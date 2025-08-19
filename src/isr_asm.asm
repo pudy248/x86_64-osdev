@@ -2,8 +2,8 @@ bits 64
 
 %define KEEP_YMMS
 
-%define REGISTER_FILE_PTR 0x60030
-%define REGISTER_FILE_PTR_SWAP 0x60038
+%define REGISTER_FILE_PTR 0x6008
+%define REGISTER_FILE_PTR_SWAP 0x6010
 
 extern handle_exception ; (uint64_t int_num, uregister_file* registers, int64_t err_code, bool is_fatal)
 extern pic_eoi
@@ -87,7 +87,6 @@ restore_regs:
 
     ; Just in case, don't touch the frame!
     ; In case of stack movement in the saved register file we need this, but our case doesn't do that
-
     mov rsp, qword [rax + 144] ; ISR RSP
     mov qword [rsp], rdi
     mov rdx, qword [rax + 128]
@@ -193,6 +192,7 @@ swap_context:
     mov qword [REGISTER_FILE_PTR], rax
     ret
 
+; int num, has_error, is_fatal
 %macro isr_stub 3
 isr_%+%1:
 %if %2

@@ -1,9 +1,7 @@
 #include <asm.hpp>
 #include <cstdint>
 #include <drivers/keyboard.hpp>
-#include <kstdio.hpp>
 #include <sys/debug.hpp>
-#include <sys/global.hpp>
 #include <text/text_display.hpp>
 
 KeyboardBuffer keyboardInput = { 0, 0, 0, 0, 0, 0, {} };
@@ -69,7 +67,7 @@ char key_to_ascii(uint8_t key) {
 	return 0;
 }
 
-char getchar() {
+int getchar() {
 	while (1) {
 		while (keyboardInput.pushIdx == keyboardInput.popIdx)
 			cpu_relax();
@@ -98,11 +96,11 @@ string getline() {
 				command_input.cursor[0]--;
 			}
 		} else {
-			s.append(c);
+			s.push_back(c);
 			command_input.putchar(c).display();
 		}
 	}
-	s.append(0);
+	s.push_back(0);
 	command_input.fill(' ').print("> ", false, 0, 0).display();
 	return s;
 }

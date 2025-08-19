@@ -18,6 +18,7 @@ type summary add --expand -x "cbytespan" --summary-string "${svar%#} children"
 #
 type summary add -v "span<char>" -F formatters.char_container
 type summary add -v "rostring" -F formatters.char_container
+type summary add -v "view<const char *, const char *>" -F formatters.char_container
 type summary add -v "vector<char, default_allocator>" -F formatters.char_container_rw
 type summary add -v "string" -F formatters.char_container_rw
 #

@@ -1,9 +1,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <drivers/ahci.hpp>
+#include <iterator>
 #include <kassert.hpp>
 #include <kctype.hpp>
 #include <kfile.hpp>
+#include <kstddef.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
 #include <lib/filesystems/fat.hpp>
@@ -134,11 +136,11 @@ void fat_init() {
 		if (partTable->entries[i].sysid == SIG_MBR_FAT32)
 			break;
 	kassert(ALWAYS_ACTIVE, ERROR, i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
-	globals->fat32 = pointer<fat_sys_data, unique>::make_unique(new fat_sys_data());
-	globals->fat32->bpb = pointer<fat32_bpb, unique>::make_unique(new fat32_bpb());
+	globals->fat32 = pointer<fat_sys_data, nocopy>::make_nocopy(new fat_sys_data());
+	globals->fat32->bpb = pointer<fat32_bpb, nocopy>::make_nocopy(new fat32_bpb());
 	read_disk(globals->fat32->bpb, partTable->entries[i].lba_start, 1);
-	kassert(ALWAYS_ACTIVE, ERROR, globals->fat32->bpb->signature == SIG_BPB_FAT32,
-			"Partition not recognized as FAT32.\n");
+	kassert(
+		ALWAYS_ACTIVE, ERROR, globals->fat32->bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
 
 	globals->fat32->bpb_lba_offset = partTable->entries[i].lba_start;
 	globals->fat32->sectors_per_cluster = globals->fat32->bpb->sectors_per_cluster;
@@ -147,23 +149,22 @@ void fat_init() {
 	globals->fat32->cluster_lba_offset = globals->fat32->bpb_lba_offset + globals->fat32->bpb->reserved_sectors +
 										 globals->fat32->bpb->fat_tables * globals->fat32->bpb->sectors_per_fat32;
 
-	new (&globals->fat32->fat_tables) vector<pointer<uint32_t, unique>>(1);
+	new (&globals->fat32->fat_tables) vector<pointer<uint32_t, nocopy>>(1);
 	for (int i = 0; i < globals->fat32->bpb->fat_tables; i++) {
-		globals->fat32->fat_tables.emplace_back(pointer<uint32_t, unique, type_cast>::make_unique(
-			globals->global_mmap_alloc.alloc(fat_entries() * sizeof(uint32_t))));
+		globals->fat32->fat_tables.emplace_back(
+			pointer<uint32_t, nocopy, type_cast>::make_nocopy(mmap(nullptr, fat_entries() * sizeof(uint32_t), 0)));
 		read_disk(globals->fat32->fat_tables[i], fat_lba() + i * globals->fat32->bpb->sectors_per_fat32,
-				  globals->fat32->bpb->sectors_per_fat32);
+			globals->fat32->bpb->sectors_per_fat32);
 	}
 
 	new (&globals->fat32->root_directory)
 		file_t(new file_inode(0, fs::FILE_ATTRIBS::SYSTEM | fs::FILE_ATTRIBS::DIRECTORY, NULL,
-							  FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY,
-							  globals->fat32->bpb->root_cluster_num));
+			FAT_ATTRIBS::VOL_ID | FAT_ATTRIBS::SYSTEM | FAT_ATTRIBS::DIRECTORY, globals->fat32->bpb->root_cluster_num));
 	globals->fat32->root_directory.n->filename = "ROOT"_RO;
 
-	globals->fs = pointer<filesystem, unique>::make_unique(new filesystem());
-	*globals->fs = { &fat_read_directory, &fat_write_directory,			  &fat_read_file,
-					 &fat_write_file,	  globals->fat32->root_directory, globals->fat32->root_directory };
+	globals->fs = pointer<filesystem, nocopy>::make_nocopy(new filesystem());
+	*globals->fs = {&fat_read_directory, &fat_write_directory, &fat_read_file, &fat_write_file,
+		globals->fat32->root_directory, globals->fat32->root_directory};
 }
 
 static constexpr uint32_t count_consecutive_clusters(uint32_t cluster) {
@@ -179,7 +180,7 @@ static vector<fat_disk_span> read_file_layout(uint32_t cluster) {
 		kassert(ALWAYS_ACTIVE, ERROR, cluster, "Unexpected null cluster.");
 
 		uint32_t count = count_consecutive_clusters(cluster);
-		layout.append({ cluster, count });
+		layout.push_back({cluster, count});
 		cluster = fat_entry(cluster + count - 1);
 	} while (cluster != FAT_TABLE_CHAIN_STOP);
 	return layout;
@@ -194,18 +195,16 @@ static vector<char> from_disk_layout(const vector<fat_disk_span>& disk_layout) {
 	for (std::size_t i = 0; i < disk_layout.size(); i++) {
 		std::size_t sectors = disk_layout.at(i).span_length * globals->fat32->sectors_per_cluster;
 		std::size_t lba = cluster_lba(disk_layout.at(i).cluster_start);
-		read_disk(pointer<void, integer>((uint64_t)res.cbegin() + cluster_idx * globals->fat32->bytes_per_cluster), lba,
-				  sectors);
+		read_disk(ptr_offset(res.begin(), cluster_idx * globals->fat32->bytes_per_cluster), lba, sectors);
 		cluster_idx += disk_layout.at(i).span_length;
 	}
 	return res;
 }
 
 static constexpr uint32_t next_free_cluster(uint32_t start) {
-	for (uint32_t i = start; i < fat_entries(); i++) {
+	for (uint32_t i = start; i < fat_entries(); i++)
 		if (!fat_entry(i))
 			return i;
-	}
 	return 0;
 }
 static void alloc_disk_layout(vector<fat_disk_span>& disk_layout, std::size_t sz) {
@@ -241,7 +240,7 @@ static void alloc_disk_layout(vector<fat_disk_span>& disk_layout, std::size_t sz
 				if (next_cluster != start_cluster + span_length + 1)
 					break;
 			}
-			disk_layout.append({ start_cluster, span_length });
+			disk_layout.push_back({start_cluster, span_length});
 		}
 		fat_disk_span last = disk_layout.back();
 		fat_entry(last.cluster_start + last.span_length - 1) = FAT_TABLE_CHAIN_STOP;
@@ -250,17 +249,16 @@ static void alloc_disk_layout(vector<fat_disk_span>& disk_layout, std::size_t sz
 static void to_disk_layout(vector<fat_disk_span>& disk_layout, pointer<const void, reinterpret> ptr) {
 	for (std::size_t i = 0; i < disk_layout.size(); i++) {
 		write_disk(ptr, cluster_lba(disk_layout[i].cluster_start),
-				   disk_layout[i].span_length * globals->fat32->sectors_per_cluster);
-		ptr = pointer<const void, reinterpret>((uint64_t)ptr +
-											   disk_layout[i].span_length * globals->fat32->bytes_per_cluster);
+			disk_layout[i].span_length * globals->fat32->sectors_per_cluster);
+		ptr = ptr_offset(ptr, disk_layout[i].span_length * globals->fat32->bytes_per_cluster);
 	}
 }
 
-static pointer<file_inode> from_dir_ent(pointer<file_inode> parent, pointer<const fat_dir_ent> entries,
-										std::size_t nLFNs) {
+static pointer<file_inode> from_dir_ent(
+	pointer<file_inode> parent, pointer<const fat_dir_ent> entries, std::size_t nLFNs) {
 	const fat_file_entry* file = &entries[nLFNs].file;
-	pointer<file_inode> inode = new file_inode(file->file_size, 0, parent, file->attributes,
-											   (uint64_t)file->cluster_high << 16 | file->cluster_low);
+	pointer<file_inode> inode = new file_inode(
+		file->file_size, 0, parent, file->attributes, (uint64_t)file->cluster_high << 16 | file->cluster_low);
 	if (inode->fs_attribs & FAT_ATTRIBS::READONLY)
 		inode->attributes |= fs::FILE_ATTRIBS::READONLY;
 	if (inode->fs_attribs & FAT_ATTRIBS::HIDDEN)
@@ -275,17 +273,17 @@ static pointer<file_inode> from_dir_ent(pointer<file_inode> parent, pointer<cons
 		const fat_file_lfn* lfn = &entries[lfnIdx].lfn;
 		std::size_t offset = ((lfn->position & 0x3f) - 1) * 13;
 		for (int i = 0; i < 5; i++) {
-			inode->filename.at(offset + i) = lfn->chars_1[i];
+			inode->filename.iat(offset + i) = lfn->chars_1[i];
 			if (!lfn->chars_1[i])
 				goto end;
 		}
 		for (int i = 0; i < 6; i++) {
-			inode->filename.at(offset + i + 5) = lfn->chars_2[i];
+			inode->filename.iat(offset + i + 5) = lfn->chars_2[i];
 			if (!lfn->chars_2[i])
 				goto end;
 		}
 		for (int i = 0; i < 2; i++) {
-			inode->filename.at(offset + i + 11) = lfn->chars_3[i];
+			inode->filename.iat(offset + i + 11) = lfn->chars_3[i];
 			if (!lfn->chars_3[i])
 				goto end;
 		}
@@ -297,7 +295,7 @@ end:
 static void to_dir_ents(pointer<file_inode> directory) {
 	directory->data.clear();
 	auto tmp = directory->data.oend();
-	obinstream out{ *(vector_iterator<std::byte, default_allocator>*)&tmp };
+	obinstream out{*(std::back_insert_iterator<vector<std::byte>>*)&tmp};
 	vector<file_t> children = file_t(directory).children();
 	vector<fat_file_entry> files(children.size(), vec_resize{});
 	for (std::size_t i = 0; i < children.size(); i++) {
@@ -315,9 +313,9 @@ static void to_dir_ents(pointer<file_inode> directory) {
 		}
 
 		files[i].attributes = children[i].n->fs_attribs;
-		files[i].creation_time = (fat_time){ 1, 0, 0 };
-		files[i].creation_date = (fat_date){ 1, 1, 0 };
-		files[i].accessed_date = (fat_date){ 1, 1, 0 };
+		files[i].creation_time = (fat_time){1, 0, 0};
+		files[i].creation_date = (fat_date){1, 1, 0};
+		files[i].accessed_date = (fat_date){1, 1, 0};
 		files[i].cluster_high = children[i].n->fs_reference >> 16;
 		files[i].cluster_low = children[i].n->fs_reference & 0xffff;
 		files[i].file_size = children[i].n->filesize;
@@ -325,7 +323,7 @@ static void to_dir_ents(pointer<file_inode> directory) {
 		memset(files[i].filename, ' ', 8);
 		memset(files[i].extension, ' ', 3);
 
-		istringstream ns = { children[i].n->filename };
+		istringstream ns = {children[i].n->filename};
 		int extStart = 0;
 		if (files[i].attributes & FAT_ATTRIBS::VOL_ID) {
 			for (int j = 0; j < 11 && ns.readable() && ns.peek(); j++)
@@ -338,7 +336,7 @@ static void to_dir_ents(pointer<file_inode> directory) {
 				break;
 		}
 		for (std::size_t j = 0;
-			 j < 3 && j < children[i].n->filename.size() - extStart && children[i].n->filename[extStart + j]; j++) {
+			j < 3 && j < children[i].n->filename.size() - extStart && children[i].n->filename[extStart + j]; j++) {
 			files[i].extension[j] = toupper(children[i].n->filename[extStart + j]);
 		}
 		if (extStart < 7)
@@ -350,11 +348,10 @@ static void to_dir_ents(pointer<file_inode> directory) {
 
 			files[i].filename[6] = '~';
 			char idx = '1';
-			for (std::size_t j = 0; j < i; j++) {
+			for (std::size_t j = 0; j < i; j++)
 				if (!memcmp(files[j].filename, files[i].filename, 6) &&
 					!memcmp(files[j].extension, files[i].extension, 3))
 					idx++;
-			}
 			files[i].filename[7] = idx;
 		}
 	}
@@ -366,7 +363,7 @@ static void to_dir_ents(pointer<file_inode> directory) {
 		}
 		int nLFNs = (children[i].n->filename.size() + 12) / 13;
 		children[i].n->filename.c_str();
-		istringstream ns = { children[i].n->filename };
+		istringstream ns = {children[i].n->filename};
 		for (int k = 0; k < nLFNs; k++) {
 			fat_file_lfn lfn;
 			lfn.flags = 0x0f;
@@ -413,12 +410,11 @@ static void write_bpb_fats() {
 	write_disk(globals->fat32->bpb, globals->fat32->bpb_lba_offset, 1);
 	write_disk(globals->fat32->bpb, globals->fat32->bpb_lba_offset + globals->fat32->bpb->backup_boot_sector, 1);
 
-	for (std::size_t i = 1; i < globals->fat32->fat_tables.size(); i++) {
+	for (std::size_t i = 1; i < globals->fat32->fat_tables.size(); i++)
 		kmemcpy<4096>(globals->fat32->fat_tables[i], globals->fat32->fat_tables[0], fat_entries() * sizeof(uint32_t));
-	}
 	for (std::size_t i = 0; i < globals->fat32->fat_tables.size(); i++) {
 		write_disk(globals->fat32->fat_tables[i], fat_lba() + i * globals->fat32->bpb->sectors_per_fat32,
-				   globals->fat32->bpb->sectors_per_fat32);
+			globals->fat32->bpb->sectors_per_fat32);
 	}
 }
 

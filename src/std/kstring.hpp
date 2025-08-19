@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <iterator>
-#include <kassert.hpp>
 #include <kcstring.hpp>
 #include <limits>
 #include <stl/allocator.hpp>
@@ -14,7 +13,7 @@ template <std::forward_iterator I>
 constexpr std::ptrdiff_t strilen(const I& cstr) {
 	I iter = cstr;
 	std::ptrdiff_t i = 0;
-	for (; *iter; i++, iter++)
+	for (; *iter; ++i, ++iter)
 		;
 	return i;
 }
@@ -22,7 +21,7 @@ template <std::forward_iterator I>
 constexpr I striend(const I& cstr) {
 	I iter = cstr;
 	while (*iter)
-		iter++;
+		++iter;
 	return iter;
 }
 
@@ -42,8 +41,8 @@ public:
 			return true;
 		if (self_empty != other_empty)
 			return false;
-		return ranges::equal(view(ranges::begin(self), ranges::find(self, 0)),
-							 view(ranges::begin(other), ranges::find(other, 0)));
+		return ranges::equal(
+			view(ranges::begin(self), ranges::find(self, 0)), view(ranges::begin(other), ranges::find(other, 0)));
 	}
 
 	template <template <typename> typename C = vector, std::forward_iterator I2, typename S2, typename Derived>
@@ -82,13 +81,13 @@ template <typename I>
 basic_rostring(I i) -> basic_rostring<I, I>;
 constexpr rostring operator""_RO(const char* literal, uint64_t) { return rostring(literal); }
 
-template <typename CharT, allocator A = default_allocator>
+template <typename CharT, allocator A = default_allocator<CharT>>
 class basic_string : public vector<CharT, A>, public basic_string_interface<CharT> {
 public:
 	using vector<CharT, A>::vector;
 	CharT* c_str() {
 		if (!this->size() || this->at(this->size() - 1) != '\0')
-			this->append(0);
+			this->push_back(0);
 		return &*this->begin();
 	}
 };
@@ -110,8 +109,7 @@ public:
 	using basic_ostream<CharT, I>::write;
 
 	constexpr void writei(uint64_t n, int field_width = 1, int radix = 10, CharT lead_char = ' ',
-						  bool enforce_width = false, const CharT* letters = "0123456789ABCDEF",
-						  bool is_signed = true) {
+		bool enforce_width = false, const CharT* letters = "0123456789ABCDEF", bool is_signed = true) {
 		if (is_signed && n < 0) {
 			this->put('-');
 			writei(-n, max(field_width - 1, 1), radix, enforce_width, lead_char, letters, false);
@@ -199,57 +197,49 @@ public:
 	}
 	constexpr uint64_t read_x() {
 		uint64_t val = 0;
-		for (I& it = this->begin(); it != this->end(); ++it) {
-			if (*it >= '0' && *it <= '9')
-				val = (val << 4) + (*it - '0');
-			else if (*it >= 'A' && *it <= 'F')
-				val = (val << 4) + (*it - 'A' + 10);
-			else if (*it >= 'a' && *it <= 'f')
-				val = (val << 4) + (*it - 'a' + 10);
+		while (this->readable()) {
+			CharT c = this->peek();
+			if (c >= '0' && c <= '9')
+				val = (val << 4) + (c - '0');
+			else if (c >= 'A' && c <= 'F')
+				val = (val << 4) + (c - 'A' + 10);
+			else if (c >= 'a' && c <= 'f')
+				val = (val << 4) + (c - 'a' + 10);
 			else
 				break;
+			this->read_c();
 		}
 		return val;
 	}
 	constexpr double read_f() {
-		constexpr int trailingMax = 10;
 		double val = 0;
-		int afterDecimal = 0;
 		bool neg = false;
-		I& it = this->begin();
 
-		if (*it == '-') {
+		if (this->peek() == '-') {
 			neg = true;
-			++it;
+			this->ignore(1);
 		}
-		if (ranges::starts_with(*this, "NaN"))
+		if (ranges::starts_with(*this, "NaN"_RO)) {
+			this->advance_buf();
 			return std::numeric_limits<double>::quiet_NaN();
+		}
 		//else if (view<I, S>(*this).starts_with("Inf"_RO))
 		//	return neg ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
 
-		while (*it >= '0' && *it <= '9') {
-			val = val * 10 + (*it++ - '0');
-		}
-		if (*it == '.') {
-			++it;
+		while (this->peek() >= '0' && this->peek() <= '9')
+			val = val * 10 + (this->read_c() - '0');
+		if (this->peek() == '.') {
+			constexpr int trailingMax = 10;
+			int afterDecimal = 0;
+			this->ignore(1);
 			double multiplier = 0.1;
-			while (*it >= '0' && *it <= '9' && afterDecimal < trailingMax) {
-				val += (*it++ - '0') * multiplier;
+			while (this->peek() >= '0' && this->peek() <= '9' && afterDecimal < trailingMax) {
+				val += (this->read_c() - '0') * multiplier;
 				multiplier *= 0.1;
 				++afterDecimal;
 			}
 		}
 		return neg ? -val : val;
-	}
-
-	template <ranges::range R>
-	constexpr bool match(const R& range) {
-		if (ranges::starts_with(*this, range)) {
-			for (auto _ : range)
-				++*this;
-			return true;
-		} else
-			return false;
 	}
 };
 class ostringstream : public basic_ostringstream<char, vector<char>::iterator_type> {

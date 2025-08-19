@@ -1,4 +1,4 @@
-LLVM_VERSION:=20
+LLVM_VERSION:=22
 
 CC:=clang-$(LLVM_VERSION)
 LLVM_TOOLS_SUFFIX=
@@ -6,7 +6,7 @@ LD:=ld.lld$(LLVM_TOOLS_SUFFIX)
 ASM:=nasm
 
 BOOTLOADER_CONFIG:=\
--DBOOTLOADER_RESERVED_SECTORS=128 \
+-DBOOTLOADER_RESERVED_SECTORS=512 \
 -DSECTORS_PER_CLUSTER=8 \
 -DSECTORS_PER_FAT32=512 \
 -DFAT32_RESERVED_SECTORS=16 \
@@ -19,11 +19,12 @@ CFLAGS_OPT_TARGETS=
 
 CFLAGS:=\
 -m64 -march=haswell -std=c++26 -stdlib=libstdc++ -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
--nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit -fwrapv \
--Oz -ffast-math -fno-finite-loops -felide-constructors -fno-exceptions \
+-nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
+-Oz -fwrapv -fno-finite-loops -felide-constructors -fno-exceptions \
 -Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 -Werror=return-type \
--Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -fsanitize=undefined -fsanitize-trap=undefined \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wno-unused-function -Wno-nontrivial-memcall \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
+# -fsanitize=alignment,nonnull-attribute,object-size,return,shift,unreachable -fsanitize-trap=alignment,nonnull-attribute,object-size,return,shift,unreachable \
 
 CFLAGS_HOST:=-Og -march=native -std=c++26 -lstdc++ -g
 
@@ -35,7 +36,7 @@ CLANG_TIDY_CHECKS_EXTRA:=*,-llvmlibc-callee-namespace,$(CLANG_TIDY_CHECKS)
 CLANG_TIDY_CHECKS:=-bugprone-suspicious-include,-clang-analyzer-valist.Uninitialized
 CLANG_TIDY_FLAGS:=-checks=$(CLANG_TIDY_CHECKS_EXTRA) -header-filter=.*
 CLANG_TIDY_CC_FLAGS:=-std=c++26 -Isrc -Isrc/std
-OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source
+OBJDUMP_FLAGS:=-M intel --print-imm-hex --show-all-symbols --demangle --disassemble --source --debug-inlined-funcs=ascii --debug-vars=ascii --debug-indent=0
 
 ASM_SRC:=$(shell find ./src -name "*.asm" | sed -e "s/^\.\///g")
 C_HDR:=$(shell find ./src -name "*.hpp" | sed -e "s/^\.\///g")
@@ -51,7 +52,8 @@ QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-LOCAL_IP:=192.168.1.2
+LOCAL_IP:=192.168.0.28
+#192.168.1.2
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img
@@ -71,21 +73,25 @@ disk.img: tmp/fattener tmp/kernel.img tmp/bootloader.img tmp/fat32.img tmp/fsinf
 #	cat tmp/flash.img disk.img > disk_2.img
 
 start: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS)
+	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 start-flash: disk_2.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) $(QEMU_STORAGE_AUX)
+	qemu-system-x86_64.exe $(QEMU_FLAGS) $(QEMU_STORAGE_AUX) &
 start-trace: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -d cpu_reset
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -d cpu_reset &
 start-trace-2: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset
-start-dbg: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null -d cpu_reset &
-	lldb -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -d int,cpu_reset &
 start-dbg-noattatch: disk.img
-	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S > /dev/null -d cpu_reset
+	qemu-system-x86_64.exe $(QEMU_FLAGS) -s -S -d cpu_reset -monitor telnet:$(LOCAL_IP):5557,server,nowait > /dev/null &
+start-dbg: start-dbg-noattatch attatch
 start-ping: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
 	telnet $(LOCAL_IP) 5555
+
+attatch: 
+	lldb -O "gdb-remote $(LOCAL_IP):1234" -s lldb/lldb-commands.txt
+
+monitor:
+	telnet $(LOCAL_IP) 5557 | tee -a tmp/monitor.log
 
 $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) -f elf64 -o $@ $<

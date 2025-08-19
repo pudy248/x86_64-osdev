@@ -38,7 +38,7 @@ static void svga_fifo_write(const R& arr) {
 }
 
 void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
-	globals->svga = decltype(globals->svga)::make_unique(waterline_new<svga_device>(0x10));
+	globals->svga = decltype(globals->svga)::make_nocopy(waterline_new<svga_device>(0x10));
 	globals->svga->pio_base = (uint16_t)(svga_pci.bars[0] & 0xfffffffe);
 	globals->svga->fb = (uint32_t*)(uint64_t)(svga_pci.bars[1] & 0xfffffff0);
 	globals->svga->fifo = (volatile uint32_t*)(uint64_t)(svga_pci.bars[2] & 0xfffffff0);
@@ -54,8 +54,10 @@ void svga_init(pci_device svga_pci, uint32_t w, uint32_t h) {
 	globals->svga->fifo_size = svga_read(SVGA_REG::MEM_SIZE);
 	globals->svga->vram_size = svga_read(SVGA_REG::VRAM_SIZE);
 
-	mprotect((void*)globals->svga->fb, globals->svga->fb_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE | MAP_NEW);
-	mprotect((void*)globals->svga->fifo, globals->svga->fifo_size, PAGE_WT, MAP_PHYSICAL | MAP_INITIALIZE | MAP_NEW);
+	globals->svga->fb = mmap((void*)globals->svga->fb, globals->svga->fb_size,
+		MAP_PHYSICAL | MAP_PINNED | MAP_INITIALIZE | MAP_WRITETHROUGH);
+	globals->svga->fifo = mmap((void*)globals->svga->fifo, globals->svga->fifo_size,
+		MAP_PHYSICAL | MAP_PINNED | MAP_INITIALIZE | MAP_WRITETHROUGH);
 
 	globals->svga->fifo[SVGA_FIFO::MIN] = SVGA_FIFO::NUM_REGS * 4;
 	globals->svga->fifo[SVGA_FIFO::MAX] = globals->svga->fifo_size;
@@ -92,7 +94,7 @@ void svga_set_mode(uint32_t width, uint32_t height, uint32_t bpp) {
 void svga_update(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 	if (!enabled)
 		return;
-	array<uint32_t, 5> arr({ (uint32_t)SVGA_CMD::UPDATE, x, y, w, h });
+	array<uint32_t, 5> arr({(uint32_t)SVGA_CMD::UPDATE, x, y, w, h});
 	svga_fifo_write(arr);
 }
 void svga_update() { svga_update(0, 0, globals->svga->width, globals->svga->height); }

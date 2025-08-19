@@ -23,7 +23,8 @@ class text_layer {
 		for (int y = rect[2]; y < rect[3] - 1; y++) {
 			for (int x = rect[0]; x < rect[1]; x++) {
 				buf[y * stride + x] = buf[(y + 1) * stride + x];
-				// if (!buf[y * stride + x]) buf[y * stride + x] = ' ';
+				if (!buf[y * stride + x])
+					buf[y * stride + x] = ' ';
 			}
 		}
 		for (int x = rect[0]; x < rect[1]; x++)
@@ -48,7 +49,7 @@ public:
 	template <ranges::range R1, ranges::range R2, ranges::range R3>
 	constexpr text_layer(const R1& offset, const R2& dims, const R3& margins)
 		: buffer(ranges::at(dims, 0) * ranges::at(dims, 1))
-		, cursor(0, 0)
+		, cursor()
 		, offset(ranges::at(offset, 0), ranges::at(offset, 1))
 		, dims(ranges::at(dims, 0), ranges::at(dims, 1))
 		, margins(ranges::at(margins, 0), ranges::at(margins, 1), ranges::at(margins, 2), ranges::at(margins, 3)) {
@@ -93,7 +94,7 @@ public:
 	constexpr text_layer& newline(bool right) {
 		cursor[0] = right ? margins[1] : margins[0];
 		cursor[1]++;
-		if (cursor[1] == margins[3] - 1) {
+		if (cursor[1] == margins[3]) {
 			scroll_up(ranges::begin(buffer), dims[0], margins);
 			cursor[1]--;
 		}

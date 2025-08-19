@@ -1,5 +1,6 @@
 #pragma once
 #include "concepts.hpp"
+#include <concepts>
 
 namespace ranges {
 template <typename A1, typename A2>
@@ -25,7 +26,7 @@ public:
 	};
 };
 
-template <typename CRTP>
+template <typename>
 class range_adaptor_interface {
 public:
 	template <typename D, ranges::range R>

@@ -43,18 +43,22 @@ static void e1000_link() {
 }
 
 void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), void (*link_callback)(void)) {
-	globals->e1000 = decltype(globals->e1000)::make_unique(waterline_new<e1000_device>());
-	globals->e1000->rx_descs = (e1000_rx_desc*)walloc(sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, 0x80);
-	globals->e1000->tx_descs = (e1000_tx_desc*)walloc(sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, 0x80);
+	globals->e1000 = decltype(globals->e1000)::make_nocopy(waterline_new<e1000_device>());
+	globals->e1000->rx_vaddrs = (void**)walloc(sizeof(void*) * E1000_NUM_RX_DESC, 0x10);
+	globals->e1000->tx_vaddrs = (void**)walloc(sizeof(void*) * E1000_NUM_TX_DESC, 0x10);
+	globals->e1000->rx_descs =
+		(e1000_rx_desc*)mmap(nullptr, sizeof(e1000_rx_desc) * E1000_NUM_RX_DESC, MAP_WRITETHROUGH);
+	globals->e1000->tx_descs =
+		(e1000_tx_desc*)mmap(nullptr, sizeof(e1000_tx_desc) * E1000_NUM_TX_DESC, MAP_WRITETHROUGH);
 
 	receive_fn = receive_callback;
 	link_fn = link_callback;
-	globals->e1000->mmio_base = (uint64_t)(e1000_pci.bars[0] & 0xfffffff0);
 	globals->e1000->pio_base = (uint16_t)(e1000_pci.bars[1] & 0xfffffffe);
+	globals->e1000->mmio_base =
+		(uint64_t)mmap((e1000_pci.bars[0] & 0xfffffff0), 0x20000, MAP_WRITETHROUGH | MAP_PHYSICAL | MAP_PINNED);
 
-	mprotect((void*)globals->e1000->mmio_base, 0x20000, PAGE_WT, MAP_PHYSICAL | MAP_PINNED | MAP_NEW);
 	pci_enable_mem(e1000_pci.address);
-	printf("Using Ethernet MMIO at %08x\n", e1000_pci.bars[0]);
+	printf("Using Ethernet MMIO at %08x=>%08x\n", e1000_pci.bars[0], globals->e1000->mmio_base);
 
 	//Clear and disable interrupts
 	e1000_write(E1000_REG::IMC, 0xFFFFFFFF);
@@ -112,11 +116,11 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 
 	//Initialize RX
 	for (int i = 0; i < E1000_NUM_RX_DESC; i++) {
-		globals->e1000->rx_descs[i].addr =
-			(uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);
+		globals->e1000->rx_vaddrs[i] = mmap(nullptr, E1000_BUFSIZE, MAP_CONTIGUOUS | MAP_INITIALIZE);
+		globals->e1000->rx_descs[i].addr = (uint64_t)virt2phys(globals->e1000->rx_vaddrs[i]);
 		globals->e1000->rx_descs[i].status = 0;
 	}
-	e1000_write(E1000_REG::RXDESCLO, (uint64_t)globals->e1000->rx_descs);
+	e1000_write(E1000_REG::RXDESCLO, (uint64_t)virt2phys(globals->e1000->rx_descs));
 	e1000_write(E1000_REG::RXDESCHI, 0);
 	e1000_write(E1000_REG::RXDESCSZ, E1000_NUM_RX_DESC * 16);
 	e1000_write(E1000_REG::RXDCTL, 1 | (1 << 8) | (1 << 16) | (1 << 24));
@@ -129,13 +133,13 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
-		globals->e1000->tx_descs[i].addr =
-			(uint64_t)mmap((void*)0x200000, E1000_BUFSIZE, 0, MAP_PHYSICAL | MAP_INITIALIZE);
+		globals->e1000->tx_vaddrs[i] = mmap(nullptr, E1000_BUFSIZE, MAP_CONTIGUOUS | MAP_INITIALIZE);
+		globals->e1000->tx_descs[i].addr = (uint64_t)virt2phys(globals->e1000->tx_vaddrs[i]);
 		;
 		globals->e1000->tx_descs[i].cmd = 0;
 		globals->e1000->tx_descs[i].status = E1000_TSTA::DD;
 	}
-	e1000_write(E1000_REG::TXDESCLO, (uint64_t)globals->e1000->tx_descs);
+	e1000_write(E1000_REG::TXDESCLO, (uint64_t)virt2phys(globals->e1000->tx_descs));
 	e1000_write(E1000_REG::TXDESCHI, 0);
 	e1000_write(E1000_REG::TXDESCSZ, E1000_NUM_TX_DESC * 16);
 	e1000_write(E1000_REG::TXDESCHD, 0);
@@ -146,8 +150,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) |
 										  (64 << E1000_TCTL::CTCSHIFT) | E1000_TCTL::RTLC);
 	else
-		e1000_write(E1000_REG::TCTRL, E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) |
-										  63 << E1000_TCTL::CTCSHIFT | 3 << 28);
+		e1000_write(E1000_REG::TCTRL,
+			E1000_TCTL::EN | E1000_TCTL::PSP | (15 << E1000_TCTL::CTSHIFT) | 63 << E1000_TCTL::CTCSHIFT | 3 << 28);
 	e1000_write(E1000_REG::TXDCTL, 1 << 24);
 	e1000_write(E1000_REG::TIPG, 0x0060200A);
 
@@ -172,8 +176,8 @@ static void e1000_int_handler(uint64_t, register_file*) {
 		//qprintf<32>("%i\n", head);
 		while (globals->e1000->tx_head != head) {
 			//qprintf<32>("freeing %i\n", globals->e1000->tx_head);
-			if constexpr (!copy_tx)
-				kfree((void*)globals->e1000->tx_descs[globals->e1000->tx_head].addr);
+			//if constexpr (!copy_tx)
+			//	kfree((void*)globals->e1000->tx_vaddrs[globals->e1000->tx_head].addr);
 			globals->e1000->tx_head = (globals->e1000->tx_head + 1) % E1000_NUM_TX_DESC;
 		}
 	}
@@ -193,9 +197,9 @@ void e1000_receive() {
 	int tail = e1000_read(E1000_REG::RXDESCTL);
 	uint16_t old_cur = tail;
 	while (globals->e1000->rx_descs[globals->e1000->rx_cur].status & 0x1) {
-		uint8_t* buf = (uint8_t*)globals->e1000->rx_descs[globals->e1000->rx_cur].addr;
+		uint8_t* buf = (uint8_t*)globals->e1000->rx_vaddrs[globals->e1000->rx_cur];
 		uint16_t len = globals->e1000->rx_descs[globals->e1000->rx_cur].length;
-		receive_fn({ buf, buf, len });
+		receive_fn({buf, buf, len});
 		globals->e1000->rx_descs[globals->e1000->rx_cur].status = 0;
 		old_cur = globals->e1000->rx_cur;
 		globals->e1000->rx_cur = (globals->e1000->rx_cur + 1) % E1000_NUM_RX_DESC;
@@ -208,10 +212,10 @@ int e1000_send_async(net_buffer_t buf) {
 	while (~globals->e1000->tx_descs[handle].status & 1)
 		cpu_relax();
 	if constexpr (copy_tx) {
-		memcpy((void*)globals->e1000->tx_descs[handle].addr, buf.data_begin, buf.data_size);
+		memcpy((void*)globals->e1000->tx_vaddrs[handle], buf.data_begin, buf.data_size);
 		kfree(buf.frame_begin);
-	} else
-		globals->e1000->tx_descs[handle].addr = (uint64_t)pointer<std::byte, integer>(buf.frame_begin);
+	} // else
+	//	globals->e1000->tx_descs[handle].addr = (uint64_t)pointer<std::byte, integer>(buf.frame_begin);
 	globals->e1000->tx_descs[handle].length = buf.data_size;
 
 	globals->e1000->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;

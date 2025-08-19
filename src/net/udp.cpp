@@ -20,12 +20,12 @@ void udp_block(uint16_t port, bool is_blocked) {
 			blocked_ports_udp.erase(idx);
 	} else {
 		if (!ranges::count(blocked_ports_udp, port))
-			blocked_ports_udp.append(port);
+			blocked_ports_udp.push_back(port);
 	}
 }
 udp_conn_t udp_accept(uint16_t port) {
 	udp_conn_t conn = new udp_connection{ port, {} };
-	open_connections_udp.append(conn);
+	open_connections_udp.push_back(conn);
 	return conn;
 }
 void udp_close(udp_conn_t conn) {
@@ -114,7 +114,7 @@ bool udp_get(udp_conn_t conn, udp_packet& out) {
 void udp_forward(udp_packet p) {
 	for (udp_conn_t c : open_connections_udp) {
 		if (c->port == htons(p.i.dst_port)) {
-			c->packets.append(p);
+			c->packets.push_back(p);
 			return;
 		}
 	}

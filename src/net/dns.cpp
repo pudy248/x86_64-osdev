@@ -11,9 +11,9 @@ static string dns_name(ibinstream<>& s) {
 	string name;
 	while (uint8_t len = s.read_raw<uint8_t>()) {
 		if (name.size())
-			name.append('.');
+			name.push_back('.');
 		span<const std::byte> frag = s.reference_read(len);
-		name.append((const char*)frag.begin(), len);
+		name.push_back((const char*)frag.begin(), len);
 	}
 	return name;
 }
@@ -21,7 +21,7 @@ static string dns_name(ibinstream<>& s) {
 static string dns_compressed_name(ibinstream<>& s, dns_header* hdr) {
 	uint8_t len = (uint8_t)*s.begin();
 	if (len >= 0xc0) {
-		++s;
+		s.ignore(1);
 		uint8_t off = s.read_raw<uint8_t>();
 		ibinstream<> s2{ (std::byte*)hdr + off };
 		return dns_name(s2);
@@ -109,8 +109,6 @@ retry:
 			goto retry;
 	}
 	dns_header* dns2 = p.i.header;
-	if (DNS_LOG)
-		qprintf<64>("[DNS] <XID %04x> Response: ", xid);
 	ibinstream<> is{ (std::byte*)(dns2 + 1) };
 	dns_question q;
 	for (int i = 0; i < htons(dns2->n_quest); i++)
@@ -121,7 +119,8 @@ retry:
 		if (DNS_LOG) {
 			ipv4_t ip;
 			kmemcpy(&ip, ans.data.begin(), 4);
-			qprintf<128>("\"%S\" %I A IN\n", &aname, ip);
+			if (DNS_LOG)
+				qprintf<128>("[DNS] <XID %04x> Response: \"%S\" %I A IN\n", xid, &aname, ip);
 		}
 		if (ans.type == DNS_TYPE::A && ans.class_code && DNS_CLASS_CODE::IN) {
 			ipv4_t ip;
@@ -131,7 +130,7 @@ retry:
 		}
 	}
 	if (DNS_LOG)
-		qprintf<128>("\"%S\" NOT FOUND\n", &domain);
+		qprintf<128>("[DNS] <XID %04x> Response: \"%S\" NOT FOUND\n", xid, &domain);
 	kfree(p.b.frame_begin);
 	return 0;
 }

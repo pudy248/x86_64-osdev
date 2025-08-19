@@ -3,11 +3,10 @@
 #include <kstring.hpp>
 #include <sys/global.hpp>
 #include <text/console.hpp>
-#include <text/text_display.hpp>
 
 console& default_console() { return *globals->g_console; }
 
-console::console(void (*s)(uint32_t, uint32_t, char), void (*r)(), int d[2])
+console::console(void (*s)(uint32_t, uint32_t, char), void (*r)(), const int d[2])
 	: dims(d[0], d[1]), _set_char(s), refresh(r), backing_data((char*)kcalloc(d[0] * d[1])) {}
 
 console& console::operator=(console&& c2) {

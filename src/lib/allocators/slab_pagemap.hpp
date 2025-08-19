@@ -20,7 +20,7 @@ class allocator_traits<class slab_pagemap> {
 public:
 	using ptr_t = pointer<void, reinterpret>;
 };
-class slab_pagemap : public default_allocator {
+class slab_pagemap : public default_allocator<uint8_t> {
 protected:
 	template <std::size_t SS>
 	slab_allocator<SS, 4096>* as_width(int i) {
@@ -34,7 +34,7 @@ protected:
 					return as_width<SS>(i);
 		}
 
-		slabs.emplace_back(mmap(nullptr, 4096, 0, MAP_INITIALIZE), SS);
+		slabs.emplace_back(mmap(nullptr, 4096, MAP_INITIALIZE), SS);
 		return as_width<SS>(slabs.size() - 1);
 	}
 
@@ -44,7 +44,7 @@ public:
 		pointer<slab_allocator<1, 4096>, type_cast> p;
 		uint8_t width;
 	};
-	vector<pagemap_entry, mmap_allocator> slabs;
+	vector<pagemap_entry> slabs{16};
 
 	bool contains(ptr_t ptr) {
 		for (auto s : slabs)

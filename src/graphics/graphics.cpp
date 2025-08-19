@@ -1,12 +1,13 @@
 #include <cstdint>
-#include <graphics/color.hpp>
 #include <graphics/graphics.hpp>
 #include <graphics/math.hpp>
 #include <graphics/pipeline.hpp>
 #include <graphics/vectypes.hpp>
 #include <kstddef.hpp>
 
-static char clip(Vec4 p) { return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0; }
+static char clip(Vec4 p) {
+	return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;
+}
 
 static Vec4 screenspace(RenderPipeline* pipeline, Vec4 p) {
 	p.x = (p.x * 0.5f + 0.5f) * (float)pipeline->display_w;

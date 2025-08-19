@@ -3,7 +3,7 @@
 #include <kstring.hpp>
 #include <sys/idt.hpp>
 
-typedef struct {
+struct KeyboardBuffer {
 	bool shift;
 	bool ctrl;
 	bool alt;
@@ -13,11 +13,11 @@ typedef struct {
 	uint8_t popIdx;
 
 	uint8_t loopqueue[256];
-} KeyboardBuffer;
+};
 extern KeyboardBuffer keyboardInput;
 
 void keyboard_irq(uint64_t, register_file*);
 uint8_t update_modifiers(uint8_t key);
 char key_to_ascii(uint8_t key);
-char getchar();
+int getchar();
 string getline();

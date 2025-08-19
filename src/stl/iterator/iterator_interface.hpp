@@ -1,6 +1,7 @@
 #pragma once
 #include "concepts.hpp"
 #include <iterator>
+#include <type_traits>
 
 template <typename T, typename V>
 class pure_input_iterator_interface : std::input_iterator_tag {
@@ -21,22 +22,19 @@ private:
 public:
 	template <typename Derived>
 	constexpr iter_value_copy operator++(this Derived& self, int) {
-		iter_value_copy s = { *self };
+		iter_value_copy s = {*self};
 		++self;
 		return s;
 	}
 };
-
+/*
 template <typename T>
 struct pure_output_iterator_interface : std::output_iterator_tag {
 	using iterator_concept = std::output_iterator_tag;
 	using iterator_category = iterator_concept;
-	using value_type = std::remove_reference_t<decltype(*std::declval<T&>())>;
 	using difference_type = std::ptrdiff_t;
-	using reference = decltype(*std::declval<T&>());
-	using pointer = decltype(&*std::declval<T&>());
-
-	using T::T;
+	//using reference = std::add_lvalue_reference_t<typename std::indirectly_readable_traits<T>::value_type>;
+	//using pointer = std::add_pointer_t<typename std::indirectly_readable_traits<T>::value_type>;
 
 	template <typename Derived>
 	constexpr Derived& operator++(this const Derived& self) {
@@ -47,16 +45,14 @@ struct pure_output_iterator_interface : std::output_iterator_tag {
 		return self;
 	}
 };
-
+*/
 template <typename T>
-	requires std::equality_comparable<T> && impl::pre_incrementable<T>
 struct forward_iterator_interface : std::forward_iterator_tag {
 	using iterator_concept = std::forward_iterator_tag;
 	using iterator_category = iterator_concept;
-	using value_type = std::remove_reference_t<decltype(*std::declval<T&>())>;
 	using difference_type = std::ptrdiff_t;
-	using reference = decltype(*std::declval<T&>());
-	using pointer = decltype(&*std::declval<T&>());
+	using reference = std::add_lvalue_reference_t<typename std::indirectly_readable_traits<T>::value_type>;
+	using pointer = std::add_pointer_t<typename std::indirectly_readable_traits<T>::value_type>;
 
 	template <typename Derived>
 	constexpr Derived operator++(this Derived& self, int) {
@@ -67,7 +63,6 @@ struct forward_iterator_interface : std::forward_iterator_tag {
 };
 
 template <typename T>
-	requires std::equality_comparable<T> && impl::pre_incrementable<T>
 struct bidirectional_iterator_interface : std::bidirectional_iterator_tag, public forward_iterator_interface<T> {
 	using iterator_concept = std::bidirectional_iterator_tag;
 	using iterator_category = iterator_concept;

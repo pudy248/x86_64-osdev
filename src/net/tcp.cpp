@@ -7,7 +7,6 @@
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <stl/algorithms.hpp>
 #include <stl/ranges.hpp>
 #include <stl/vector.hpp>
 #include <utility>
@@ -32,8 +31,12 @@ struct tcp_mss {
 	uint8_t len = 0x04;
 	uint16_t mss;
 };
-constexpr bool TCP_STATE::valid(int s) { return s == ESTABLISHED; }
-tcp_flags::tcp_flags(uint16_t f) { kmemcpy(this, &f, 2); }
+constexpr bool TCP_STATE::valid(int s) {
+	return s == ESTABLISHED;
+}
+tcp_flags::tcp_flags(uint16_t f) {
+	kmemcpy(this, &f, 2);
+}
 
 net_buffer_t tcp_new(std::size_t data_size) {
 	net_buffer_t buf = ipv4_new(data_size + sizeof(tcp_header));
@@ -64,7 +67,7 @@ net_async_t tcp_transmit(tcp_conn_t conn, tcp_packet p) {
 }
 static net_async_t tcp_transmit(tcp_conn_t conn, span<std::byte> data, uint16_t flags) {
 	net_buffer_t buf = tcp_new(data.size());
-	algo::copy(buf.data_begin, buf.data_begin + buf.data_size, data.begin(), data.end());
+	ranges::copy(span(buf.data_begin(), buf.data_size), data);
 	return tcp_transmit(conn, { tcp_info{ .flags = flags }, buf });
 }
 
@@ -185,8 +188,8 @@ void tcp_receive(ipv4_packet p) {
 					conn->partial.contents = vector<char>(conn->partial.end_seq - conn->partial.start_seq);
 				}
 				conn->partial.contents.reserve(htonl(tcp->seq_num) + size - conn->partial.start_seq);
-				algo::copy((std::byte*)conn->partial.contents.begin() + (htonl(tcp->seq_num) - conn->partial.start_seq),
-						   contents, contents + size);
+				ranges::copy(ranges::subrange(conn->partial.contents, htonl(tcp->seq_num) - conn->partial.start_seq),
+							 span((char*)contents, size));
 				if (htonl(tcp->seq_num) + size == conn->partial.end_seq)
 					conn->partial.end_seq = htonl(tcp->seq_num);
 				if (htonl(tcp->seq_num) == conn->partial.start_seq)
@@ -196,11 +199,11 @@ void tcp_receive(ipv4_packet p) {
 					conn->partial.contents.clear();
 					conn->partial.start_seq = conn->partial.end_seq = 0;
 
-					conn->received_packets.append({ buf, buf + size });
+					conn->received_packets.push_back({ buf, buf + size });
 				}
 			} else {
 				//tcp_send(conn, { span(contents, size) }, set_flags(TCP_DATA_OFFSET(0) | TCP_FLAG_PSH | TCP_FLAG_ACK));
-				conn->received_packets.append({ (char*)contents, (char*)contents + size });
+				conn->received_packets.push_back({ (char*)contents, (char*)contents + size });
 			}
 		} else if (tcp->flags.fin) {
 			conn->cur_ack = htonl(tcp->seq_num) + 1;
@@ -232,7 +235,7 @@ void tcp_receive(ipv4_packet p) {
 		conn->cur_port = htons(tcp->dst_port);
 		conn->start_ack = htonl(tcp->seq_num);
 		conn->state = TCP_STATE::WAITING;
-		open_connections.append((tcp_conn_t)conn);
+		open_connections.push_back((tcp_conn_t)conn);
 		if (TCP_LOG_VERBOSE)
 			printf("[TCP] %I:%i->%i: SYN recieved, waiting.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
 		goto cleanup;
@@ -285,7 +288,7 @@ tcp_conn_t tcp_connect(ipv4_t ip, uint16_t src_port, uint16_t dst_port) {
 	conn->state = TCP_STATE::SYN_SENT;
 	if (TCP_LOG_VERBOSE)
 		printf("[TCP] %I:%i->%i: Opening connection.\n", conn->cli_ip, conn->cli_port, conn->cur_port);
-	open_connections.append((tcp_conn_t)conn);
+	open_connections.push_back((tcp_conn_t)conn);
 	tcp_mss mss = { 0x02, 0x04, htons(TCP_MSS) };
 	tcp_transmit(conn, span<std::byte>((std::byte*)&mss, 4), TCP_DATA_OFFSET(1) | TCP_FLAG_SYN);
 	while (conn->state != TCP_STATE::ESTABLISHED)

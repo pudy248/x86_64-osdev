@@ -4,8 +4,6 @@
 #include <net/net.hpp>
 #include <stl/container.hpp>
 #include <stl/ranges.hpp>
-#include <stl/stream.hpp>
-#include <stl/vector.hpp>
 
 template <typename CharT, std::forward_iterator I, std::sentinel_for<I> S>
 template <template <typename> typename C, std::forward_iterator I2, typename S2, typename Derived>
@@ -13,14 +11,14 @@ template <template <typename> typename C, std::forward_iterator I2, typename S2,
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, I2 begin2, S2 end2) {
 	std::size_t sz = ranges::count_all(self, view(begin2, end2)) + 1;
 	C<Derived> container{ sz };
-	std::size_t i = 0;
 	istringstream stream(self);
-	while (i < sz) {
+	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();
 		I i2 = ranges::find_first_of(stream, view(begin2, end2));
 		stream.begin() = i2;
-		container.at(i++) = { i1, i2 };
-		++stream;
+		container.emplace_back(i1, i2);
+		if (i < sz - 1)
+			stream.ignore(1);
 	}
 	return container;
 }
@@ -30,14 +28,14 @@ template <template <typename> typename C, ranges::forward_range R, typename Deri
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, const R& range) {
 	std::size_t sz = ranges::count_all(self, range) + 1;
 	C<Derived> container{ sz };
-	std::size_t i = 0;
 	istringstream stream(self);
-	while (i < sz) {
+	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();
 		I i2 = ranges::find_first_of(stream, range);
 		stream.begin() = i2;
-		container.at(i++) = { i1, i2 };
-		++stream;
+		container.emplace_back(i1, i2);
+		if (i < sz - 1)
+			stream.ignore(1);
 	}
 	return container;
 }
@@ -47,14 +45,14 @@ template <template <typename...> typename C, typename Derived>
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, CharT c) {
 	std::size_t sz = ranges::count(self, c) + 1;
 	C<Derived> container{ sz };
-	std::size_t i = 0;
 	istringstream stream(self);
-	while (i < sz) {
+	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();
 		I i2 = ranges::find(stream, c);
 		stream.begin() = i2;
-		container.at(i++) = { i1, i2 };
-		++stream;
+		container.emplace_back(i1, i2);
+		if (i < sz - 1)
+			stream.ignore(1);
 	}
 	return container;
 }
@@ -152,7 +150,9 @@ constexpr int formats(I output, const rostring fmt, ...) {
 		ostr.put((char)0);
 	va_end(l);
 
-	return ostr.begin() - output;
+	if constexpr (requires { ostr.begin() - output; })
+		return ostr.begin() - output;
+	return 0;
 }
 
 template <typename... Args>

@@ -27,10 +27,10 @@ struct fat_sys_data {
 	uint16_t bytes_per_cluster;
 	uint32_t cluster_lba_offset;
 
-	vector<pointer<uint32_t, unique>> fat_tables;
+	vector<pointer<uint32_t, nocopy>> fat_tables;
 
 	uint32_t bpb_lba_offset;
-	pointer<struct fat32_bpb, unique> bpb;
+	pointer<struct fat32_bpb, nocopy> bpb;
 
 	file_t root_directory;
 };

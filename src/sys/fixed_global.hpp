@@ -5,15 +5,20 @@
 #include <sys/memory/memory.hpp>
 #include <sys/memory/paging.hpp>
 
+// UPDATE ISR_ASM IF OFFSET OF REGISTER FILES CHANGES!!
 struct fixed_global_data_t {
 	void* dynamic_globals;
-	pointer<struct frame_info, reinterpret> frame_info_table;
-	volatile uint64_t total_page_count;
-	volatile uint64_t mapped_pages;
-	pointer<page_pml4, reinterpret> pml4;
-	pointer<struct idt_t, unique> idt;
 	pointer<void, reinterpret> register_file_ptr;
 	pointer<void, reinterpret> register_file_ptr_swap;
+
+	uint64_t fml4_paddr;
+	uint64_t pml4_paddr;
+
+	uint64_t frames_free;
+	uint64_t frames_allocated;
+	uint64_t pages_allocated;
+
+	pointer<struct idt_t, nocopy> idt;
 };
 
-#define fixed_globals ((fixed_global_data_t*)0x60000)
+#define fixed_globals ((fixed_global_data_t*)0x6000)

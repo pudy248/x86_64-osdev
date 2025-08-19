@@ -167,12 +167,6 @@ constexpr bool ends_with(const R& range, const R2& range2, BinaryPred predicate 
 						   std::move(predicate));
 }
 
-template <ranges::range R, ranges::range R2, typename BinaryPred = algo::equal_to>
-constexpr ranges::iterator_t<R> search(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::search(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						std::move(predicate));
-}
-
 template <ranges::range OutR, ranges::range InR>
 constexpr void copy(OutR&& out, const InR& range) {
 	algo::copy(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range));

@@ -22,22 +22,46 @@ concept allocator = requires(A allocator) {
 	allocator.destroy();
 };
 
+template <typename A>
+struct alloc_value;
+
+template <typename A>
+	requires std::is_pointer_v<typename allocator_traits<A>::ptr_t>
+struct alloc_value<A> {
+	using type = std::remove_pointer_t<typename allocator_traits<A>::ptr_t>;
+};
+template <typename A>
+	requires requires() { typename allocator_traits<A>::ptr_t::type; }
+struct alloc_value<A> {
+	using type = typename allocator_traits<A>::ptr_t::type;
+};
+template <typename A>
+using alloc_value_t = typename alloc_value<A>::type;
+
+template <typename T>
 class default_allocator;
+template <typename T>
+class allocator_traits<default_allocator<T>> {
+public:
+	using ptr_t = T*;
+};
 template <>
-class allocator_traits<default_allocator> {
+class allocator_traits<default_allocator<void>> {
 public:
 	using ptr_t = pointer<void, reinterpret>;
 };
+
+template <typename T>
 class default_allocator {
 public:
-	using ptr_t = allocator_traits<default_allocator>::ptr_t;
-	ptr_t alloc(uint64_t size) { return kmalloc(size); }
+	using ptr_t = typename allocator_traits<default_allocator<T>>::ptr_t;
+	ptr_t alloc(uint64_t size) { return typename allocator_traits<default_allocator<T>>::ptr_t(kmalloc(size)); }
 	void dealloc(ptr_t ptr) { kfree(ptr); }
 	template <typename Derived>
 	ptr_t realloc(this Derived& self, ptr_t ptr, uint64_t size, uint64_t new_size) {
 		ptr_t new_alloc = self.alloc(new_size);
 		memcpy(new_alloc, ptr, min(size, new_size));
-		memset(ptr_t{ (uint64_t)new_alloc + min(size, new_size) }, 0, new_size - size);
+		memset(ptr_offset(new_alloc, min(size, new_size)), 0, new_size - size);
 		self.dealloc(ptr);
 		return new_alloc;
 	}
@@ -47,32 +71,30 @@ public:
 	}
 	constexpr void destroy() {}
 };
-template <typename T>
-using default_allocator_t = default_allocator;
 
-template <allocator T>
-class allocator_reference : public default_allocator {
+template <allocator A>
+class allocator_reference : public default_allocator<alloc_value_t<A>> {
 public:
-	T& ref;
+	A& ref;
 	allocator_reference() = delete;
-	allocator_reference(T& ref) : ref(ref) {}
-	allocator_traits<T>::ptr_t alloc(uint64_t size) { return ref.alloc(size); }
-	void dealloc(allocator_traits<T>::ptr_t ptr) { ref.dealloc(ptr); }
+	allocator_reference(A& ref) : ref(ref) {}
+	typename allocator_traits<A>::ptr_t alloc(uint64_t size) { return ref.alloc(size); }
+	void dealloc(allocator_traits<A>::ptr_t ptr) { ref.dealloc(ptr); }
 };
-template <allocator T>
-class allocator_traits<allocator_reference<T>> {
+template <allocator A>
+class allocator_traits<allocator_reference<A>> {
 public:
-	using ptr_t = allocator_traits<T>::ptr_t;
+	using ptr_t = allocator_traits<A>::ptr_t;
 };
 
-template <allocator T, T& Ref>
-class static_allocator_reference : public default_allocator {
+template <allocator A, A& Ref>
+class static_allocator_reference : public default_allocator<alloc_value_t<A>> {
 public:
-	allocator_traits<T>::ptr_t alloc(uint64_t size) { return Ref.alloc(size); }
-	void dealloc(allocator_traits<T>::ptr_t ptr) { Ref.dealloc(ptr); }
+	typename allocator_traits<A>::ptr_t alloc(uint64_t size) { return Ref.alloc(size); }
+	void dealloc(allocator_traits<A>::ptr_t ptr) { Ref.dealloc(ptr); }
 };
-template <allocator T, T& Ref>
-class allocator_traits<static_allocator_reference<T, Ref>> {
+template <allocator A, A& Ref>
+class allocator_traits<static_allocator_reference<A, Ref>> {
 public:
-	using ptr_t = allocator_traits<T>::ptr_t;
+	using ptr_t = allocator_traits<A>::ptr_t;
 };

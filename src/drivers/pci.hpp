@@ -1,6 +1,9 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <kstring.hpp>
+#include <lib/allocators/mmap.hpp>
+#include <stl/vector.hpp>
 
 namespace PCI_CLASS {
 enum PCI_CLASS {
@@ -104,6 +107,19 @@ struct pci_devices {
 	int numDevs;
 };
 
+struct pci_ids {
+	struct device {
+		uint16_t did;
+		rostring name;
+	};
+	struct vendor {
+		uint16_t vid;
+		rostring name;
+		vector<device> devices;
+	};
+	vector<vendor> vendors;
+};
+
 uint32_t pci_read(pci_addr dev, uint8_t reg);
 void pci_write(pci_addr dev, uint8_t reg, uint32_t data);
 void pci_write(pci_addr dev, uint32_t offset, uint8_t size, uint32_t data);
@@ -118,3 +134,7 @@ void pci_print(void);
 
 pci_device* pci_match_id(uint16_t vendor_id, uint16_t device_id);
 pci_device* pci_match(uint8_t class_id, uint8_t subclass = 255, uint8_t prog_if = 255);
+
+pci_ids parse_pci_ids(rostring f);
+rostring pci_vendor_name(const pci_ids& ids, uint16_t vendor_id);
+rostring pci_device_name(const pci_ids& ids, uint16_t vendor_id, uint16_t device_id);

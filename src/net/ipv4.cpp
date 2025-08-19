@@ -4,7 +4,6 @@
 #include <kstdlib.hpp>
 #include <net/arp.hpp>
 #include <net/config.hpp>
-#include <net/icmp.hpp>
 #include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>

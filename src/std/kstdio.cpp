@@ -2,7 +2,6 @@
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <stl/array.hpp>
-#include <sys/global.hpp>
 #include <text/console.hpp>
 #include <text/text_display.hpp>
 
@@ -16,15 +15,17 @@ void refresh_tty() {
 
 void putchar(char c, bool refresh) {
 	if (do_logging)
-		log_string.append(c);
+		log_string.push_back(c);
 	default_output().putchar(c);
 	if (refresh)
 		refresh_tty();
 }
-void print(const char* str, bool refresh) { print(rostring(str), refresh); }
+void print(const char* str, bool refresh) {
+	print(rostring(str), refresh);
+}
 void print(span<const char> str, bool refresh) {
 	if (do_logging)
-		log_string.append(str);
+		log_string.push_back(str);
 	default_output().print(str);
 	if (refresh)
 		refresh_tty();
@@ -65,9 +66,15 @@ void replace_console(console&& con) {
 	default_output() = t2;
 }
 
-void disable_log() { do_logging = false; }
-void clear_log() { log_string.clear(); }
-span<const char> output_log() { return log_string; }
+void disable_log() {
+	do_logging = false;
+}
+void clear_log() {
+	log_string.clear();
+}
+span<const char> output_log() {
+	return log_string;
+}
 
 void error(const char* str) {
 	disable_log();

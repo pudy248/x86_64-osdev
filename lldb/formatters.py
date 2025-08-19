@@ -181,18 +181,26 @@ class BytespanSynthProvider(object):
 def char_container(valobj,internal_dict,options):
     begin = valobj.GetNonSyntheticValue().GetChildMemberWithName('iter').Cast(valobj.target.FindFirstType("char").GetPointerType())
     sentinel = valobj.GetNonSyntheticValue().GetChildMemberWithName('sentinel')
-    s = ''
-    for i in range(sentinel.unsigned - begin.unsigned):
+    s = '"'
+    b_v = begin.unsigned
+    s_v = sentinel.unsigned
+    if (s_v - b_v > 1000):
+        s = s + "(truncated from " + str(s_v - b_v) + " chars) "
+        s_v = b_v + 1000
+    for i in range(s_v - b_v):
         s = s + begin.GetChildAtIndex(i, 0, True).value[1:-1]
-    return '"' + s + '"_RO'
+    return s + '"_RO'
 
 def char_container_rw(valobj,internal_dict,options):
     arr = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_arr').GetChildMemberWithName('ptr').Cast(valobj.target.FindFirstType("char").GetPointerType())
     size_v = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_size').unsigned
-    s = ''
+    s = '"'
+    if (size_v > 1000):
+        s = s + "(truncated from " + str(size_v) + " chars) "
+        size_v = 1000
     for i in range(size_v):
         s = s + arr.GetChildAtIndex(i, 0, True).value[1:-1]
-    return '"' + s + '"_RW'
+    return s + '"_RW'
 
 def function_address(valobj,internal_dict,options):
     ret = valobj.GetChildMemberWithName('ret').unsigned

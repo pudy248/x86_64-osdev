@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <kcstring.hpp>
 #include <kstdio.hpp>
-#include <lib/allocators/mmap.hpp>
 #include <lib/allocators/waterline.hpp>
 #include <stl/array.hpp>
 #include <stl/pointer.hpp>
@@ -64,7 +63,7 @@ struct heap_tag {
 	stacktrace alloc_trace;
 };
 
-extern vector<debug_symbol, mmap_allocator> symbol_table;
+extern vector<debug_symbol> symbol_table;
 
 void debug_init();
 void load_debug_symbs(ccstr_t filename);

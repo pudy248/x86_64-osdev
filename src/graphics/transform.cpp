@@ -1,4 +1,3 @@
-#include <graphics/math.hpp>
 #include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
 
@@ -132,4 +131,6 @@ Mat4x4 project(float nw, float nh, float n) {
 		0,
 	} };
 }
-Vec4 vnormw(Vec4 a) { return (Vec4){ a.x / a.w, a.y / a.w, a.z / a.w, a.w }; }
+Vec4 vnormw(Vec4 a) {
+	return (Vec4){ a.x / a.w, a.y / a.w, a.z / a.w, a.w };
+}

@@ -1,6 +1,7 @@
 #pragma once
 #include "../adaptor.hpp"
 #include "../concepts.hpp"
+#include <concepts>
 #include <ranges>
 #include <stl/array.hpp>
 #include <stl/iterator.hpp>
@@ -34,7 +35,7 @@ public:
 	= default;
 	constexpr cast_view(R range) : range(std::move(range)) {}
 	constexpr R base() const
-		requires std::copy_constructible<R>
+		requires std::is_copy_constructible_v<R>
 	{
 		return range;
 	}

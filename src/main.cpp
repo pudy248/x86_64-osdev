@@ -1,10 +1,13 @@
-#include <cstddef>
+#include "asm.hpp"
+#include "stl/algorithms/operators.hpp"
+#include "stl/ranges/utilities.hpp"
+#include "sys/memory/paging.hpp"
 #include <cstdint>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
 #include <graphics/pipeline.hpp>
-#include <graphics/transform.hpp>
 #include <graphics/vectypes.hpp>
+#include <initializer_list>
 #include <kassert.hpp>
 #include <kfile.hpp>
 #include <kstdio.hpp>
@@ -12,14 +15,12 @@
 #include <lib/cmd/commandline.hpp>
 #include <lib/filesystems/fat.hpp>
 #include <lib/profile.hpp>
-#include <net/arp.hpp>
 #include <net/dhcp.hpp>
 #include <net/dns.hpp>
 #include <net/http.hpp>
-#include <net/icmp.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <net/udp.hpp>
+#include <stl/iterator/utilities.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/init.hpp>
@@ -28,7 +29,7 @@
 #include <text/console.hpp>
 #include <text/gfx_terminal.hpp>
 
-extern "C" int atexit(void (*)(void)) { return 0; }
+extern "C" int atexit(void (*)()) { return 0; }
 
 static void http_main() {
 	vector<tcp_conn_t> conns;
@@ -38,9 +39,8 @@ static void http_main() {
 			tcp_conn_t c = tcp_accept(80);
 			if (!c)
 				c = tcp_accept(8080);
-			if (c) {
-				conns.append(c);
-			}
+			if (c)
+				conns.push_back(c);
 		}
 		for (std::size_t i = 0; i < conns.size(); i++) {
 			tcp_conn_t conn = conns.at(i);
@@ -51,10 +51,10 @@ static void http_main() {
 				continue;
 			}
 			if (conn->received_packets.size()) {
-				basic_istringstream<char, tcp_input_iterator, std::unreachable_sentinel_t> stream({ conn }, {});
+				basic_istringstream<char, tcp_input_iterator, null_sentinel> stream({conn}, {});
 				vector<char> h;
 				ranges::mut::copy_through_block(ranges::unbounded_range(h.oend()), stream, "\r\n\r\n"_RO);
-				vector<char> http_packet{ h.begin(), h.end() };
+				vector<char> http_packet{h.begin(), h.end()};
 				rostring s = http_packet;
 				printf("%S\n", &s);
 				if (http_process(conn, s)) {
@@ -83,7 +83,7 @@ static void dhcp_main() {
 	while (1)
 		net_fwdall();
 }
-
+/*
 static void graphics_main() {
 	pci_device* svga_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA);
 	kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, svga_pci, "No VGA display device detected!\r\n");
@@ -102,8 +102,7 @@ static void graphics_main() {
 	file_t f = fs::open("/cow.obj"_RO);
 	istringstream obj(f.rodata());
 	while (obj.readable()) {
-		if (ranges::starts_with(obj, "v ")) {
-			++obj;
+		if (obj.match("v ")) {
 			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			float x = obj.read_f();
 			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
@@ -112,8 +111,7 @@ static void graphics_main() {
 			float z = obj.read_f();
 			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			p.vertexBuffer[vi++] = (Vertex){ (Vec4){ x, y, z, 0 }, (Vec4){ 255.f, 255.f, 255.f, 0 } };
-		} else if (ranges::starts_with(obj, "f ")) {
-			obj.read_c();
+		} else if (obj.match("f ")) {
 			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
 			int v1 = obj.read_i();
 			ranges::mut::iterate_through(obj, algo::equal_to_v{ ' ' });
@@ -163,7 +161,6 @@ static void graphics_main() {
 		//
 		//	//tri3(w1, w2, w3, { 0xff, 0xff, 0xff });
 		//}
-		/*
         int now = get_rtc_second();
         if (now != second) {
             second = now;
@@ -171,10 +168,10 @@ static void graphics_main() {
             frameStart = iters;
         }
         vesa_printf(10, 10, "frame %i (%i fps)", iters2, fps);
-        */
-		svga_update();
-	}
+svga_update();
 }
+}
+*/
 
 static void dealloc_fat() {
 	file_inode* tmp = globals->fat32->root_directory.n;
@@ -193,7 +190,7 @@ static void console_init() {
 	do_pit_readout = true;
 }
 
-static int generator(int start) {
+[[noreturn]] static int generator(int start) {
 	while (1)
 		thread_co_yield(start++);
 }
@@ -207,23 +204,25 @@ static void thread_main() {
 	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
 	//thread_kill(t);
 	printf("Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
-		   units::seconds(time2 - time1).rep, (t2 - t1) / 100);
+		units::seconds(time2 - time1).rep, (t2 - t1) / 100);
 	inf_wait();
 }
 
 extern "C" void kernel_main(void) {
 	kernel_reinit();
-	globals->fat32->root_directory.n->purge();
 	do_pit_readout = true;
+	//globals->fat32->root_directory.n->purge();
 	//inf_wait();
 
 	//graphics_main();
 	//dealloc_fat();
 	console_init();
+	//inf_wait();
 	//http_main();
 	dhcp_main();
 	//thread_main();
-	//cli_init();
+	//threading_init();
+	cli_init();
 
 	//tag_dump();
 	print("Kernel reached end of execution.\n");

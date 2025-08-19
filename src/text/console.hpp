@@ -12,7 +12,7 @@ private:
 public:
 	void (*refresh)();
 	char* backing_data;
-	console(void (*)(uint32_t, uint32_t, char), void (*)(), int[2]);
+	console(void (*)(uint32_t, uint32_t, char), void (*)(), const int[2]);
 	console(console&& new_console);
 	console& operator=(console&& new_console);
 	~console();
