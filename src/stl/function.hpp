@@ -23,9 +23,12 @@ public:
 	}
 	constexpr bool has_args() { return args_data.has_value(); }
 	constexpr R operator()() {
-		kassert(DEBUG_ONLY, WARNING, args_data.has_value(),
+		kassert(DEBUG_ONLY, WARNING, args_data.has_value() || sizeof...(Args) == 0,
 			"Function instances cannot be evaluated when no argument pack exists!");
-		return std::apply(function, std::move(*args_data));
+		if constexpr (sizeof...(Args) == 0)
+			return function();
+		else
+			return std::apply(function, std::move(*args_data));
 	}
 	template <typename... Args2>
 	constexpr R operator()(Args2&&... args) {

@@ -1,6 +1,6 @@
 bits 16
 
-%define DISK_SIZE_MB 64
+%define DISK_SIZE_MB 4
 
 org 0x7c00
 
@@ -24,6 +24,8 @@ start:
     mov dl, byte [SRC_DISK]
     xchg dl, byte [DEST_DISK]
     mov byte [SRC_DISK], dl
+    dec dword [drive_lba]
+    mov byte [SYMMETRIC], 1
     .L1:
 
     mov si, str2
@@ -36,12 +38,21 @@ start:
         mov dl, byte [SRC_DISK]
         int 0x13
         jc handle_err
+        mov ah, byte [SYMMETRIC]
+        test ah, ah
+        jnz .L2
         dec word [drive_lba]
+        .L2:
         mov dl, byte [DEST_DISK]
         mov ah, 0x43
         int 0x13
         jc handle_err
-        add dword [drive_lba], 65
+        mov ah, byte [SYMMETRIC]
+        test ah, ah
+        jnz .L3
+        inc dword [drive_lba]
+        .L3:
+        add dword [drive_lba], 64
         dec dword [block_ctr]
     jnz loop_start
     loop_end:
@@ -121,6 +132,7 @@ drive_packet:
 
 SRC_DISK: db 0x80
 DEST_DISK: db 0x81
+SYMMETRIC: db 0
 
 hexTable: db "0123456789ABCDEF"
 str1: db "Press 1 to write, 2 to read.", 0xa, 0xd, 0

@@ -10,7 +10,7 @@ struct register_file {
 		};
 		uint64_t general_purpose_registers[16];
 	};
-	uint64_t rip, rflags, isr_rsp;
+	uint64_t rip, rflags, isr_rsp, pad;
 	uint256_t ymm[16];
 };
 

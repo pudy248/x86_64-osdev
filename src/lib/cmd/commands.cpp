@@ -1,11 +1,13 @@
 #include "commands.hpp"
 #include "commandline.hpp"
-#include "sys/ktime.hpp"
 #include <drivers/pci.hpp>
 #include <kfile.hpp>
 #include <kstdio.hpp>
 #include <stl/ranges.hpp>
+#include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
+#include <sys/ktime.hpp>
+#include <sys/memory/paging.hpp>
 
 static bool print_file_error(fs::ACCESS_RESULT a) {
 	switch (a) {
@@ -31,9 +33,8 @@ static bool print_file_error(fs::ACCESS_RESULT a) {
 	} while (0)
 
 int cmd_help(int, const ccstr_t*) {
-	for (auto c : cmd_arr) {
+	for (auto c : cmd_arr)
 		printf("%s\n", c.name);
-	}
 	return 0;
 }
 int cmd_echo(int argc, const ccstr_t* argv) {
@@ -161,8 +162,8 @@ int cmd_save_output(int argc, const ccstr_t* argv) {
 		return -1;
 	}
 	try_access(argv[1], fs::ACCESS_FLAGS::READ | fs::ACCESS_FLAGS::FILE | fs::ACCESS_FLAGS::CREATE_IF_MISSING);
-	file_t f = fs::unsafe::open(argv[1],
-								fs::ACCESS_FLAGS::READ | fs::ACCESS_FLAGS::FILE | fs::ACCESS_FLAGS::CREATE_IF_MISSING);
+	file_t f = fs::unsafe::open(
+		argv[1], fs::ACCESS_FLAGS::READ | fs::ACCESS_FLAGS::FILE | fs::ACCESS_FLAGS::CREATE_IF_MISSING);
 	f.data() = output_log();
 	while (1) {
 		std::ptrdiff_t off = ranges::where_is(f.rodata(), '\0');
@@ -171,6 +172,109 @@ int cmd_save_output(int argc, const ccstr_t* argv) {
 		f.data().erase(off);
 	}
 	f.n->write();
+	return 0;
+}
+
+int cmd_triple_fault(int, const ccstr_t*) {
+	kbzero(fixed_globals->idt, 256 * 8);
+	return 0;
+}
+
+int cmd_hexdump(int argc, const ccstr_t* argv) {
+	if (argc != 3) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t len = istringstream(argv[2]).read_x();
+	hexdump((void*)addr, len);
+	return 0;
+}
+int cmd_memset(int argc, const ccstr_t* argv) {
+	if (argc != 4) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t byte = istringstream(argv[2]).read_x();
+	uint64_t len = istringstream(argv[3]).read_x();
+	kmemset((void*)addr, byte, len);
+	return 0;
+}
+int cmd_readx(int argc, const ccstr_t* argv) {
+	if (argc != 3) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t len = istringstream(argv[2]).read_x();
+	switch (len) {
+	case 1: printf("%02x\n", *(uint8_t*)addr); break;
+	case 2: printf("%04x\n", *(uint16_t*)addr); break;
+	case 4: printf("%08x\n", *(uint32_t*)addr); break;
+	case 8: printf("%016x\n", *(uint64_t*)addr); break;
+	default: print("Bad length.\n"); return -1;
+	}
+	return 0;
+}
+int cmd_writex(int argc, const ccstr_t* argv) {
+	if (argc != 4) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t data = istringstream(argv[2]).read_x();
+	uint64_t len = istringstream(argv[3]).read_x();
+	switch (len) {
+	case 1: *(uint8_t*)addr = data; break;
+	case 2: *(uint16_t*)addr = data; break;
+	case 4: *(uint32_t*)addr = data; break;
+	case 8: *(uint64_t*)addr = data; break;
+	default: print("Bad length.\n"); return -1;
+	}
+	return 0;
+}
+int cmd_readpio(int argc, const ccstr_t* argv) {
+	if (argc != 3) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t len = istringstream(argv[2]).read_x();
+	switch (len) {
+	case 1: printf("%02x\n", inb(addr)); break;
+	case 2: printf("%04x\n", inw(addr)); break;
+	case 4: printf("%08x\n", inl(addr)); break;
+	default: print("Bad length.\n"); return -1;
+	}
+	return 0;
+}
+int cmd_writepio(int argc, const ccstr_t* argv) {
+	if (argc != 4) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t data = istringstream(argv[2]).read_x();
+	uint64_t len = istringstream(argv[3]).read_x();
+	switch (len) {
+	case 1: outb(addr, data); break;
+	case 2: outw(addr, data); break;
+	case 4: outl(addr, data); break;
+	default: print("Bad length.\n"); return -1;
+	}
+	return 0;
+}
+
+int cmd_memmap(int argc, const ccstr_t* argv) {
+	if (argc != 4) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	uint64_t addr = istringstream(argv[1]).read_x();
+	uint64_t size = istringstream(argv[2]).read_x();
+	uint64_t map = istringstream(argv[3]).read_x();
+	printf("%p\n", mmap(addr, size, map)());
 	return 0;
 }
 
@@ -184,17 +288,24 @@ int cmd_dump_allocs(int, const ccstr_t*) {
 }
 
 int cmd_lspci(int, const ccstr_t*) {
-	file_t f = fs::open("/pci.ids");
-	pci_ids ids = parse_pci_ids(f.rodata());
+	file_t f1 = fs::open("/pci1.ids");
+	file_t f2 = fs::open("/pci2.ids");
 
 	for (int i = 0; i < globals->pci->numDevs; i++) {
 		pci_device& d = globals->pci->devices[i];
-		rostring vname = pci_vendor_name(ids, d.vendor_id);
-		rostring dname = pci_device_name(ids, d.vendor_id, d.device_id);
+		pci_id ids = pci_lookup(f1.rodata(), f2.rodata(), d);
 
-		printf("(%i:%i:%i) dev:%04x %S\n    vendor:%04x %S\n    class %02x:%02x:%02x:%02x\n", d.address.bus,
-			   d.address.slot, d.address.func, d.device_id, &dname, d.vendor_id, &vname, d.class_id, d.subclass,
-			   d.prog_if, d.rev_id);
+		printf("(%i:%i:%i) %04x  %S\n", d.address.bus, d.address.slot, d.address.func, d.vendor_id, &ids.vendor);
+		printf("  device:%04x   %S\n", d.device_id, &ids.device);
+		printf("  %02x:%02x:%02x:%02x   ", d.class_id, d.subclass, d.prog_if, d.rev_id);
+		if (ids.prog_if.size())
+			printf("%S (%S)\n", &ids.subclass, &ids.prog_if);
+		else if (ids.subclass.size())
+			printf("%S\n", &ids.subclass);
+		else
+			printf("%S\n", &ids.class_id);
+		printf("  BAR %08x %08x %08x\n", d.bars[0], d.bars[1], d.bars[2]);
+		printf("  BAR %08x %08x %08x\n", d.bars[3], d.bars[4], d.bars[5]);
 	}
 	return 0;
 }

@@ -1,3 +1,4 @@
+#include "asm.hpp"
 #include <cstdint>
 #include <kassert.hpp>
 #include <kstdlib.hpp>
@@ -21,7 +22,7 @@ void memset(void* dest, uint8_t src, uint64_t size) {
 	for (uint64_t i = 0; i < size; i++)
 		((uint8_t*)dest)[i] = src;
 }
-int memcmp(void* l, void* r, uint64_t size) {
+int memcmp(const void* l, const void* r, uint64_t size) {
 	for (uint64_t i = 0; i < size; i++) {
 		if (((uint8_t*)l)[i] > ((uint8_t*)r)[i])
 			return 1;
@@ -34,9 +35,9 @@ int memcmp(void* l, void* r, uint64_t size) {
 
 void mem_init() {
 	new (&globals->global_waterline) waterline_allocator<void>(mmap(0x2000000, 0x400000, 0), 0x400000);
-	new (&globals->global_heap) heap_allocator<void>(mmap(0x2000000, 0x1000000, 0), 0x1000000);
+	new (&globals->global_heap_alloc) heap_allocator<void>(mmap(0x2000000, 0x1000000, 0), 0x1000000);
 	new (&globals->global_mmap_alloc) mmap_allocator<void>();
-	new (&globals->global_pagemap) slab_pagemap();
+	new (&globals->global_slab_alloc) slab_pagemap();
 }
 
 [[gnu::returns_nonnull, gnu::malloc]] void* __walloc(uint64_t size, uint16_t alignment) {
@@ -44,24 +45,23 @@ void mem_init() {
 }
 
 [[gnu::returns_nonnull, gnu::malloc]] void* __malloc(uint64_t size, uint16_t alignment) {
-	void* ptr = globals->global_pagemap.alloc(size);
-	if (!ptr && size > 0x10000)
-		ptr = globals->global_mmap_alloc.alloc(size);
-	if (!ptr)
-		ptr = globals->global_heap.alloc(size, alignment);
-	return ptr;
+	if (size <= 0x40)
+		return globals->global_slab_alloc.alloc(size);
+	if (size >= 0x10000)
+		return globals->global_mmap_alloc.alloc(size);
+	return globals->global_heap_alloc.alloc(size, alignment);
 }
 
 void __free(void* ptr) {
-	if (globals->global_pagemap.contains(ptr))
-		globals->global_pagemap.dealloc(ptr);
+	if (globals->global_slab_alloc.contains(ptr))
+		globals->global_slab_alloc.dealloc(ptr);
 	else if (globals->global_mmap_alloc.contains(ptr))
 		globals->global_mmap_alloc.dealloc(ptr);
-	else if (globals->global_heap.contains(ptr))
-		globals->global_heap.dealloc(ptr);
+	else if (globals->global_heap_alloc.contains(ptr))
+		globals->global_heap_alloc.dealloc(ptr);
 	else {
-		print("Freed non-freeable allocation!\n");
-		wait_until_kbhit();
+		printf("Freed non-freeable allocation %p!\n", ptr);
+		inf_wait();
 		inline_stacktrace();
 	}
 }

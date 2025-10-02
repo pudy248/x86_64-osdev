@@ -17,38 +17,37 @@ constexpr void transform(OutR&& out, const InR& range, UnaryOp op = {}) {
 template <ranges::range OutR, ranges::range InR, ranges::range InR2, typename BinaryOp>
 constexpr void transform(OutR&& out, const InR& range, const InR2& range2, BinaryOp op = {}) {
 	algo::transform(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-					ranges::begin(range2), ranges::end(range2), std::move(op));
+		ranges::begin(range2), ranges::end(range2), std::move(op));
 }
 
 template <ranges::range R, typename Init = ranges::value_t<R>, typename UnaryOp, typename BinaryOp = algo::add>
 constexpr Init transform_reduce(const R& range, Init init = {}, UnaryOp transform = {}, BinaryOp reduce = {}) {
-	return algo::transform_reduce(ranges::begin(range), ranges::end(range), std::move(init), std::move(transform),
-								  std::move(reduce));
+	return algo::transform_reduce(
+		ranges::begin(range), ranges::end(range), std::move(init), std::move(transform), std::move(reduce));
 }
 
 template <ranges::range R, ranges::range R2, typename Init = ranges::value_t<R>, typename BinaryOp = algo::mul,
-		  typename BinaryOp2 = algo::add>
-constexpr Init transform_reduce(const R& range, const R2& range2, Init init = {}, BinaryOp transform = {},
-								BinaryOp2 reduce = {}) {
+	typename BinaryOp2 = algo::add>
+constexpr Init transform_reduce(
+	const R& range, const R2& range2, Init init = {}, BinaryOp transform = {}, BinaryOp2 reduce = {}) {
 	return algo::transform_reduce(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-								  std::move(init), std::move(transform), std::move(reduce));
+		std::move(init), std::move(transform), std::move(reduce));
 }
 
 template <ranges::range OutR, ranges::range InR, typename Init = ranges::value_t<InR>, typename BinaryOp = algo::add,
-		  typename UnaryOp = algo::identity>
-constexpr Init reduce_transform(OutR&& out, const InR& range, Init init = {}, BinaryOp reduce = {},
-								UnaryOp transform = {}) {
+	typename UnaryOp = algo::identity>
+constexpr Init reduce_transform(
+	OutR&& out, const InR& range, Init init = {}, BinaryOp reduce = {}, UnaryOp transform = {}) {
 	return algo::reduce_transform(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-								  std::move(init), std::move(reduce), std::move(transform));
+		std::move(init), std::move(reduce), std::move(transform));
 }
 
 template <ranges::range OutR, ranges::range InR, ranges::range InR2, typename Init = ranges::value_t<InR>,
-		  typename BinaryOp, typename BinaryOp2>
-constexpr Init reduce_transform(const InR& range, const InR2& range2, OutR&& out, Init init = {}, BinaryOp reduce = {},
-								BinaryOp2 transform = {}) {
+	typename BinaryOp, typename BinaryOp2>
+constexpr Init reduce_transform(
+	const InR& range, const InR2& range2, OutR&& out, Init init = {}, BinaryOp reduce = {}, BinaryOp2 transform = {}) {
 	return algo::reduce_transform(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-								  ranges::begin(range2), ranges::end(range2), std::move(init), std::move(reduce),
-								  std::move(transform));
+		ranges::begin(range2), ranges::end(range2), std::move(init), std::move(reduce), std::move(transform));
 }
 
 template <ranges::range R, typename UnaryPred>
@@ -61,8 +60,8 @@ constexpr ranges::difference_t<R> find_if_not(const R& range, UnaryPred predicat
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr ranges::iterator_t<R> find_if(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::find_if(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						 std::move(predicate));
+	return algo::find_if(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, typename T>
 constexpr ranges::iterator_t<R> find(const R& range, T value) {
@@ -79,8 +78,8 @@ constexpr ranges::difference_t<R> where_not(const R& range, UnaryPred predicate 
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr ranges::difference_t<R> where_if(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::where_if(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						  std::move(predicate));
+	return algo::where_if(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, typename T>
 constexpr ranges::difference_t<R> where_is(const R& range, T value) {
@@ -97,8 +96,8 @@ constexpr ranges::iterator_t<RTarget> find_first_of(RTarget target, RValues valu
 }
 template <ranges::range RTarget, ranges::range RValues, typename BinaryPred>
 constexpr ranges::iterator_t<RTarget> find_if_block(RTarget target, RValues values, BinaryPred predicate = {}) {
-	return algo::find_if_block(ranges::begin(target), ranges::end(target), ranges::begin(values), ranges::end(values),
-							   predicate);
+	return algo::find_if_block(
+		ranges::begin(target), ranges::end(target), ranges::begin(values), ranges::end(values), predicate);
 }
 template <ranges::range RTarget, ranges::range RValues>
 constexpr ranges::iterator_t<RTarget> find_block(RTarget target, RValues values) {
@@ -124,13 +123,13 @@ constexpr bool all_of(const R& range, UnaryPred predicate = {}) {
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr bool all_of_partial(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::all_of_partial(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-								std::move(predicate));
+	return algo::all_of_partial(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr bool all_of(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::all_of(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						std::move(predicate));
+	return algo::all_of(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, typename UnaryPred>
 constexpr bool any_of(const R& range, UnaryPred predicate = {}) {
@@ -138,8 +137,8 @@ constexpr bool any_of(const R& range, UnaryPred predicate = {}) {
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr bool any_of(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::any_of(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						std::move(predicate));
+	return algo::any_of(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, typename UnaryPred>
 constexpr bool none_of(const R& range, UnaryPred predicate = {}) {
@@ -147,24 +146,24 @@ constexpr bool none_of(const R& range, UnaryPred predicate = {}) {
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred>
 constexpr bool none_of(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::none_of(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						 std::move(predicate));
+	return algo::none_of(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 
 template <ranges::range R, ranges::range R2, typename BinaryPred = algo::equal_to>
 constexpr bool equal(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::equal(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-					   std::move(predicate));
+	return algo::equal(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred = algo::equal_to>
 constexpr bool starts_with(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::starts_with(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-							 std::move(predicate));
+	return algo::starts_with(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range R, ranges::range R2, typename BinaryPred = algo::equal_to>
 constexpr bool ends_with(const R& range, const R2& range2, BinaryPred predicate = {}) {
-	return algo::ends_with(ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2),
-						   std::move(predicate));
+	return algo::ends_with(
+		ranges::begin(range), ranges::end(range), ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 
 template <ranges::range OutR, ranges::range InR>
@@ -214,66 +213,66 @@ constexpr void indexed_generate_n(const R& range, ranges::difference_t<R> n, Una
 
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> copy_if(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::copy_if(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-						 std::move(predicate));
+	return algo::copy_if(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> copy_if_not(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::copy_if_not(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-							 std::move(predicate));
+	return algo::copy_if_not(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> move_if(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::move_if(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-						 std::move(predicate));
+	return algo::move_if(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> move_if_not(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::move_if_not(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-							 std::move(predicate));
+	return algo::move_if_not(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> copy_while(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::copy_while(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-							std::move(predicate));
+	return algo::copy_while(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> copy_until(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::copy_until(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-							std::move(predicate));
+	return algo::copy_until(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 template <ranges::range OutR, ranges::range InR, typename UnaryPred>
 constexpr ranges::iterator_t<OutR> copy_through(OutR&& out, const InR& range, UnaryPred predicate = {}) {
-	return algo::copy_through(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-							  std::move(predicate));
+	return algo::copy_through(
+		ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range), std::move(predicate));
 }
 
 template <ranges::range OutR, ranges::range InR, ranges::range InR2, typename BinaryPred = algo::equal_to>
-constexpr ranges::iterator_t<OutR> copy_until_block(OutR&& out, const InR& range, const InR2& range2,
-													BinaryPred predicate = {}) {
+constexpr ranges::iterator_t<OutR> copy_until_block(
+	OutR&& out, const InR& range, const InR2& range2, BinaryPred predicate = {}) {
 	return algo::copy_until_block(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-								  ranges::begin(range2), ranges::end(range2), std::move(predicate));
+		ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range InR, ranges::range InR2, typename BinaryPred = algo::equal_to,
-		  std::output_iterator<std::iter_value_t<ranges::iterator_t<InR>>> OutI>
+	std::output_iterator<std::iter_value_t<ranges::iterator_t<InR>>> OutI>
 [[deprecated("Unbounded output iterator")]]
 constexpr void copy_through_block(OutI out, const InR& begin, const InR2& range2, BinaryPred predicate = {}) {
-	algo::copy_through_block(ranges::begin(out), ranges::end(out), begin, ranges::begin(range2), ranges::end(range2),
-							 std::move(predicate));
+	algo::copy_through_block(
+		ranges::begin(out), ranges::end(out), begin, ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range OutR, std::input_iterator InI, ranges::range InR2, typename BinaryPred = algo::equal_to>
 [[deprecated("Unbounded 1st iterator")]]
-constexpr ranges::iterator_t<OutR> copy_through_block(OutR&& out, InI begin, const InR2& range2,
-													  BinaryPred predicate = {}) {
-	return algo::copy_through_block(ranges::begin(out), ranges::end(out), begin, ranges::begin(range2),
-									ranges::end(range2), std::move(predicate));
+constexpr ranges::iterator_t<OutR> copy_through_block(
+	OutR&& out, InI begin, const InR2& range2, BinaryPred predicate = {}) {
+	return algo::copy_through_block(
+		ranges::begin(out), ranges::end(out), begin, ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 template <ranges::range OutR, ranges::range InR, ranges::range InR2, typename BinaryPred = algo::equal_to>
-constexpr ranges::iterator_t<OutR> copy_through_block(OutR&& out, const InR& range, const InR2& range2,
-													  BinaryPred predicate = {}) {
+constexpr ranges::iterator_t<OutR> copy_through_block(
+	OutR&& out, const InR& range, const InR2& range2, BinaryPred predicate = {}) {
 	return algo::copy_through_block(ranges::begin(out), ranges::end(out), ranges::begin(range), ranges::end(range),
-									ranges::begin(range2), ranges::end(range2), std::move(predicate));
+		ranges::begin(range2), ranges::end(range2), std::move(predicate));
 }
 }

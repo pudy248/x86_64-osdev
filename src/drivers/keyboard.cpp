@@ -4,7 +4,7 @@
 #include <sys/debug.hpp>
 #include <text/text_display.hpp>
 
-KeyboardBuffer keyboardInput = { 0, 0, 0, 0, 0, 0, {} };
+KeyboardBuffer keyboardInput = {0, 0, 0, 0, 0, 0, {}};
 
 struct {
 	int start;
@@ -12,11 +12,11 @@ struct {
 	const char* lowercase;
 	const char* uppercase;
 } spans[] = {
-	{ 0x2, 0xD, "1234567890-=\b", "!@#$%^&*()_+\b" },
-	{ 0x10, 0xD, "qwertyuiop[]\n", "QWERTYUIOP{}\n" },
-	{ 0x1E, 0xC, "asdfghjkl;'`", "ASDFGHJKL:\"~" },
-	{ 0X2B, 0xB, "\\zxcvbnm,./", "|ZXCVBNM<>?" },
-	{ 0x39, 0x1, " ", " " },
+	{0x2, 0xD, "1234567890-=\b", "!@#$%^&*()_+\b"},
+	{0x10, 0xD, "qwertyuiop[]\n", "QWERTYUIOP{}\n"},
+	{0x1E, 0xC, "asdfghjkl;'`", "ASDFGHJKL:\"~"},
+	{0X2B, 0xB, "\\zxcvbnm,./", "|ZXCVBNM<>?"},
+	{0x39, 0x1, " ", " "},
 };
 
 void keyboard_irq(uint64_t, struct register_file*) {
@@ -70,7 +70,7 @@ char key_to_ascii(uint8_t key) {
 int getchar() {
 	while (1) {
 		while (keyboardInput.pushIdx == keyboardInput.popIdx)
-			cpu_relax();
+			thread_yield();
 		uint8_t key = keyboardInput.loopqueue[keyboardInput.popIdx];
 		keyboardInput.popIdx = (keyboardInput.popIdx + 1) % 256;
 

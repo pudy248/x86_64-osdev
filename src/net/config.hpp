@@ -4,13 +4,16 @@ constexpr bool PROMISCUOUS = true;
 constexpr bool PACKET_LOG = false;
 constexpr bool PACKET_HEXDUMP = false;
 
+constexpr bool IPv4_LOG = false;
+
 constexpr bool ARP_LOG = false;
 constexpr bool ARP_LOG_UPDATE = false;
 constexpr int ARP_MAX_RETRIES = 1;
 
 constexpr bool TCP_ENABLED = true;
-constexpr bool TCP_LOG = true;
+constexpr bool TCP_LOG = false;
 constexpr bool TCP_LOG_VERBOSE = false;
+constexpr bool TCP_RST_ON_CLOSE = true;
 
 constexpr bool UDP_ENABLED = true;
 constexpr bool UDP_LOG = false;

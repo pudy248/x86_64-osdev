@@ -99,7 +99,7 @@ void wait_until_kbhit() {
 	stacktrace r = {};
 	pointer<uint64_t, reinterpret> rbp = __builtin_frame_address(0);
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
+		r.ptrs[r.num_ptrs++] = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
 		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
@@ -107,32 +107,33 @@ void wait_until_kbhit() {
 
 [[gnu::noinline]] stacktrace stacktrace::trace(pointer<uint64_t, integer> rbp, uint64_t return_addr) {
 	stacktrace r = {};
-	r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(return_addr), pointer<void, reinterpret>(rbp)};
+	r.ptrs[r.num_ptrs++] = {pointer<void, reinterpret>(return_addr), pointer<void, reinterpret>(rbp)};
 	while (r.num_ptrs < r.ptrs.size() && rbp[1] > 0x8000) {
-		r.ptrs.at(r.num_ptrs++) = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
+		r.ptrs[r.num_ptrs++] = {pointer<void, reinterpret>(rbp[1]), pointer<void, reinterpret>(rbp[0])};
 		rbp = pointer<uint64_t, reinterpret>(*rbp);
 	}
 	return r;
 }
 
-stacktrace::stacktrace(const stacktrace& other, int start) : num_ptrs(other.num_ptrs - start) {
-	ranges::copy(ranges::subrange(other.ptrs, start, other.num_ptrs), ptrs);
+stacktrace::stacktrace(const stacktrace& other, uint32_t start) : num_ptrs(other.num_ptrs - start) {
+	for (uint32_t i = 0; i < num_ptrs; i++)
+		ptrs[i] = other.ptrs[i + start];
+	//ranges::copy(ptrs, ranges::subrange(other.ptrs, start));
 }
 
 void stacktrace::print() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (uint32_t i = 0; i < num_ptrs; i++) {
-		pointer<debug_symbol> nearest = nearest_symbol(ptrs.at(i).ret);
-		printf("%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret(), ptrs.at(i).rbp(), nearest ? nearest->name : "(none)");
+		pointer<debug_symbol> nearest = nearest_symbol(ptrs[i].ret);
+		printf("%3i:  %08x  %08x  %s\n", i, ptrs[i].ret(), ptrs[i].rbp(), nearest ? nearest->name : "(none)");
 	}
 	::print("\n");
 }
 void stacktrace::eprint() const {
 	::print("\nIDX:  RETURN    STACKPTR  NAME\n");
 	for (uint32_t i = 0; i < num_ptrs; i++) {
-		pointer<debug_symbol> nearest = nearest_symbol(ptrs.at(i).ret);
-		errorf<512>(
-			"%3i:  %08x  %08x  %s\n", i, ptrs.at(i).ret(), ptrs.at(i).rbp(), nearest ? nearest->name : "(none)");
+		pointer<debug_symbol> nearest = nearest_symbol(ptrs[i].ret);
+		errorf<512>("%3i:  %08x  %08x  %s\n", i, ptrs[i].ret(), ptrs[i].rbp(), nearest ? nearest->name : "(none)");
 	}
 	::print("\n");
 }

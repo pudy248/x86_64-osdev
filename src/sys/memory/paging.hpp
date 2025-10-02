@@ -9,10 +9,15 @@ enum MMAP_FLAGS {
 	MAP_PINNED = 0x0004, // Cannot be moved or swapped.
 	MAP_INITIALIZE = 0x0008, // Initialize mapped memory to 0.
 	MAP_PERMANENT = 0x0010, // Cannot be unmapped.
-	MAP_WRITETHROUGH = 0x0020,
-	MAP_CONTIGUOUS = 0x0040,
+	MAP_CONTIGUOUS = 0x0020,
 
-	MAP_ALLOCATED = 0x1000, // Automatically allocated.
+	MAP_READONLY = 0x0040,
+	MAP_USER = 0x0080,
+	MAP_EXEC_DISABLE = 0x0100,
+	MAP_WRITETHROUGH = 0x0200,
+	MAP_UNCACHEABLE = 0x0400,
+
+	MAP_ALLOCATED = 0x8000, // Automatically allocated.
 
 	MAP_KERNEL = MAP_PHYSICAL | MAP_PERMANENT | MAP_PINNED,
 	MAP_RESERVED = MAP_KERNEL,
@@ -81,19 +86,21 @@ struct frame_t {
 
 struct frame_table_entry {
 	uint64_t p : 1;
-	uint64_t pad : 3;
-	uint64_t free_children : 10;
-	uint64_t null_children : 10;
+	uint64_t pad : 23;
 	uint64_t addr : 40;
 
-	constexpr frame_table_entry(pointer<void, reinterpret> address, int f, int n);
+	constexpr frame_table_entry(pointer<void, reinterpret> addressn);
 	constexpr pointer<void, reinterpret> address();
 };
 using frame_pdt = frame_table_entry (&)[512];
 using frame_pdtp = frame_table_entry (*)[512];
 using frame_table_t = frame_t (&)[512];
 
-pointer<void, reinterpret> find_contiguous_frames(pointer<void, reinterpret> start, uint64_t size);
+extern bool no_invariant_addresses;
+auto invariant_mem_address(auto addr) -> decltype(addr) {
+	return no_invariant_addresses ? addr : (decltype(addr))((uintptr_t)addr | 0xffff800000000000);
+}
+pointer<void, reinterpret> alloc_contiguous_frames(pointer<void, reinterpret> start, uint64_t size);
 
 // Allocate and modify frames. Also handles MAP_INITIALIZE
 void pmmap(pointer<void, reinterpret> paddr, size_t size, uint16_t flags, int map);
@@ -101,15 +108,23 @@ void pmmap(pointer<void, reinterpret> paddr, size_t size, uint16_t flags, int ma
 void vmmap(pointer<void, reinterpret> vaddr, size_t size, uint16_t flags, int map);
 // Set page physical addresses
 void vppair(pointer<void, reinterpret> vaddr, pointer<void, reinterpret> paddr);
+void mdirect_map(pointer<void, reinterpret> vaddr, pointer<void, reinterpret> paddr, size_t size, int map);
 }
 
 static inline void invlpg(void* m) { asmv("invlpg (%0)\n" : : "b"(m) : "memory"); }
 
 pointer<void, reinterpret> mmap(pointer<void, reinterpret> addr, size_t size, int map);
-void mdirect_map(pointer<void, reinterpret> vaddr, pointer<void, reinterpret> paddr, size_t size, int map);
+pointer<void, reinterpret> mmap2(
+	pointer<void, reinterpret> vaddr, pointer<void, reinterpret> paddr, size_t size, int map);
 void munmap(pointer<void, reinterpret> addr, size_t size);
 void mprotect(pointer<void, reinterpret> addr, size_t size, int map);
 int mstat(pointer<void, reinterpret> addr);
 auto virt2phys(auto virt) -> decltype(virt);
+
+struct page_span {
+	uint64_t addr;
+	uint64_t size;
+};
+vector<page_span> fragmented_virt2phys(pointer<void, reinterpret> virt, uint64_t size);
 
 void paging_init();

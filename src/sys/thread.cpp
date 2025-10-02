@@ -1,4 +1,6 @@
+#include "thread.hpp"
 #include <asm.hpp>
+#include <config.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <kassert.hpp>
@@ -6,9 +8,7 @@
 #include <stl/map.hpp>
 #include <stl/optional.hpp>
 #include <sys/fixed_global.hpp>
-#include <sys/thread.hpp>
-
-//#define INTERRUPT_SWAP
+#include <sys/memory/paging.hpp>
 
 static unordered_map<int, pointer<thread_context<>, type_cast, owning>, uint32_t> contexts;
 static uint32_t thread_id_ctr = 0;
@@ -18,7 +18,7 @@ static bool allow_context_switching = false;
 extern "C" void swap_context();
 
 static pointer<thread_context<>> get_thread_context(thread_any t) {
-	for (auto& [_, c] : contexts)
+	for (auto [_, c] : contexts)
 		if (c->id == t.id)
 			return c;
 	kassert(ALWAYS_ACTIVE, CATCH_FIRE, true, "Failed to find thread.");
@@ -39,42 +39,45 @@ static void thread_entry(thread_context<R>* context) {
 	thread_exit(0);
 }
 
+std::size_t num_thread_contexts() { return contexts.size(); }
+
 void threading_init() {
 	new (&contexts) std::remove_reference_t<decltype(contexts)>{1};
 	contexts.insert(++thread_id_ctr, new thread_context<>{});
 	pointer<thread_context<>> context = contexts[thread_id_ctr];
 	context->id = thread_id_ctr;
 	context->state = THREAD_STATE::RUNNING;
-	context->stack_bottom = 0x200000;
+	context->stack_bottom = 0x1f0000;
+	context->stack_size = 0x10000;
 	context->args = nullptr;
 	active_thread = context;
 
 	munmap(fixed_globals->register_file_ptr(), 0x1000);
-	fixed_globals->register_file_ptr.ptr = 0;
 	fixed_globals->register_file_ptr = pointer(&active_thread->registers);
 
 	allow_context_switching = true;
 }
 
 template <typename R, typename... Args>
-thread<R> thread_create(R (*fn)(Args...), Args... args) {
+thread<R> thread_create(R (*fn)(Args...), std::type_identity_t<Args>... args) {
 	return thread_create_w(thread_creation_opts(), fn, args...);
 }
 
 template <typename R, typename... Args>
-thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), Args... args) {
+thread<R> thread_create_w(thread_creation_opts opts, R (*fn)(Args...), std::type_identity_t<Args>... args) {
 	function_instance<R (*)(Args...)>* dispatch = new function_instance<R (*)(Args...)>(fn, args...);
 	contexts.insert(++thread_id_ctr, new thread_context<>{});
 	pointer<thread_context<R>, integer> context = contexts[thread_id_ctr];
 	context->id = thread_id_ctr;
 	context->state = THREAD_STATE::UNSTARTED;
-	context->stack_bottom = mmap(nullptr, opts.stack_size, 0);
+	context->stack_bottom = mmap(nullptr, opts.stack_size, MAP_INITIALIZE);
+	context->stack_size = opts.stack_size;
 	context->args = dispatch;
 	context->registers = {};
 
 	context->registers.rip = (uint64_t)&thread_entry<R, Args...>;
 	context->registers.rflags = 0x202;
-	context->registers.rsp = uint64_t(context->stack_bottom);
+	context->registers.rsp = uint64_t(context->stack_bottom) + context->stack_size - 0x10;
 	context->registers.isr_rsp = context->registers.rsp - 0x38;
 	context->registers.rdi = uint64_t(context);
 
@@ -93,11 +96,10 @@ void thread_switch(thread_any t) {
 	active_thread = context;
 	fixed_globals->register_file_ptr_swap = pointer(&context->registers);
 	active_thread->state = THREAD_STATE::RUNNING;
-#ifdef INTERRUPT_SWAP
-	invoke_interrupt<30>();
-#else
-	swap_context();
-#endif
+	if constexpr (INTERRUPT_SWAP)
+		invoke_interrupt<30>();
+	else
+		swap_context();
 	enable_interrupts();
 }
 [[gnu::noreturn]] void thread_exit(int code) {
@@ -105,14 +107,28 @@ void thread_switch(thread_any t) {
 	active_thread->exit_code = code;
 	thread_yield();
 	kassert(UNMASKABLE, CATCH_FIRE, true, "No threads to switch to. Did the kernel die?");
-	inf_wait();
+	cpu_halt();
 }
 void thread_yield() {
-	for (auto& [_, c] : contexts)
-		if (c->state == THREAD_STATE::UNSTARTED || c->state == THREAD_STATE::SUSPENDED)
-			thread_switch(c->handle());
+	if (!allow_context_switching)
+		return;
+	active_thread->yield_timestamp = rdtsc();
+	thread_any oldest = -1;
+	uint64_t oldest_timestamp = -1llu;
+	for (auto [_, c] : contexts) {
+		if ((c->state == THREAD_STATE::UNSTARTED || c->state == THREAD_STATE::SUSPENDED) &&
+			c->yield_timestamp < oldest_timestamp) {
+			oldest = c->handle();
+			oldest_timestamp = c->yield_timestamp;
+		}
+	}
+	if (oldest_timestamp != -1llu)
+		thread_switch(oldest);
 }
-void thread_kill(thread_any t) { contexts.erase(t.id); }
+void thread_kill(thread_any t) {
+	munmap(contexts[t.id]->stack_bottom, contexts[t.id]->stack_size);
+	contexts.erase(t.id);
+}
 template <typename R>
 R thread_join(thread<R> t) {
 	volatile thread_context<R>* context = get_thread_context(t);

@@ -1,5 +1,5 @@
 #pragma once
-#include <graphics/vectypes.hpp>
+#include "vectypes.hpp"
 
 Mat4x4 identity(void);
 Mat4x4 translate(float dx, float dy, float dz);

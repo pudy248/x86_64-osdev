@@ -8,9 +8,8 @@ struct path {
 	vector<string> fragments;
 	constexpr path() = default;
 	constexpr path(const rostring& s) : fragments(std::move(s.split('/'))) {
-		while (fragments.size() && !fragments[(fragments.size() - 1)].size()) {
+		while (fragments.size() && !fragments[(fragments.size() - 1)].size())
 			fragments.erase(fragments.size() - 1);
-		}
 		if (!fragments.size())
 			fragments.push_back("");
 	}
@@ -57,8 +56,8 @@ struct file_inode {
 
 	vector<char> data;
 
-	file_inode(uint64_t filesize, uint64_t attributes, pointer<file_inode> parent, uint64_t fs_attribs,
-			   uint64_t fs_reference);
+	file_inode(
+		uint64_t filesize, uint64_t attributes, pointer<file_inode> parent, uint64_t fs_attribs, uint64_t fs_reference);
 	~file_inode();
 
 	void open();
@@ -194,8 +193,8 @@ file_t open(const file_t& directory, const rostring& filename, int flags = ACCES
 file_t open_rel(const file_t& directory, const path& relative_path, int flags = ACCESS_FLAGS::READ);
 file_t open(const path& path, int flags = ACCESS_FLAGS::READ);
 
-ACCESS_RESULT move(const file_t& file, const file_t& directory, const rostring& filename,
-				   int flags = ACCESS_FLAGS::MODIFY);
+ACCESS_RESULT move(
+	const file_t& file, const file_t& directory, const rostring& filename, int flags = ACCESS_FLAGS::MODIFY);
 ACCESS_RESULT move(const path& src, const path& dst, int flags = ACCESS_FLAGS::MODIFY);
 
 ACCESS_RESULT remove(file_t& file);

@@ -10,7 +10,7 @@ concept iterator_of = (std::input_iterator<I> && std::same_as<std::remove_cvref_
 
 template <typename I>
 using iter_temporary = std::conditional_t<std::is_reference_v<decltype(*std::declval<I&>())>, std::iter_reference_t<I>&,
-										  std::iter_reference_t<I>>;
+	std::iter_reference_t<I>>;
 
 namespace impl {
 template <typename T>

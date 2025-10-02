@@ -1,3 +1,5 @@
+#include "asm.hpp"
+#include "kassert.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <kstdio.hpp>
@@ -9,86 +11,91 @@
 #include <net/tcp.hpp>
 #include <net/udp.hpp>
 
-bool ipv4_get(ipv4_packet& out) {
-	eth_packet p;
-	if (!eth_get(p))
-		return false;
-	if (p.i.ethertype != ETHERTYPE::IPv4) {
-		net_forward(p);
+optional<ipv4_packet> ipv4_get() {
+	auto opt = eth_get();
+	if (!opt)
+		return {};
+	if (opt->i.ethertype != ETHERTYPE::IPv4) {
+		net_forward(opt.get());
 		return false;
 	}
-	out = ipv4_process(p);
-	return true;
+	return ipv4_read(opt.get());
 }
 
-ipv4_packet ipv4_process(eth_packet p) {
-	ipv4_header* ip = (ipv4_header*)p.b.data_begin;
-	std::byte* data = p.b.data_begin + sizeof(ipv4_header);
-	// std::size_t size = p.b.data_size - sizeof(ipv4_header);
+ipv4_packet ipv4_read(eth_packet p) {
+	ipv4_packet ip{(ipv4_info)p.i, p.b};
+	ip.b.read<uint8_t>(); //ver_ihl
+	ip.b.read<uint8_t>(); //dscp
+	uint16_t expected_size = ip.b.read<uint16_t>() - 20;
+	ip.b.read<uint16_t>(); //ident
+	ip.b.read<uint16_t>(); //frag_offset
+	ip.i.ttl = ip.b.read<uint8_t>();
+	ip.i.protocol = ip.b.read<IPv4_PROTOCOL>();
+	uint16_t checksum = ip.b.read<uint16_t>(); // check never
+	ip.i.src_ip = ip.b.read<ipv4_t>();
+	ip.i.dst_ip = ip.b.read<ipv4_t>();
 
-	uint16_t expected_size = htons(ip->total_length) - sizeof(ipv4_header);
-	uint16_t actual_size = p.b.data_size - sizeof(ipv4_header);
+	uint16_t actual_size = p.b.data_size - 20;
 
 	if (expected_size > actual_size) {
-		qprintf<128>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip->src_ip,
-					 expected_size, actual_size);
-		hexdump(ip, min(expected_size, actual_size));
-		return {};
+		qprintf<128>("[IPv4] In packet from %I: Mismatch in ethernet and IP packet sizes! %i vs %i\n", ip.i.src_ip,
+			expected_size, actual_size);
+		//hexdump(p.b.data_begin, min(expected_size, actual_size));
+		inf_wait();
+		return ipv4_packet(0);
 	}
+	ip.b.data_size = expected_size;
 
-	// printf("[IPv4] %I -> %I (%i/%i bytes)\n", ip->src_ip, ip->dst_ip, expected_size, actual_size);
+	if (IPv4_LOG)
+		printf("[IPv4] R %I -> %I (%i/%i bytes)\n", ip.i.src_ip, ip.i.dst_ip, expected_size, actual_size);
 
-	ipv4_info npi = (ipv4_info)p.i;
-	npi.protocol = ip->protocol;
-	npi.src_ip = ip->src_ip;
-	npi.dst_ip = ip->dst_ip;
-	npi.ttl = 64;
-	return { npi, { p.b.frame_begin, data, expected_size } };
+	return ip;
 }
 
 net_buffer_t ipv4_new(std::size_t data_size) {
-	net_buffer_t buf = eth_new(data_size + sizeof(ipv4_header));
-	return { buf.frame_begin, buf.data_begin + sizeof(ipv4_header), data_size };
+	net_buffer_t buf = eth_new(data_size + 32);
+	return {buf.frame_begin, buf.data_begin + 32, data_size};
 }
 
-int ipv4_send(ipv4_packet p) {
-	ipv4_header* ip = (ipv4_header*)(p.b.data_begin - sizeof(ipv4_header));
-	ip->ver_ihl = 0x45;
-	ip->dscp = 0;
-	ip->total_length = htons(20 + p.b.data_size);
-	ip->ident = 0x100;
-	ip->frag_offset = 0;
-	ip->ttl = p.i.ttl ? p.i.ttl : 64;
-	ip->protocol = p.i.protocol;
-	ip->src_ip = p.i.src_ip;
-	ip->dst_ip = p.i.dst_ip;
-	ip->checksum = 0;
-	ip->checksum = net_checksum(ip, (ip->ver_ihl & 0xf) << 2);
+eth_packet ipv4_write(ipv4_packet p) {
+	uint16_t total_length = 20 + p.b.data_size;
+	p.b.write<ipv4_t>(p.i.dst_ip);
+	p.b.write<ipv4_t>(p.i.src_ip);
+	p.b.write<uint16_t>(0); // checksum
+	p.b.write<IPv4_PROTOCOL>(p.i.protocol);
+	p.b.write<uint8_t>(p.i.ttl ? p.i.ttl : 64);
+	p.b.write<uint16_t>(0); // frag
+	p.b.write<uint16_t>(rdtsc());
+	p.b.write<uint16_t>(total_length);
+	p.b.write<uint8_t>(0); // dscp
+	p.b.write<uint8_t>(0x45);
 
-	eth_info eth;
-	eth.ethertype = ETHERTYPE::IPv4;
-	eth.src_mac = global_mac.as_int;
-	eth.dst_mac = arp_translate_ip(p.i.dst_ip);
-	net_buffer_t buf = { p.b.frame_begin, p.b.data_begin - sizeof(ipv4_header), p.b.data_size + sizeof(ipv4_header) };
+	if (IPv4_LOG)
+		printf("[IPv4] S %I -> %I (%i bytes)\n", p.i.src_ip, p.i.dst_ip, total_length);
 
-	return eth_send({ eth, buf });
+	((uint16_t*)p.b.data_begin)[5] = net_checksum(p.b.data_begin, 20);
+	p.i.ethertype = ETHERTYPE::IPv4;
+	p.i.src_mac = global_mac.as_int;
+	p.i.dst_mac = arp_translate_ip(p.i.dst_ip);
+	return {p.i, p.b};
 }
+net_async_t ipv4_send(ipv4_packet p) { return eth_send(ipv4_write(p)); }
 
 void ipv4_forward(ipv4_packet p) {
 	switch (p.i.protocol) {
-	case IPv4::PROTOCOL_TCP:
+	case IPv4_PROTOCOL::TCP:
 		if (TCP_ENABLED) {
 			tcp_receive(p);
 			return;
 		}
 		break;
-	case IPv4::PROTOCOL_UDP:
+	case IPv4_PROTOCOL::UDP:
 		if (UDP_ENABLED) {
-			udp_forward(udp_process(p));
+			udp_forward(udp_read(p));
 			return;
 		}
 		break;
 	default: break;
 	}
-	kfree(p.b.frame_begin);
+	//kfree(p.b.frame_begin);
 }

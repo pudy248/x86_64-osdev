@@ -1,8 +1,8 @@
-#include <graphics/transform.hpp>
-#include <graphics/vectypes.hpp>
+#include "transform.hpp"
+#include "vectypes.hpp"
 
 Mat4x4 identity() {
-	return (Mat4x4){ {
+	return (Mat4x4){{
 		1,
 		0,
 		0,
@@ -19,10 +19,10 @@ Mat4x4 identity() {
 		0,
 		0,
 		1,
-	} };
+	}};
 }
 Mat4x4 translate(float dx, float dy, float dz) {
-	return (Mat4x4){ {
+	return (Mat4x4){{
 		1,
 		0,
 		0,
@@ -39,7 +39,7 @@ Mat4x4 translate(float dx, float dy, float dz) {
 		0,
 		0,
 		1,
-	} };
+	}};
 }
 Mat4x4 rotate(float tx, float ty, float tz) {
 	float sx, cx, sy, cy, sz, cz;
@@ -47,7 +47,7 @@ Mat4x4 rotate(float tx, float ty, float tz) {
 	cossinf(ty, &cy, &sy);
 	cossinf(tz, &cz, &sz);
 
-	Mat4x4 p123 = { {
+	Mat4x4 p123 = {{
 		cy * cz,
 		-cy * sz,
 		sy,
@@ -64,11 +64,11 @@ Mat4x4 rotate(float tx, float ty, float tz) {
 		0,
 		0,
 		1,
-	} };
+	}};
 	return p123;
 }
 Mat4x4 scale(float f) {
-	return (Mat4x4){ {
+	return (Mat4x4){{
 		f,
 		0,
 		0,
@@ -85,14 +85,14 @@ Mat4x4 scale(float f) {
 		0,
 		0,
 		1,
-	} };
+	}};
 }
 Mat4x4 rebase(Vec3 up, Vec3 forward, Vec3 pos) {
 	Vec3 nd = norm3(forward);
 	Vec3 nu = norm3(up);
 	Vec3 r = cross(nd, nu);
 	Vec3 u = cross(r, nd);
-	return (Mat4x4){ {
+	return (Mat4x4){{
 		r.x,
 		r.y,
 		r.z,
@@ -109,10 +109,10 @@ Mat4x4 rebase(Vec3 up, Vec3 forward, Vec3 pos) {
 		0,
 		0,
 		1,
-	} };
+	}};
 }
 Mat4x4 project(float nw, float nh, float n) {
-	return (Mat4x4){ {
+	return (Mat4x4){{
 		2 * n / nw,
 		0,
 		0,
@@ -129,8 +129,6 @@ Mat4x4 project(float nw, float nh, float n) {
 		0,
 		-1,
 		0,
-	} };
+	}};
 }
-Vec4 vnormw(Vec4 a) {
-	return (Vec4){ a.x / a.w, a.y / a.w, a.z / a.w, a.w };
-}
+Vec4 vnormw(Vec4 a) { return (Vec4){a.x / a.w, a.y / a.w, a.z / a.w, a.w}; }

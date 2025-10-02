@@ -1,13 +1,11 @@
+#include "graphics.hpp"
+#include "math.hpp"
+#include "pipeline.hpp"
+#include "vectypes.hpp"
 #include <cstdint>
-#include <graphics/graphics.hpp>
-#include <graphics/math.hpp>
-#include <graphics/pipeline.hpp>
-#include <graphics/vectypes.hpp>
 #include <kstddef.hpp>
 
-static char clip(Vec4 p) {
-	return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0;
-}
+static char clip(Vec4 p) { return abs(p.x) > 1 || abs(p.y) > 1 || p.w < 0; }
 
 static Vec4 screenspace(RenderPipeline* pipeline, Vec4 p) {
 	p.x = (p.x * 0.5f + 0.5f) * (float)pipeline->display_w;
@@ -72,8 +70,8 @@ void raster_line(RenderPipeline* pipeline, uint32_t p1, uint32_t p2) {
 	}
 }
 
-static void scanline(RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1,
-					 float depth2) {
+static void scanline(
+	RenderPipeline* pipeline, int x1, int x2, int y, Vec4 color1, Vec4 color2, float depth1, float depth2) {
 	if (x2 < x1) {
 		int tmp1 = x1;
 		x1 = x2;

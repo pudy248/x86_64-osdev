@@ -1,4 +1,3 @@
-#include "stl/iterator/utilities.hpp"
 #include <iterator>
 #include <kfile.hpp>
 #include <kstdio.hpp>
@@ -11,14 +10,14 @@
 http_response http_get(tcp_conn_t conn) {
 	vector<char> http_header;
 	ranges::val::copy_through_block(
-		ranges::unbounded_range{http_header.oend()}, ranges::unbounded_range{tcp_input_iterator{conn}}, "\r\n\r\n"_RO);
+		ranges::unbounded_range{std::back_inserter(http_header)}, tcp_range{conn}, "\r\n\r\n"_RO);
 	istringstream s{http_header};
 
 	bool chunked = false;
 	int64_t length = 0;
 	int status = 0;
 
-	while (true) {
+	while (s.readable()) {
 		if (s.match("\r\n"_RO)) {
 			break;
 		} else if (s.match("HTTP/1.1 "_RO)) {
@@ -36,19 +35,17 @@ http_response http_get(tcp_conn_t conn) {
 	}
 
 	vector<char> output;
-	basic_istringstream<char, tcp_input_iterator, null_sentinel> stream2{{conn}, {}};
+	basic_istringstream<char, tcp_input_iterator, tcp_input_sentinel> stream2{{conn}, {}};
 
 	if (chunked) {
-		while (1) {
+		while (stream2.readable()) {
 			int64_t frag_length = stream2.read_x();
 			if (!stream2.match("\r\n"_RO))
 				print("HTTP chunked encoding error.\n");
 			if (!frag_length)
 				break;
 			length += frag_length + 2;
-			printf("frag length %i\n", frag_length);
 			ranges::mut::copy_n(ranges::unbounded_range(std::back_inserter(output)), stream2, frag_length);
-			stream2.ignore(frag_length);
 			if (!stream2.match("\r\n"_RO))
 				print("HTTP chunked encoding error 2.\n");
 		}

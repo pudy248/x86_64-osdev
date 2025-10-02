@@ -3,8 +3,10 @@
 #include <net/config.hpp>
 #include <net/dhcp.hpp>
 #include <net/dns.hpp>
+#include <net/ipv4.hpp>
 #include <net/net.hpp>
 #include <net/udp.hpp>
+#include <stl/optional.hpp>
 #include <sys/ktime.hpp>
 
 static string dns_name(ibinstream<>& s) {
@@ -23,7 +25,7 @@ static string dns_compressed_name(ibinstream<>& s, dns_header* hdr) {
 	if (len >= 0xc0) {
 		s.ignore(1);
 		uint8_t off = s.read_raw<uint8_t>();
-		ibinstream<> s2{ (std::byte*)hdr + off };
+		ibinstream<> s2{(std::byte*)hdr + off};
 		return dns_name(s2);
 	}
 	return dns_name(s);
@@ -31,18 +33,18 @@ static string dns_compressed_name(ibinstream<>& s, dns_header* hdr) {
 
 static dns_question get_question(ibinstream<>& s, dns_header* hdr) {
 	string name = dns_compressed_name(s, hdr);
-	uint16_t type = s.read_raw<uint16_t>();
-	uint16_t cc = s.read_raw<uint16_t>();
-	return { name, type, cc };
+	DNS_TYPE type = s.read_raw<DNS_TYPE>();
+	DNS_CLASS_CODE cc = s.read_raw<DNS_CLASS_CODE>();
+	return {name, type, cc};
 }
 static dns_answer get_answer(ibinstream<>& s, dns_header* hdr) {
 	string name = dns_compressed_name(s, hdr);
-	uint16_t type = htons(s.read_raw<uint16_t>());
-	uint16_t cc = htons(s.read_raw<uint16_t>());
+	DNS_TYPE type = htons(s.read_raw<DNS_TYPE>());
+	DNS_CLASS_CODE cc = htons(s.read_raw<DNS_CLASS_CODE>());
 	uint32_t ttl = htonl(s.read_raw<uint32_t>());
 	uint16_t len = htons(s.read_raw<uint16_t>());
-	span<const std::byte> d{ s.reference_read(len) };
-	return { name, type, cc, ttl, d };
+	span<const std::byte> d{s.reference_read(len)};
+	return {name, type, cc, ttl, d};
 }
 
 static void write_question(obinstream<>& s, dns_question q) {
@@ -57,14 +59,14 @@ static void write_question(obinstream<>& s, dns_question q) {
 }
 
 static bool dns_get(uint16_t xid, dns_packet& out_packet) {
-	ipv4_packet p;
-	if (!ipv4_get(p))
+	optional<ipv4_packet> opt = ipv4_get();
+	if (!opt)
 		return false;
-	if (p.i.protocol != IPv4::PROTOCOL_UDP) {
-		ipv4_forward(p);
+	if (opt->i.protocol != IPv4_PROTOCOL::UDP) {
+		ipv4_forward(opt);
 		return false;
 	}
-	udp_packet p2 = udp_process(p);
+	udp_packet p2 = udp_read(opt.get());
 	if (p2.i.src_port != DNS_PORT) {
 		udp_forward(p2);
 		return false;
@@ -74,7 +76,7 @@ static bool dns_get(uint16_t xid, dns_packet& out_packet) {
 		udp_forward(p2);
 		return false;
 	}
-	out_packet = { { p2.i, h }, p2.b };
+	out_packet = {{p2.i, h}, p2.b};
 	return true;
 }
 
@@ -87,8 +89,8 @@ retry:
 	dns->n_ans = 0;
 	dns->n_auth_RR = 0;
 	dns->n_addl_RR = 0;
-	obinstream<> os{ (std::byte*)(dns + 1) };
-	write_question(os, { domain, DNS_TYPE::A, DNS_CLASS_CODE::IN });
+	obinstream<> os{(std::byte*)(dns + 1)};
+	write_question(os, {domain, DNS_TYPE::A, DNS_CLASS_CODE::IN});
 	udp_info npi;
 	npi.dst_ip = active_lease.dns;
 	npi.src_port = 12345;
@@ -96,20 +98,20 @@ retry:
 	uint16_t xid = rdtsc();
 	timepoint t1 = timepoint::now();
 	dns->xid = xid;
-	udp_send({ npi, b });
+	udp_send({npi, b});
+	net_send(b);
 	if (DNS_LOG)
 		qprintf<128>("[DNS] <XID %04x> Query: \"%S\" A IN\n", xid, &domain);
 
-	dns_packet p;
+	dns_packet p(0);
 	while (1) {
-		if (dns_get(xid, p)) {
+		if (dns_get(xid, p))
 			break;
-		}
 		if (timepoint::now() - t1 > units::seconds(5.))
 			goto retry;
 	}
 	dns_header* dns2 = p.i.header;
-	ibinstream<> is{ (std::byte*)(dns2 + 1) };
+	ibinstream<> is{(std::byte*)(dns2 + 1)};
 	dns_question q;
 	for (int i = 0; i < htons(dns2->n_quest); i++)
 		q = get_question(is, dns2);
@@ -122,15 +124,15 @@ retry:
 			if (DNS_LOG)
 				qprintf<128>("[DNS] <XID %04x> Response: \"%S\" %I A IN\n", xid, &aname, ip);
 		}
-		if (ans.type == DNS_TYPE::A && ans.class_code && DNS_CLASS_CODE::IN) {
+		if (ans.type == DNS_TYPE::A && ans.class_code == DNS_CLASS_CODE::IN) {
 			ipv4_t ip;
 			kmemcpy(&ip, ans.data.begin(), 4);
-			kfree(p.b.frame_begin);
+			//kfree(p.b.frame_begin);
 			return ip;
 		}
 	}
 	if (DNS_LOG)
 		qprintf<128>("[DNS] <XID %04x> Response: \"%S\" NOT FOUND\n", xid, &domain);
-	kfree(p.b.frame_begin);
+	//kfree(p.b.frame_begin);
 	return 0;
 }

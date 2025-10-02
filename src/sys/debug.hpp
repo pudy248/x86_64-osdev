@@ -50,7 +50,7 @@ public:
 	uint32_t num_ptrs;
 	array<stack_frame, DEBUG_MAX_STACK_FRAMES> ptrs;
 	stacktrace() = default;
-	stacktrace(const stacktrace& other, int start);
+	stacktrace(const stacktrace& other, uint32_t start);
 	[[gnu::noinline]] static stacktrace trace();
 	static stacktrace trace(pointer<uint64_t, integer> rbp, uint64_t return_addr);
 	void print() const;

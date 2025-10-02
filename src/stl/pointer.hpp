@@ -175,6 +175,12 @@ struct [[clang::trivial_abi]] pointer : public contiguous_iterator_interface<poi
 	{
 		this->~pointer();
 		new (this) pointer(std::forward<pointer<T, OtherTraits...>>(other));
+		//if constexpr (is_sized) this->size = other.size;
+		if constexpr ((is_owning && pointer<T, OtherTraits...>::is_owning) ||
+					  (is_nocopy || pointer<T, OtherTraits...>::is_nocopy)) {
+			other.ptr = 0;
+			//if constexpr (pointer<T, OtherTraits...>::is_sized) other.size = 0;
+		}
 		return *this;
 	}
 

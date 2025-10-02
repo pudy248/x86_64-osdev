@@ -15,8 +15,8 @@ struct global_data_t {
 	pointer<class text_layer, nocopy, nofree> g_stdout;
 
 	waterline_allocator<void> global_waterline;
-	heap_allocator<void> global_heap;
-	slab_pagemap global_pagemap;
+	heap_allocator<void> global_heap_alloc;
+	slab_pagemap global_slab_alloc;
 	mmap_allocator<void> global_mmap_alloc;
 	vector<heap_tag, waterline_allocator<heap_tag>> heap_allocations;
 	bool tag_allocs;
@@ -31,6 +31,7 @@ struct global_data_t {
 	pointer<struct ahci_device, nocopy, nofree> ahci;
 	pointer<struct svga_device, nocopy, nofree> svga;
 	pointer<struct e1000_device, nocopy, nofree> e1000;
+	pointer<struct ihd_gfx_device, nocopy, nofree> ihd_gfx;
 	pointer<struct fat_sys_data, nocopy, nofree> fat32;
 	pointer<struct filesystem, nocopy, nofree> fs;
 };

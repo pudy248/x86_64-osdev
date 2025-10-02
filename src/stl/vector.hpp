@@ -57,12 +57,13 @@ public:
 		new (this) heap_array(std::forward<heap_array<T, A>>(other));
 		return *this;
 	}
-	constexpr void clear() {
-		if (m_arr) {
-			destruct(&*begin(), m_size);
-			alloc.dealloc(m_arr);
+	template <typename Derived>
+	constexpr void clear(this Derived& self) {
+		if (self.m_arr) {
+			destruct(&*self.begin(), self.m_size);
+			self.alloc.dealloc(self.m_arr);
 		}
-		this->unsafe_clear();
+		self.unsafe_clear();
 	}
 	constexpr ~heap_array() {
 		clear();
@@ -311,7 +312,7 @@ public:
 			this->iat(idx) = elem;
 		else {
 			resize(this->size() + 1);
-			for (std::ptrdiff_t i = this->size() - 1; i > idx; i--)
+			for (std::size_t i = this->size() - 1; i > idx; i--)
 				this->m_at(i) = std::move(this->m_at(i - 1));
 			this->m_at(idx) = std::forward<T>(elem);
 		}

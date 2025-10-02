@@ -6,10 +6,10 @@
 namespace ranges {
 template <ranges::forward_range R>
 constexpr view<ranges::iterator_t<R>> subrange(R range, ranges::difference_t<R> begin, ranges::difference_t<R> end) {
-	return { std::next(ranges::begin(range), begin), std::next(ranges::begin(range), end) };
+	return {std::next(ranges::begin(range), begin), std::next(ranges::begin(range), end)};
 }
 template <ranges::range R>
 constexpr R subrange(R range, ranges::difference_t<R> begin) {
-	return { std::next(ranges::begin(range), begin), ranges::end(range) };
+	return {std::next(ranges::begin(range), begin), ranges::end(range)};
 }
 }

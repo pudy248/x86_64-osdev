@@ -38,9 +38,14 @@ class VectorSynthProvider(object):
     def update(self):
         self.count = None
         try:
-            self.arr = self.valobj.GetChildMemberWithName("m_arr").GetChildMemberWithName("ptr")
+            self.arr = self.valobj.GetChildMemberWithName("m_arr")
             self.size = self.valobj.GetChildMemberWithName("m_size")
-            self.data_type = self.valobj.GetType().GetTemplateArgumentType(0)
+            type = self.valobj.GetType()
+            if type.IsReferenceType():
+                type = type.GetDereferencedType()
+            if type.IsTypedefType():
+                type = type.GetTypedefedType()
+            self.data_type = type.GetTemplateArgumentType(0)
             self.data_size = self.data_type.GetByteSize()
             if (
                 self.arr.IsValid()
@@ -50,7 +55,9 @@ class VectorSynthProvider(object):
                 self.count = None
             else:
                 self.count = 0
-        except:
+        except Exception as e:
+            print("Except")
+            print(e)
             self.count = 0
         return False
     
@@ -97,9 +104,14 @@ class VectorSynthProviderDeref(object):
     def update(self):
         self.count = None
         try:
-            self.arr = self.valobj.GetChildMemberWithName("m_arr").GetChildMemberWithName("ptr")
+            self.arr = self.valobj.GetChildMemberWithName("m_arr")
             self.size = self.valobj.GetChildMemberWithName("m_size")
-            self.ptr_type = self.valobj.type.GetTemplateArgumentType(0)
+            type = self.valobj.GetType()
+            if type.IsReferenceType():
+                type = type.GetDereferencedType()
+            if type.IsTypedefType():
+                type = type.GetTypedefedType()
+            self.ptr_type = type.GetTemplateArgumentType(0)
             self.ptr_size = self.ptr_type.GetByteSize()
             if (
                 self.arr.IsValid()

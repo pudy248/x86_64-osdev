@@ -28,10 +28,9 @@ constexpr bool ends_with(I begin, S end, I2 begin2, S2 end2, BinaryPred predicat
 	if (end2 - begin2 > end - begin)
 		return false;
 	begin = end - (end2 - begin2);
-	for (; begin2 != end2; ++begin, ++begin2) {
+	for (; begin2 != end2; ++begin, ++begin2)
 		if (!predicate(*begin, *begin2))
 			return false;
-	}
 	return true;
 }
 }

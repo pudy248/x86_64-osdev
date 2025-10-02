@@ -138,7 +138,7 @@ void fat_init() {
 	kassert(ALWAYS_ACTIVE, ERROR, i < 4, "No FAT32 partition found, was the MBR corrupted?\n");
 	globals->fat32 = pointer<fat_sys_data, nocopy>::make_nocopy(new fat_sys_data());
 	globals->fat32->bpb = pointer<fat32_bpb, nocopy>::make_nocopy(new fat32_bpb());
-	read_disk(globals->fat32->bpb, partTable->entries[i].lba_start, 1);
+	read_disk(globals->fat32->bpb, partTable->entries[i].lba_start, 1, 512);
 	kassert(
 		ALWAYS_ACTIVE, ERROR, globals->fat32->bpb->signature == SIG_BPB_FAT32, "Partition not recognized as FAT32.\n");
 
@@ -154,7 +154,7 @@ void fat_init() {
 		globals->fat32->fat_tables.emplace_back(
 			pointer<uint32_t, nocopy, type_cast>::make_nocopy(mmap(nullptr, fat_entries() * sizeof(uint32_t), 0)));
 		read_disk(globals->fat32->fat_tables[i], fat_lba() + i * globals->fat32->bpb->sectors_per_fat32,
-			globals->fat32->bpb->sectors_per_fat32);
+			globals->fat32->bpb->sectors_per_fat32, 512 * globals->fat32->bpb->sectors_per_fat32);
 	}
 
 	new (&globals->fat32->root_directory)
@@ -195,7 +195,8 @@ static vector<char> from_disk_layout(const vector<fat_disk_span>& disk_layout) {
 	for (std::size_t i = 0; i < disk_layout.size(); i++) {
 		std::size_t sectors = disk_layout.at(i).span_length * globals->fat32->sectors_per_cluster;
 		std::size_t lba = cluster_lba(disk_layout.at(i).cluster_start);
-		read_disk(ptr_offset(res.begin(), cluster_idx * globals->fat32->bytes_per_cluster), lba, sectors);
+		read_disk(
+			ptr_offset(res.begin(), cluster_idx * globals->fat32->bytes_per_cluster), lba, sectors, 512 * sectors);
 		cluster_idx += disk_layout.at(i).span_length;
 	}
 	return res;
@@ -246,11 +247,13 @@ static void alloc_disk_layout(vector<fat_disk_span>& disk_layout, std::size_t sz
 		fat_entry(last.cluster_start + last.span_length - 1) = FAT_TABLE_CHAIN_STOP;
 	}
 }
-static void to_disk_layout(vector<fat_disk_span>& disk_layout, pointer<const void, reinterpret> ptr) {
+static void to_disk_layout(vector<fat_disk_span>& disk_layout, pointer<const void, reinterpret> ptr, std::size_t sz) {
 	for (std::size_t i = 0; i < disk_layout.size(); i++) {
 		write_disk(ptr, cluster_lba(disk_layout[i].cluster_start),
-			disk_layout[i].span_length * globals->fat32->sectors_per_cluster);
+			disk_layout[i].span_length * globals->fat32->sectors_per_cluster,
+			min(sz, disk_layout[i].span_length * globals->fat32->bytes_per_cluster));
 		ptr = ptr_offset(ptr, disk_layout[i].span_length * globals->fat32->bytes_per_cluster);
+		sz -= disk_layout[i].span_length * globals->fat32->bytes_per_cluster;
 	}
 }
 
@@ -407,14 +410,18 @@ end_lfn:
 static void write_bpb_fats() {
 	//globals->fat32->bpb->root_cluster_num = globals->fat32->root_directory.n->fs_reference;
 	//globals->fat32->bpb->root_dir_entries = globals->fat32->root_directory.children().size();
-	write_disk(globals->fat32->bpb, globals->fat32->bpb_lba_offset, 1);
-	write_disk(globals->fat32->bpb, globals->fat32->bpb_lba_offset + globals->fat32->bpb->backup_boot_sector, 1);
+
+	if (false) { // bpb_dirty
+		write_disk(globals->fat32->bpb, globals->fat32->bpb_lba_offset, 1, 512);
+		write_disk(
+			globals->fat32->bpb, globals->fat32->bpb_lba_offset + globals->fat32->bpb->backup_boot_sector, 1, 512);
+	}
 
 	for (std::size_t i = 1; i < globals->fat32->fat_tables.size(); i++)
 		kmemcpy<4096>(globals->fat32->fat_tables[i], globals->fat32->fat_tables[0], fat_entries() * sizeof(uint32_t));
 	for (std::size_t i = 0; i < globals->fat32->fat_tables.size(); i++) {
 		write_disk(globals->fat32->fat_tables[i], fat_lba() + i * globals->fat32->bpb->sectors_per_fat32,
-			globals->fat32->bpb->sectors_per_fat32);
+			globals->fat32->bpb->sectors_per_fat32, 512 * globals->fat32->bpb->sectors_per_fat32);
 	}
 }
 
@@ -456,11 +463,10 @@ void fat_write_file(pointer<file_inode> file) {
 	file->filesize = file->fs_attribs & FAT_ATTRIBS::DIRECTORY ? 0 : file->data.size();
 	vector<fat_disk_span> layout = file->fs_reference ? read_file_layout(file->fs_reference) : vector<fat_disk_span>();
 	alloc_disk_layout(layout, file->data.size());
+	write_bpb_fats();
 	file->fs_reference = layout.size() ? layout[0].cluster_start : 0;
-	to_disk_layout(layout, file_t(file).rodata().begin());
+	to_disk_layout(layout, file_t(file).rodata().begin(), file->data.size());
 
 	if (!file->is_directory)
 		fat_write_directory(file->parent);
-
-	write_bpb_fats();
 }

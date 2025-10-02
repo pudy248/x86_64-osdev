@@ -24,14 +24,13 @@ void arp_update(mac_t mac, ipv4_t ip) {
 			return;
 		}
 	}
-	arp_table.push_back({ mac, ip });
+	arp_table.push_back({mac, ip});
 }
 
 ipv4_t arp_translate_mac(mac_t mac) {
-	for (std::size_t i = 0; i < arp_table.size(); i++) {
+	for (std::size_t i = 0; i < arp_table.size(); i++)
 		if (mac == arp_table[i].mac)
 			return arp_table[i].ip;
-	}
 	return 0;
 }
 
@@ -81,20 +80,24 @@ mac_t arp_translate_ip(ipv4_t ip) {
 }
 
 void arp_process(eth_packet p) {
-	arp_header* h = (arp_header*)p.b.data_begin;
-	ipv4_t selfIP = 0, targetIP = 0;
-	mac_t selfMac = 0, targetMac = 0;
+	uint16_t htype = p.b.read<uint16_t>();
+	uint16_t ptype = p.b.read<uint16_t>();
+	uint8_t hlen = p.b.read<uint8_t>();
+	uint8_t plen = p.b.read<uint8_t>();
+	uint16_t op = p.b.read<uint16_t>();
+	mac_t selfMac = p.b.read<mac_t>();
+	ipv4_t selfIP = p.b.read<ipv4_t>();
+	mac_t targetMac = p.b.read<mac_t>();
+	ipv4_t targetIP = p.b.read<ipv4_t>();
 
-	memcpy(&selfIP, &h->selfIP, 4);
-	memcpy(&targetIP, &h->targetIP, 4);
-	memcpy(&selfMac, &h->selfMac, 6);
-	memcpy(&targetMac, &h->targetMac, 6);
+	arp_header* h = (arp_header*)p.b.data_begin;
+
 	bool sMac = !!selfMac;
 	bool sIp = !!selfIP;
 	bool tMac = !!targetMac;
 	bool tIp = !!targetIP;
 
-	switch ((sMac << 0) | (sIp << 1) | (tMac << 2) | (tIp << 3) | (htons(h->op) << 4)) {
+	switch ((sMac << 0) | (sIp << 1) | (tMac << 2) | (tIp << 3) | (op << 4)) {
 	case 0x19: //Probe
 		if (ARP_LOG)
 			printf("[ARP] %M wants to know: Is %I available?\n", selfMac, targetIP);
@@ -140,36 +143,36 @@ void arp_process(eth_packet p) {
 		break;
 	default:
 		printf("[ARP] Not sure what to do with %s. (%M %I) (%M %I)\n", htons(h->op) == 2 ? "reply" : "request",
-			   h->selfMac, h->selfIP, h->targetMac, h->targetIP);
+			h->selfMac, h->selfIP, h->targetMac, h->targetIP);
 		break;
 	}
-	kfree(p.b.frame_begin);
+	//kfree(p.b.frame_begin);
 }
 
 net_async_t arp_send(uint16_t op, arp_entry self, arp_entry target) {
 	mac_t eth_dst;
-	if (!target.mac || (op == ARP::TYPE_REQUEST && target.mac == self.mac))
+	if (!target.mac || (op == ARP::TYPE_PROBE && target.mac == self.mac))
 		eth_dst = MAC_BCAST;
 	else
 		eth_dst = target.mac;
 
-	net_buffer_t buf = eth_new(sizeof(arp_header));
-	arp_header* h = (arp_header*)buf.data_begin;
-	h->htype = htons(HTYPE::ETH);
-	h->ptype = htons(ARP::PTYPE_IPv4);
-	h->hlen = 6;
-	h->plen = 4;
-	h->op = htons(op);
-	memcpy(&h->selfIP, &self.ip, 4);
-	memcpy(&h->targetIP, &target.ip, 4);
-	memcpy(&h->selfMac, &self.mac, 6);
-	memcpy(&h->targetMac, &target.mac, 6);
+	net_buffer_t buf = eth_new(28);
+
+	buf.write<ipv4_t>(target.ip);
+	buf.write<mac_t>(target.mac);
+	buf.write<ipv4_t>(self.ip);
+	buf.write<mac_t>(self.mac);
+	buf.write<uint16_t>(op);
+	buf.write<uint8_t>(4);
+	buf.write<uint8_t>(6);
+	buf.write<uint16_t>(ARP::PTYPE_IPv4);
+	buf.write<uint16_t>(HTYPE::ETH);
 
 	eth_info eth;
 	eth.dst_mac = eth_dst;
 	eth.src_mac = self.mac;
 	eth.ethertype = ETHERTYPE::ARP;
-	return eth_send({ eth, buf });
+	return eth_send({eth, buf});
 }
 
 net_async_t arp_whois(mac_t mac) {

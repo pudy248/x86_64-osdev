@@ -6,6 +6,7 @@
 #include <sys/fixed_global.hpp>
 #include <sys/global.hpp>
 #include <sys/ktime.hpp>
+#include <sys/thread.hpp>
 #include <text/console.hpp>
 #include <text/text_display.hpp>
 
@@ -15,14 +16,14 @@ bool do_pit_readout = false;
 
 static bool reset_tsc = false;
 
-void inc_pit(uint64_t, register_file*) {
+void inc_pit(uint64_t, register_file* reg) {
 	globals->elapsed_pits++;
 	if (reset_tsc) [[unlikely]] {
 		globals->reference_tsc = rdtsc();
 		globals->elapsed_pits = 0;
 		reset_tsc = false;
 	}
-	if (globals->elapsed_pits == 1) [[unlikely]]
+	if (globals->elapsed_pits == 2) [[unlikely]]
 		calibrate_frequency();
 	if (globals->elapsed_pits == 10) [[unlikely]]
 		calibrate_frequency();
@@ -43,17 +44,15 @@ void inc_pit(uint64_t, register_file*) {
 		o.print(rostring(arr.begin()), true, o.dims[0], 0);
 		formats(arr.begin(), "PIT %02i:%02i:%02.3f\n", t2.hour, t2.minute, t2.second + t2.micros / 1000000.);
 		o.print(rostring(arr.begin()), true);
-		formats(arr.begin(), "   FA %i\n", fixed_globals->frames_allocated);
-		o.print(rostring(arr.begin()), true);
-		formats(arr.begin(), "   FF %i\n", fixed_globals->frames_free);
+		formats(arr.begin(), "IP %p\n", reg->rip);
 		o.print(rostring(arr.begin()), true);
 		formats(arr.begin(), "   PA %i\n", fixed_globals->pages_allocated);
 		o.print(rostring(arr.begin()), true);
 		formats(arr.begin(), "    W %i\n", globals->global_waterline.mem_used());
 		o.print(rostring(arr.begin()), true);
-		formats(arr.begin(), "    H %i\n", globals->global_heap.mem_used());
+		formats(arr.begin(), "    H %i\n", globals->global_heap_alloc.mem_used());
 		o.print(rostring(arr.begin()), true);
-		formats(arr.begin(), "    S %i\n", globals->global_pagemap.mem_used());
+		formats(arr.begin(), "    S %i\n", globals->global_slab_alloc.mem_used());
 		o.print(rostring(arr.begin()), true);
 		o.display(default_output());
 		refresh_tty();
@@ -62,6 +61,9 @@ void inc_pit(uint64_t, register_file*) {
 
 void time_init(void) {
 	globals->frequency = 3000;
+	reset_tsc = true;
+	while (globals->elapsed_pits < 1)
+		cpu_relax();
 	reset_tsc = true;
 	globals->reference_timepoint = htimepoint::cmos_time();
 }
@@ -124,12 +126,12 @@ void tsc_delay(uint64_t cycles) {
 void pit_delay(units::seconds seconds) {
 	timepoint start = timepoint::pit_time();
 	while (timepoint::pit_time() - start < seconds)
-		cpu_relax();
+		thread_yield();
 }
 void delay(units::seconds seconds) {
 	timepoint start = timepoint::now();
 	while (timepoint::now() - start < seconds)
-		cpu_relax();
+		thread_yield();
 }
 
 /*
@@ -156,5 +158,10 @@ int clockspeed_MHz() {
 void calibrate_frequency() {
 	units::pit_cnts pit{(double)globals->elapsed_pits};
 	uint64_t tsc = rdtsc() - globals->reference_tsc;
-	globals->frequency = tsc / units::microseconds(pit);
+	double frequency = tsc / units::microseconds(pit);
+	if (frequency < 1000 || frequency > 10000) {
+		printf("Frequency: %f\n", frequency);
+		return;
+	}
+	globals->frequency = frequency;
 }

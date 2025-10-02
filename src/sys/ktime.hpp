@@ -9,11 +9,11 @@ struct duration {
 	T rep;
 	template <typename R2>
 	constexpr operator duration<T, R2>() const {
-		return { rep * std::ratio_divide<R, R2>::num / std::ratio_divide<R, R2>::den };
+		return {rep * std::ratio_divide<R, R2>::num / std::ratio_divide<R, R2>::den};
 	}
 	template <typename T2>
 	constexpr operator duration<T2, R>() const {
-		return { (T2)rep };
+		return {(T2)rep};
 	}
 	template <typename T2, typename R2>
 	constexpr operator duration<T2, R2>() const {
@@ -125,7 +125,7 @@ struct timepoint {
 };
 
 struct htimepoint {
-	static constexpr uint8_t month_lengths[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	static constexpr uint8_t month_lengths[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 	uint32_t micros;
 	uint8_t second;

@@ -1,7 +1,8 @@
+#include "e1000.hpp"
 #include <asm.hpp>
 #include <cstdint>
-#include <drivers/e1000.hpp>
 #include <drivers/pci.hpp>
+#include <drivers/register.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <net/net.hpp>
@@ -15,30 +16,27 @@ static void e1000_int_handler(uint64_t, register_file*);
 
 constexpr bool copy_tx = true;
 
-static void e1000_write(uint16_t addr, uint32_t val) {
-	((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2] = val;
-}
-static uint32_t e1000_read(uint16_t addr) { return ((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2]; }
+namespace E1000 {
+void e1000_write(uint16_t addr, uint32_t val) { ((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2] = val; }
+uint32_t e1000_read(uint16_t addr) { return ((volatile uint32_t*)globals->e1000->mmio_base)[addr >> 2]; }
 static uint16_t e1000_read_eeprom(uint8_t addr) {
-	uint32_t tmp;
-	tmp = (uint32_t)addr << 8;
-	tmp |= 1;
-	e1000_write(E1000_REG::EERD, tmp);
+	EERD{} = EERD::ADDR(addr) | EERD::START;
 	for (int i = 0; 1; i++) {
-		outb(0x80, 0);
-		tmp = e1000_read(E1000_REG::EERD);
-		if (tmp & 0x10)
+		io_wait();
+		if (EERD{}.DONE_v)
 			break;
 		if (i > 1000) {
-			qprintf<80>("EEPROM Read Error: %08x %08x\n", e1000_read(E1000_REG::EECD), e1000_read(E1000_REG::EERD));
+			qprintf<80>("EEPROM Read Error: %08x %08x\n", (uint32_t)EEC{}, (uint32_t)EERD{});
 			inf_wait();
 		}
 	}
-	return tmp >> 16;
+	return EERD{}.DATA_v;
 }
+}
+using namespace E1000;
 
 static void e1000_link() {
-	e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) | 0x40);
+	CTRL{}.write(CTRL::SPEED, CTRL::S_100Mb);
 	link_fn();
 }
 
@@ -60,21 +58,24 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 	pci_enable_mem(e1000_pci.address);
 	printf("Using Ethernet MMIO at %08x=>%08x\n", e1000_pci.bars[0], globals->e1000->mmio_base);
 
-	//Clear and disable interrupts
-	e1000_write(E1000_REG::IMC, 0xFFFFFFFF);
-	e1000_read(E1000_REG::ICR);
-
 	//Global reset
-	e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) & ~0x04000000);
-	outb(0x80, 0);
-	e1000_write(E1000_REG::CTRL, e1000_read(E1000_REG::CTRL) & ~0xC0000088);
+	CTRL{}.set(CTRL::RST);
+	io_wait();
+	mmio_transaction trans{CTRL{}};
+	trans.clear(CTRL::PHY_RST);
+	trans.clear(CTRL::LRST);
+	trans.commit();
+
+	//Clear and disable interrupts
+	IMC{} = 0xFFFFFFFF;
+	(void)ICR{};
 
 	//Detect eeprom
 	globals->e1000->eeprom = false;
-	e1000_write(E1000_REG::EERD, 0x1);
+	EERD{} = EERD::START;
 	for (int i = 0; i < 1000; i++) {
-		outb(0x80, 0);
-		if (e1000_read(E1000_REG::EERD) & 0x10) {
+		io_wait();
+		if (EERD{}.DONE_v) {
 			globals->e1000->eeprom = true;
 			break;
 		}
@@ -84,10 +85,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 	uint8_t* mac_ptr = (uint8_t*)&globals->e1000->mac;
 	if (globals->e1000->eeprom) {
 		//print("Device has EEPROM\n");
-		e1000_write(E1000_REG::EECD, 0xB);
-		uint16_t v;
-		v = e1000_read_eeprom(0);
-
+		EEC{} = EEC::EE_SK | EEC::EE_CS | EEC::EE_DO;
+		uint16_t v = e1000_read_eeprom(0);
 		mac_ptr[0] = v & 0xff;
 		mac_ptr[1] = v >> 8;
 		v = e1000_read_eeprom(1);
@@ -119,6 +118,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 		globals->e1000->rx_vaddrs[i] = mmap(nullptr, E1000_BUFSIZE, MAP_CONTIGUOUS | MAP_INITIALIZE);
 		globals->e1000->rx_descs[i].addr = (uint64_t)virt2phys(globals->e1000->rx_vaddrs[i]);
 		globals->e1000->rx_descs[i].status = 0;
+		//printf("RX %08x\n", globals->e1000->rx_descs[i].addr);
 	}
 	e1000_write(E1000_REG::RXDESCLO, (uint64_t)virt2phys(globals->e1000->rx_descs));
 	e1000_write(E1000_REG::RXDESCHI, 0);
@@ -128,8 +128,8 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 	e1000_write(E1000_REG::RXDESCHD, 0);
 	e1000_write(E1000_REG::RXDESCTL, E1000_NUM_RX_DESC);
 	globals->e1000->rx_cur = 0;
-	e1000_write(E1000_REG::RCTRL, E1000_RCTL::EN | E1000_RCTL::SBP | E1000_RCTL::UPE | E1000_RCTL::MPE |
-									  E1000_RCTL::RDMTS_H | E1000_RCTL::BAM | E1000_RCTL::SECRC | E1000_BUFSIZE_FLAGS);
+	RCTRL{} = RCTRL::EN | RCTRL::SBP | RCTRL::UPE | RCTRL::MPE | RCTRL::RDMTS(RCTRL::RDLEN_H) | RCTRL::BAM |
+			  RCTRL::SECRC | E1000_BUFSIZE_FLAGS;
 
 	//Initialize TX
 	for (int i = 0; i < E1000_NUM_TX_DESC; i++) {
@@ -137,7 +137,7 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 		globals->e1000->tx_descs[i].addr = (uint64_t)virt2phys(globals->e1000->tx_vaddrs[i]);
 		;
 		globals->e1000->tx_descs[i].cmd = 0;
-		globals->e1000->tx_descs[i].status = E1000_TSTA::DD;
+		globals->e1000->tx_descs[i].status = TDESC_STATUS::DD;
 	}
 	e1000_write(E1000_REG::TXDESCLO, (uint64_t)virt2phys(globals->e1000->tx_descs));
 	e1000_write(E1000_REG::TXDESCHI, 0);
@@ -162,16 +162,14 @@ void e1000_init(pci_device e1000_pci, void (*receive_callback)(net_buffer_t), vo
 	isr_set(e1000_pci.interrupt_line + 32, &e1000_int_handler);
 	print("e1000e network card initialized.\n\n");
 }
-
-void e1000_enable() { e1000_write(E1000_REG::IMS, 0xFF & ~4); }
-void e1000_pause() { e1000_write(E1000_REG::IMC, 0x80); }
-void e1000_resume() { e1000_write(E1000_REG::IMS, 0x80); }
-
+void e1000_enable() { IMS{} = 0xFF; }
+void e1000_pause() { IMC{} = IMC::RXT0; }
+void e1000_resume() { IMS{} = IMS::RXT0; }
 static void e1000_int_handler(uint64_t, register_file*) {
-	e1000_write(E1000_REG::IMS, 0x1);
-	uint32_t status = e1000_read(E1000_REG::ICR);
+	IMS{} = IMS::TXDW;
+	auto status = ICR{};
 	// printf("ICR %02x\n", status);
-	if ((status & 0x01) || (status & 0x02)) {
+	if (status.TXDW_v || status.TXQE_v) {
 		int head = e1000_read(E1000_REG::TXDESCHD);
 		//qprintf<32>("%i\n", head);
 		while (globals->e1000->tx_head != head) {
@@ -181,25 +179,29 @@ static void e1000_int_handler(uint64_t, register_file*) {
 			globals->e1000->tx_head = (globals->e1000->tx_head + 1) % E1000_NUM_TX_DESC;
 		}
 	}
-	if (status & 0x04)
+	if (status.LSC_v)
 		e1000_link();
-	if (status & 0x40) {
+	if (status.RXO_v) {
 		print("RXO\n");
-		printf("  RCTRL %08x\n", e1000_read(E1000_REG::RCTRL));
+		printf("  RCTRL %08x\n", (uint32_t)RCTRL{});
 		printf("  RXDH %i RXDT %i\n", e1000_read(E1000_REG::RXDESCHD), e1000_read(E1000_REG::RXDESCTL));
 		printf("  RX0 ADDR %08x STATUS %02x\n", globals->e1000->rx_descs->addr, globals->e1000->rx_descs->status);
 	}
-	if (status & 0x80)
+	if (status.RXT0_v)
 		e1000_receive();
 }
 
 void e1000_receive() {
 	int tail = e1000_read(E1000_REG::RXDESCTL);
 	uint16_t old_cur = tail;
-	while (globals->e1000->rx_descs[globals->e1000->rx_cur].status & 0x1) {
+	while (RDESC_STATUS{globals->e1000->rx_descs[globals->e1000->rx_cur].status}.DD_v) {
 		uint8_t* buf = (uint8_t*)globals->e1000->rx_vaddrs[globals->e1000->rx_cur];
 		uint16_t len = globals->e1000->rx_descs[globals->e1000->rx_cur].length;
-		receive_fn({buf, buf, len});
+		if ((globals->e1000->rx_descs[globals->e1000->rx_cur].addr & 0xfff) ||
+			(uint64_t)buf != virt2phys(globals->e1000->rx_descs[globals->e1000->rx_cur].addr))
+			memcpy(
+				buf, (const void*)(0xffff800000000000ull | globals->e1000->rx_descs[globals->e1000->rx_cur].addr), len);
+		receive_fn(net_buffer_t(buf, buf, len));
 		globals->e1000->rx_descs[globals->e1000->rx_cur].status = 0;
 		old_cur = globals->e1000->rx_cur;
 		globals->e1000->rx_cur = (globals->e1000->rx_cur + 1) % E1000_NUM_RX_DESC;
@@ -213,13 +215,12 @@ int e1000_send_async(net_buffer_t buf) {
 		cpu_relax();
 	if constexpr (copy_tx) {
 		memcpy((void*)globals->e1000->tx_vaddrs[handle], buf.data_begin, buf.data_size);
-		kfree(buf.frame_begin);
-	} // else
-	//	globals->e1000->tx_descs[handle].addr = (uint64_t)pointer<std::byte, integer>(buf.frame_begin);
+		if (buf.free_on_send)
+			kfree(buf.frame_begin);
+	}
 	globals->e1000->tx_descs[handle].length = buf.data_size;
-
-	globals->e1000->tx_descs[handle].cmd = E1000_TCMD::EOP | E1000_TCMD::IFCS | E1000_TCMD::RS;
 	globals->e1000->tx_descs[handle].status = 0;
+	globals->e1000->tx_descs[handle].cmd = TDESC_CMD::EOP | TDESC_CMD::IFCS | TDESC_CMD::RS;
 	globals->e1000->tx_tail = (globals->e1000->tx_tail + 1) % E1000_NUM_TX_DESC;
 	e1000_write(E1000_REG::TXDESCTL, globals->e1000->tx_tail);
 	return handle;

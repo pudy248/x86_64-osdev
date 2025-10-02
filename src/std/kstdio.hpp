@@ -20,7 +20,7 @@ template <std::size_t N, typename... Args>
 void qprintf(const char* fmt, Args... args);
 
 void hexdump(const void* ptr, uint32_t bytes, uint32_t block_width = 4, uint32_t num_columns = 8, bool reversed = false,
-			 bool refresh = true);
+	bool refresh = true);
 
 class console& default_console();
 class text_layer& default_output();

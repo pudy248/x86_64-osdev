@@ -28,11 +28,15 @@ public:
 	template <std::convertible_to<T> R>
 	constexpr array(std::initializer_list<R> list) : array(list.begin(), list.end()) {}
 	template <std::convertible_to<T>... Rs>
-	constexpr array(Rs&&... r) : array({ r... }) {}
+	constexpr array(Rs&&... r) : array({r...}) {}
 
 	template <typename Derived>
 	constexpr auto& at(this Derived& self, std::size_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < self.size(), "OOB access in array.at()\n");
+		return self.m_arr[idx];
+	}
+	template <typename Derived>
+	constexpr const auto& operator[](this const Derived& self, std::size_t idx) {
 		return self.m_arr[idx];
 	}
 	template <typename Derived>

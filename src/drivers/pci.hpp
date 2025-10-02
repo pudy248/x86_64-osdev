@@ -107,17 +107,14 @@ struct pci_devices {
 	int numDevs;
 };
 
-struct pci_ids {
-	struct device {
-		uint16_t did;
-		rostring name;
-	};
-	struct vendor {
-		uint16_t vid;
-		rostring name;
-		vector<device> devices;
-	};
-	vector<vendor> vendors;
+struct pci_id {
+	rostring vendor;
+	rostring device;
+	rostring subsystem;
+
+	rostring class_id;
+	rostring subclass;
+	rostring prog_if;
 };
 
 uint32_t pci_read(pci_addr dev, uint8_t reg);
@@ -135,6 +132,4 @@ void pci_print(void);
 pci_device* pci_match_id(uint16_t vendor_id, uint16_t device_id);
 pci_device* pci_match(uint8_t class_id, uint8_t subclass = 255, uint8_t prog_if = 255);
 
-pci_ids parse_pci_ids(rostring f);
-rostring pci_vendor_name(const pci_ids& ids, uint16_t vendor_id);
-rostring pci_device_name(const pci_ids& ids, uint16_t vendor_id, uint16_t device_id);
+pci_id pci_lookup(rostring id1, rostring id2, const pci_device& dev);

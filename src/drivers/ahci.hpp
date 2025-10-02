@@ -142,7 +142,7 @@ struct ahci_device {
 };
 
 void ahci_init(pci_device ahci_pci);
-void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer);
-void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, const void* buffer);
-void read_disk(void* address, uint32_t lbaStart, uint16_t lbaCount);
-void write_disk(void* address, uint32_t lbaStart, uint16_t lbaCount);
+void ahci_read(uint64_t LBA, uint16_t sectors, void* buffer);
+void ahci_write(uint64_t LBA, uint16_t sectors, const void* buffer);
+void read_disk(void* address, uint32_t lbaStart, uint16_t lbaCount, uint64_t bufSize);
+void write_disk(void* address, uint32_t lbaStart, uint16_t lbaCount, uint64_t bufSize);

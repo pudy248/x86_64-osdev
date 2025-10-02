@@ -14,26 +14,15 @@ stage0_main:
     mov ss, ax
     mov sp, 0x7c00
     
-    ;mov byte [drive_num], dl
-    ;mov dl, byte [drive_num]
+    ; mov byte [drive_num], dl
 
     mov si, drive_packet
     cmp word [required_block_count], 0
     jz load_sectors
     load_block:
-        ;mov ah, 0x0e
-        ;mov si, block_err_msg
-        ;print_loop:
-        ;    mov al, byte [si]
-        ;    inc si
-        ;    or al, al
-        ;    jz print_end
-        ;    int 0x10
-        ;    jmp print_loop
-        ;print_end:
-        ;jmp $
         mov ah, 0x42
         int 0x13
+        jc print_error
         add word [drive_sector], 0x800
         add dword [drive_lba], 64
         dec word [required_block_count]
@@ -43,24 +32,20 @@ stage0_main:
         mov cx, word [required_sector_count]
         mov word [drive_num_sectors], cx
         int 0x13
+        jc print_error
 
-
-    ; Build page structures
     mov ax, 0x7000
     mov es, ax
     xor di, di
     mov ecx, 0x1000
     xor eax, eax
     rep stosd
-    
-    ; Build the Page Map Level 4.
+
     xor di, di
-    mov eax, 0x71000 | PAGE_FLAGS     ; Put the address of the Page Directory Pointer Table in to EAX.
-    mov [es:di], eax                  ; Store the value of EAX as the first PML4E.
+    mov eax, 0x71000 | PAGE_FLAGS
+    mov [es:di], eax
     
-    ; Build the Page Directory Pointer Table.
-    ; mov ecx, 1
-    mov eax, PAGE_SIZE | PAGE_FLAGS     ; Put the address of the Page Directory in to EAX.
+    mov eax, PAGE_SIZE | PAGE_FLAGS
     mov di, 0x1000
     ; .PDPLoop:
         mov [es:di], eax
@@ -69,14 +54,13 @@ stage0_main:
     ;    dec ecx
     ; jnz .PDPLoop
     
-    mov ax, 0x0700
+    mov ax, 0x6F00
     mov es, ax
     xor edi, edi
-
+    
     xor eax, eax
     mov ecx, 0x400
     rep stosd
-
     xor edi, edi
     xor ebx, ebx
     mov edx, 0x534D4150
@@ -93,7 +77,33 @@ stage0_main:
 
     jmp stage1_main
 
-; block_err_msg: db "Loading more than 64 sectors in bootstrap not supported.", 0
+print_error:
+    mov al, ah
+    shr al, 4
+    xor bx, bx
+    mov bl, al
+    mov al, byte [hex + bx]
+    mov [err_msg], al
+    mov al, ah
+    and al, 0xf
+    mov bl, al
+    mov al, byte [hex + bx]
+    mov [err_msg + 1], al
+    mov ah, 0x0e
+    mov si, err_msg
+    .print_loop:
+        mov al, byte [si]
+        inc si
+        or al, al
+        jz .print_end
+        int 0x10
+        jmp .print_loop
+    .print_end:
+    jmp $
+
+msg: db "   ", 0
+err_msg: db "   ERR", 0
+hex: db "0123456789abcdef"
 drive_num: db 0
 
 ; load bootstrap code

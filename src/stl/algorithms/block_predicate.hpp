@@ -178,7 +178,7 @@ constexpr void copy_through_block(
 	idx = 0;
 	for (; out != out_end && begin != end; ++begin, ++out, idx = (idx + 1) % (end2 - begin2)) {
 		if (algo::all_of_partial(ring_iterator(&buffer[0], &buffer[end2 - begin2], &buffer[idx]), null_sentinel{},
-				begin2, end2, algo::equal_to{}))
+				begin2, end2, predicate))
 			break;
 
 		buffer[idx] = *begin;

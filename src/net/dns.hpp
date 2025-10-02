@@ -6,16 +6,12 @@
 #include <stl/ranges.hpp>
 #include <sys/ktime.hpp>
 
-namespace DNS_TYPE {
-enum DNS_TYPE : uint16_t {
+enum class DNS_TYPE : uint16_t {
 	A = 1,
 };
-}
-namespace DNS_CLASS_CODE {
-enum DNS_CLASS_CODE : uint16_t {
+enum class DNS_CLASS_CODE : uint16_t {
 	IN = 1,
 };
-}
 
 namespace DNS_FMASK {
 enum DNS_FMASK : uint16_t {
@@ -49,14 +45,14 @@ using dns_packet = packet<dns_info>;
 // for future reference
 struct dns_question {
 	string name;
-	uint16_t type;
-	uint16_t class_code;
+	DNS_TYPE type;
+	DNS_CLASS_CODE class_code;
 };
 
 struct dns_answer {
 	string name;
-	uint16_t type;
-	uint16_t class_code;
+	DNS_TYPE type;
+	DNS_CLASS_CODE class_code;
 	uint32_t ttl;
 	span<const std::byte> data;
 };

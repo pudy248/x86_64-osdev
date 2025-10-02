@@ -40,7 +40,7 @@ constexpr void find_if(I&& begin, S end, I2&& begin2, BinaryPred predicate = {})
 template <typename I, typename S, typename T>
 	requires impl::bounded_input<I, S>
 constexpr void find(I&& begin, S end, T value) {
-	algo::mut::find_if(begin, end, algo::equal_to_v{ value });
+	algo::mut::find_if(begin, end, algo::equal_to_v{value});
 }
 
 template <typename IT, typename ST, typename IV, typename SV>
@@ -147,14 +147,14 @@ constexpr std::iter_difference_t<I> where_if(I begin, S end, I2 begin2, BinaryPr
 template <typename I, typename S, typename T>
 	requires impl::bounded_forward<I, S>
 constexpr std::iter_difference_t<I> where_is(I begin, S end, T value) {
-	return algo::where_if(begin, end, algo::equal_to_v{ value });
+	return algo::where_if(begin, end, algo::equal_to_v{value});
 }
 
 template <typename IT, typename ST, typename IV, typename SV>
 	requires impl::bounded_input<IT, ST> && impl::bounded_forward<IV, SV>
 constexpr std::pair<IT, IV> find_set(IT tbegin, ST tend, IV vbegin, SV vend) {
 	algo::mut::find_set(tbegin, tend, vbegin, vend);
-	return { tbegin, vbegin };
+	return {tbegin, vbegin};
 }
 
 template <typename IT, typename ST, typename IV, typename SV>
@@ -190,11 +190,11 @@ constexpr std::iter_difference_t<I> count_if(I begin, S end, UnaryPred predicate
 template <typename I, typename S, typename T>
 	requires impl::bounded_input<I, S>
 constexpr std::iter_difference_t<I> count(I begin, S end, const T& value) {
-	return algo::count_if(begin, end, algo::equal_to_v{ value });
+	return algo::count_if(begin, end, algo::equal_to_v{value});
 }
 template <typename I, typename S, typename I2, typename S2>
 	requires impl::bounded_input<I, S> && impl::bounded_forward<I2, S2>
 constexpr std::iter_difference_t<I> count_all(I begin, S end, I2 begin2, S2 end2) {
-	return algo::count_if(begin, end, algo::equal_to_any{ begin2, end2 });
+	return algo::count_if(begin, end, algo::equal_to_any{begin2, end2});
 }
 }

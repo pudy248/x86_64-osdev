@@ -14,6 +14,8 @@ struct fixed_global_data_t {
 	uint64_t fml4_paddr;
 	uint64_t pml4_paddr;
 
+	uint64_t free_lists[8];
+
 	uint64_t frames_free;
 	uint64_t frames_allocated;
 	uint64_t pages_allocated;

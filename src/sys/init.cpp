@@ -1,3 +1,4 @@
+#include "init.hpp"
 #include <cstdint>
 #include <drivers/keyboard.hpp>
 #include <kfile.hpp>
@@ -5,7 +6,6 @@
 #include <kstdlib.hpp>
 #include <lib/filesystems/fat.hpp>
 #include <sys/global.hpp>
-#include <sys/init.hpp>
 #include <sys/ktime.hpp>
 #include <sys/memory/paging.hpp>
 #include <sys/pic.hpp>
@@ -46,6 +46,7 @@ void init_libcpp() {
 	new (globals->g_console) console(&vga_text_set_char, &vga_text_update, vga_text_dimensions);
 	globals->g_stdout = decltype(globals->g_stdout)::make_nocopy(waterline_new<text_layer>());
 	new (globals->g_stdout) text_layer(default_console());
+	globals->g_stdout->offset[0] = 1;
 	default_output().fill(' ');
 
 	isr_set(32, &inc_pit);
@@ -59,8 +60,9 @@ void init_libcpp() {
 
 void kernel_reinit() {
 	kbzero<8>(&start_bss, (&end_bss - &start_bss) * sizeof(uint64_t));
-	globals->tag_allocs = true;
-	kfree(kmalloc(10));
+#ifdef DEBUG
+	//globals->tag_allocs = true;
+#endif
 	replace_console(console(&vga_text_set_char, &vga_text_update, vga_text_dimensions));
 	idt_reinit();
 	*globals->fs = {fat_read_directory, fat_write_directory, fat_read_file, fat_write_file, globals->fs->root,
@@ -70,7 +72,7 @@ void kernel_reinit() {
 	isr_set(33, &keyboard_irq);
 	time_init();
 #ifdef DEBUG
-	//load_debug_symbs("/symbols.txt");
-	//load_debug_symbs("/symbols2.txt");
+	load_debug_symbs("/symbols.txt");
+	load_debug_symbs("/symbols2.txt");
 #endif
 }

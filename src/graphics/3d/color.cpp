@@ -1,6 +1,6 @@
+#include "color.hpp"
+#include "vectypes.hpp"
 #include <cstdint>
-#include <graphics/color.hpp>
-#include <graphics/vectypes.hpp>
 #include <kstddef.hpp>
 
 Vec3 rgb2hsl(Vec3 rgb) {
@@ -21,13 +21,12 @@ Vec3 rgb2hsl(Vec3 rgb) {
 		float d = _max - _min;
 		result.y = (result.z > 0.5f) ? d / (2 - _max - _min) : d / (_max + _min);
 
-		if (abs(_max - rgb.x) < 0.0001f) {
+		if (abs(_max - rgb.x) < 0.0001f)
 			result.x = (rgb.y - rgb.z) / d + (rgb.y < rgb.z ? 6 : 0);
-		} else if (abs(_max - rgb.y) < 0.0001f) {
+		else if (abs(_max - rgb.y) < 0.0001f)
 			result.x = (rgb.z - rgb.x) / d + 2;
-		} else if (abs(_max - rgb.z) < 0.0001f) {
+		else if (abs(_max - rgb.z) < 0.0001f)
 			result.x = (rgb.x - rgb.y) / d + 4;
-		}
 
 		result.x /= 6;
 	}

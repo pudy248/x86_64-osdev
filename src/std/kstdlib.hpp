@@ -8,7 +8,7 @@ extern "C" {
 void memcpy(void* __restrict dest, const void* __restrict src, uint64_t size);
 void memmove(void* dest, void* src, uint64_t size);
 void memset(void* dest, uint8_t src, uint64_t size);
-int memcmp(void* l, void* r, uint64_t size);
+int memcmp(const void* l, const void* r, uint64_t size);
 }
 
 template <std::size_t A = 1>
@@ -24,18 +24,16 @@ template <std::size_t A = 1>
 void kmemset(void* __restrict dest, uint8_t src, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	__builtin_assume(size % A == 0);
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((uint8_t*)adest)[i] = src;
-	}
 }
 
 template <std::size_t A = 1>
 void kbzero(void* __restrict dest, uint64_t size) {
 	void* adest = __builtin_assume_aligned(dest, A);
 	__builtin_assume(size % A == 0);
-	for (uint64_t i = 0; i < size; i++) {
+	for (uint64_t i = 0; i < size; i++)
 		((uint8_t*)adest)[i] = 0;
-	}
 }
 
 void mem_init();
@@ -64,10 +62,9 @@ static constexpr inline void destruct(T* ptr, int count) {
 }
 template <typename T>
 static constexpr inline void construct(T* ptr, int count) {
-	if constexpr (std::is_default_constructible_v<T>) {
+	if constexpr (std::is_default_constructible_v<T>)
 		for (int i = 0; i < count; i++)
 			new (ptr + i) T();
-	}
 }
 
 template <typename T>

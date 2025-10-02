@@ -1,5 +1,6 @@
 #pragma once
 #include "kstddef.hpp"
+#include <config.hpp>
 #include <cstdint>
 #include <kassert.hpp>
 #include <kstdio.hpp>

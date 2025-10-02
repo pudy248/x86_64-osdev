@@ -1,8 +1,8 @@
+#include "pipeline.hpp"
+#include "transform.hpp"
+#include "vectypes.hpp"
 #include <asm.hpp>
 #include <cstdint>
-#include <graphics/pipeline.hpp>
-#include <graphics/transform.hpp>
-#include <graphics/vectypes.hpp>
 #include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
@@ -21,7 +21,7 @@ void _default_vertex_shader(RenderPipeline* pipeline, void** params) {
 		}
 		basePos.z -= 12;
 		Vec4 projected = vnormw(vmul4x4(projectionMatrix, basePos));
-		pipeline->projVertBuffer[index] = (ProjectedVertex){ basePos, projected, pipeline->vertexBuffer[index].color };
+		pipeline->projVertBuffer[index] = (ProjectedVertex){basePos, projected, pipeline->vertexBuffer[index].color};
 	}
 }
 void _default_raster_shader(RenderPipeline* pipeline, void** params) {
@@ -34,7 +34,7 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 			Vec3 lookdir = norm3(mul3(vtrunc43(add4(add4(v1.wpos, v2.wpos), v3.wpos)), 0.3333f));
 			Vec3 normal =
 				norm3(cross(sub3(vtrunc43(v2.wpos), vtrunc43(v1.wpos)), sub3(vtrunc43(v3.wpos), vtrunc43(v1.wpos))));
-			Mat4x4 rebaseMat = rebase((Vec3){ 0, 1, 0 }, lookdir, (Vec3){ 0, 0, 0 });
+			Mat4x4 rebaseMat = rebase((Vec3){0, 1, 0}, lookdir, (Vec3){0, 0, 0});
 			Vec3 normB = vtrunc43(vmul4x4(rebaseMat, vpad34(normal, 1)));
 			float lighting = dot(normal, lookdir);
 			//if (lighting < 0.f) continue;
@@ -46,14 +46,14 @@ void _default_raster_shader(RenderPipeline* pipeline, void** params) {
 
 			int frameCtr = *(int*)(params[0]);
 
-			Vec3 baseColorHSL = { fmodf((float)frameCtr * 0.01f, 1.f), 0.5f, 0.3f };
+			Vec3 baseColorHSL = {fmodf((float)frameCtr * 0.01f, 1.f), 0.5f, 0.3f};
 			baseColorHSL.x += (1.f - lighting) * .3f;
 			baseColorHSL.y += (1.f - lighting) * 0.4f;
 			baseColorHSL.z += (1.f - lighting) * 0.4f + (1.f - lighting * 1.f - lighting) * 0.2f;
 			Vec3 color = hsl2rgb(baseColorHSL);
 
 			//color = (Vec3){lighting * 255, lighting * 255, lighting * 255};
-			color = (Vec3){ abs(normB.x) * 255, abs(normB.y) * 255, abs(normB.z) * 255 };
+			color = (Vec3){abs(normB.x) * 255, abs(normB.y) * 255, abs(normB.z) * 255};
 
 			pipeline->projVertBuffer[pipeline->triangleBuffer[3 * index + 0]].color = vpad34(color, 0);
 			pipeline->projVertBuffer[pipeline->triangleBuffer[3 * index + 1]].color = vpad34(color, 0);
@@ -92,7 +92,7 @@ void pipeline_execute(RenderPipeline* pipeline, void** params) {
 
 	uint64_t tp4 = rdtsc();
 	printf("times: %i %i %i | %i\n", (uint32_t)(tp2 - tp1), (uint32_t)(tp3 - tp2), (uint32_t)(tp4 - tp3),
-		   (uint32_t)(tp4 - tp1));
+		(uint32_t)(tp4 - tp1));
 }
 
 void pipeline_flush(RenderPipeline* pipeline) {

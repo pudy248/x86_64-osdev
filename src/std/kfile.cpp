@@ -7,8 +7,8 @@
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 
-file_inode::file_inode(uint64_t filesize, uint64_t attributes, pointer<file_inode> parent, uint64_t fs_attribs,
-					   uint64_t fs_reference)
+file_inode::file_inode(
+	uint64_t filesize, uint64_t attributes, pointer<file_inode> parent, uint64_t fs_attribs, uint64_t fs_reference)
 	: filesize(filesize)
 	, attributes(attributes)
 	, loaded(0)
@@ -18,9 +18,7 @@ file_inode::file_inode(uint64_t filesize, uint64_t attributes, pointer<file_inod
 	, child()
 	, sibling()
 	, parent(parent) {}
-file_inode::~file_inode() {
-	close();
-}
+file_inode::~file_inode() { close(); }
 
 void file_inode::open() {
 	if (loaded)
@@ -31,9 +29,7 @@ void file_inode::open() {
 	else
 		globals->fs->_read_file(this);
 }
-void file_inode::close() {
-	purge();
-}
+void file_inode::close() { purge(); }
 void file_inode::write() {
 	if (is_directory)
 		globals->fs->_write_directory(this);
@@ -90,8 +86,8 @@ file_t open_rel(const file_t& directory, const path& relative_path, int) {
 		if (!file)
 			break;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
-			kassertf(DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).",
-					 concat(relative_path.fragments).c_str());
+			kassertf(
+				DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).", concat(relative_path.fragments).c_str());
 			continue;
 		}
 		if (ranges::equal(frag, "."_RO))
@@ -157,8 +153,8 @@ ACCESS_RESULT access_rel(const file_t& directory, const path& relative_path, int
 		if (!file)
 			return ACCESS_RESULT::ERR_PATH_NOT_FOUND;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
-			kassertf(DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).",
-					 concat(relative_path.fragments).c_str());
+			kassertf(
+				DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).", concat(relative_path.fragments).c_str());
 			continue;
 		}
 		if (ranges::equal(frag, "."_RO))
@@ -211,8 +207,8 @@ file_t open_rel(const file_t& directory, const path& relative_path, int flags) {
 		if (!file)
 			break;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
-			kassertf(DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).",
-					 concat(relative_path.fragments).c_str());
+			kassertf(
+				DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).", concat(relative_path.fragments).c_str());
 			continue;
 		}
 		if (ranges::equal(frag, "."_RO))
@@ -297,8 +293,8 @@ ACCESS_RESULT remove_rel(const file_t& directory, const path& relative_path, int
 		if (!file)
 			return ACCESS_RESULT::ERR_PATH_NOT_FOUND;
 		if (!frag.size() && i != relative_path.fragments.size() - 1) {
-			kassertf(DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).",
-					 concat(relative_path.fragments).c_str());
+			kassertf(
+				DEBUG_ONLY, COMMENT, 0, "Empty path fragment (in path %s).", concat(relative_path.fragments).c_str());
 			continue;
 		}
 		if (ranges::equal(frag, "."_RO))

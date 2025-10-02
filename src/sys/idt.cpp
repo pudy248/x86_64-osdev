@@ -9,8 +9,6 @@
 #include <sys/idt.hpp>
 #include <sys/memory/paging.hpp>
 
-#define BETTER_EXCEPTION_PRINTING
-
 struct [[gnu::packed]] idt_entry {
 	uint16_t offset_low;
 	uint16_t selector;
@@ -70,42 +68,44 @@ extern "C" void handle_exception(uint64_t int_num, register_file* registers, uin
 		int_num >= 0x20 ? "IRQ" :
 		int_num >= 19	? "OUT OF RANGE" :
 						  exceptions[int_num]);
-#ifdef BETTER_EXCEPTION_PRINTING
-	errorf<128>("RIP=%016x RSP=%016x RFLAGS=", registers->rip, registers->rsp);
-	uint64_t rflags = registers->rflags;
-	ccstr_t flagchars = "C-P-A-ZSTIDO";
-	for (int i = 0; i < 12; i++) {
-		bool set = rflags & 1;
-		if (set && flagchars[i] != '-') {
-			putchar(flagchars[i], false);
-			print("F ", false);
+	if constexpr (BETTER_EXCEPTION_PRINTING) {
+		errorf<128>("RIP=%016x RSP=%016x RFLAGS=", registers->rip, registers->rsp);
+		uint64_t rflags = registers->rflags;
+		ccstr_t flagchars = "C-P-A-ZSTIDO";
+		for (int i = 0; i < 12; i++) {
+			bool set = rflags & 1;
+			if (set && flagchars[i] != '-') {
+				putchar(flagchars[i], false);
+				error("F ");
+			}
+			rflags >>= 1;
 		}
-		rflags >>= 1;
+		error("\nRegister dump:\n");
+		errorf<128>("RAX=%012x RBX=%012x RCX=%012x RDX=%012x\n", registers->rax, registers->rbx, registers->rcx,
+			registers->rdx);
+		errorf<128>("RSI=%012x RDI=%012x RBP=%012x RSP=%012x\n", registers->rsi, registers->rdi, registers->rbp,
+			registers->rsp);
+		errorf<128>(
+			"R08=%012x R09=%012x R10=%012x R11=%012x\n", registers->r8, registers->r9, registers->r10, registers->r11);
+		errorf<128>("R12=%012x R13=%012x R14=%012x R15=%012x\n", registers->r12, registers->r13, registers->r14,
+			registers->r15);
+		errorf<128>("CR0=%012x CR2=%012x CR3=%012x CR4=%012x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
+	} else {
+		errorf<80>(
+			"RIP=%016x RSP=%016x RFLAGS=%016x\nRegister dump:\n", registers->rip, registers->rsp, registers->rflags);
+		errorf<80>("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
+		errorf<80>("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
+		errorf<80>("%016x %016x %016x %016x\n", registers->r8, registers->r9, registers->r10, registers->r11);
+		errorf<80>("%016x %016x %016x %016x\n", registers->r12, registers->r13, registers->r14, registers->r15);
+		errorf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
 	}
-	print("\nRegister dump:\n");
-	errorf<128>(
-		"RAX=%012x RBX=%012x RCX=%012x RDX=%012x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
-	errorf<128>(
-		"RSI=%012x RDI=%012x RBP=%012x RSP=%012x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
-	errorf<128>(
-		"R08=%012x R09=%012x R10=%012x R11=%012x\n", registers->r8, registers->r9, registers->r10, registers->r11);
-	errorf<128>(
-		"R12=%012x R13=%012x R14=%012x R15=%012x\n", registers->r12, registers->r13, registers->r14, registers->r15);
-	errorf<128>("CR0=%012x CR2=%012x CR3=%012x CR4=%012x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
-#else
-	errorf<80>("RIP=%016x RSP=%016x RFLAGS=%016x\nRegister dump:\n", registers->rip, registers->rsp, registers->rflags);
-	errorf<80>("%016x %016x %016x %016x\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
-	errorf<80>("%016x %016x %016x %016x\n", registers->rsi, registers->rdi, registers->rbp, registers->rsp);
-	errorf<80>("%016x %016x %016x %016x\n", registers->r8, registers->r9, registers->r10, registers->r11);
-	errorf<80>("%016x %016x %016x %016x\n", registers->r12, registers->r13, registers->r14, registers->r15);
-	errorf<80>("%016x %016x %016x %016x\n", read_cr0(), read_cr2(), read_cr3(), read_cr4());
-#endif
 
 	stacktrace::trace((uint64_t*)registers->rbp, registers->rip).eprint();
 
 	if (is_fatal) {
-		print("Unrecoverable exception - halting...\n");
+		error("Unrecoverable exception - halting...\n");
 		inf_wait();
+		//cpu_halt();
 	}
 }
 
@@ -117,7 +117,6 @@ void idt_init() {
 }
 
 void idt_reinit() {
-	disable_interrupts();
 	idt_pointer.limit = sizeof(idt_t::entries) - 1;
 	idt_pointer.base = (uint64_t)fixed_globals->idt.ptr;
 	int i = 0;

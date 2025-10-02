@@ -3,9 +3,7 @@
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <kstring.hpp>
-#include <stl/ranges.hpp>
 #include <sys/global.hpp>
-#include <utility>
 
 uint32_t pci_read(pci_addr dev, uint8_t reg) {
 	uint32_t lbus = (uint32_t)dev.bus;
@@ -99,41 +97,118 @@ pci_device* pci_match(uint8_t class_id, uint8_t subclass, uint8_t prog_if) {
 	}
 	return nullptr;
 }
+pci_device* pci_match_id(uint16_t vendor_id, uint16_t device_id) {
+	for (int i = 0; i < globals->pci->numDevs; i++)
+		if (globals->pci->devices[i].vendor_id == vendor_id && globals->pci->devices[i].device_id == device_id)
+			return &globals->pci->devices[i];
+	return nullptr;
+}
 
-pci_ids parse_pci_ids(rostring f) {
-	vector<rostring> lines = f.split<vector>("\n");
-	pci_ids ids = {};
-	pci_ids::vendor cur_vendor = {};
-	for (rostring& line : lines) {
-		if (line.size() == 0)
-			continue;
-		if (line[0] == '#')
-			continue;
-		istringstream s(line);
-		if (s.match("\t"_RO)) {
-			pci_ids::device dev;
-			dev.did = s.read_i();
-			s.ignore(2);
-			dev.name = rostring(s.begin(), s.end());
-			cur_vendor.devices.push_back(dev);
-		} else {
-			if (cur_vendor.devices.size())
-				ids.vendors.push_back(std::move(cur_vendor));
-			cur_vendor.devices.clear();
-			cur_vendor.vid = s.read_i();
-			s.ignore(2);
-			cur_vendor.name = rostring(s.begin(), s.end());
+pci_id pci_lookup(rostring id1, rostring id2, const pci_device& dev) {
+	rostring vendor = {};
+	rostring device = {};
+	rostring subsystem = {};
+
+	rostring class_id = {};
+	rostring subclass = {};
+	rostring prog_if = {};
+	{
+		vector<rostring> lines = id1.split<vector>("\n");
+		int stage = 0;
+		for (std::size_t i = 0; i < lines.size(); i++) {
+			rostring line = lines[i];
+			if (line.size() == 0)
+				continue;
+			if (line[0] == '#')
+				continue;
+			istringstream s(line);
+			if (s.peek() != '\t') {
+				if (stage > 0)
+					break;
+				uint16_t n = s.read_x();
+				s.ignore(2);
+				if (n == dev.vendor_id) {
+					stage++;
+					vendor = rostring(s.begin(), s.end());
+				}
+				continue;
+			}
+			s.get();
+			if (s.peek() != '\t') {
+				if (stage > 1)
+					break;
+				if (stage < 1)
+					continue;
+				uint16_t n = s.read_x();
+				s.ignore(2);
+				if (n == dev.device_id) {
+					stage++;
+					device = rostring(s.begin(), s.end());
+				}
+				continue;
+			}
+			s.get();
+			if (s.peek() != '\t') {
+				if (stage < 2)
+					continue;
+				uint16_t n = s.read_x();
+				s.ignore(1);
+				uint16_t m = s.read_x();
+				s.ignore(2);
+				if (n == dev.subsystem_vendor && m == dev.subsystem_id) {
+					subsystem = rostring(s.begin(), s.end());
+					break;
+				}
+			}
 		}
 	}
-	if (cur_vendor.devices.size())
-		ids.vendors.push_back(cur_vendor);
-	return ids;
-}
-rostring pci_vendor_name(const pci_ids& ids, uint16_t vendor_id) {
-	return ranges::find_if(ids.vendors, [vendor_id](const pci_ids::vendor& v) { return v.vid == vendor_id; })->name;
-}
-rostring pci_device_name(const pci_ids& ids, uint16_t vendor_id, uint16_t device_id) {
-	pci_ids::vendor& v =
-		*ranges::find_if(ids.vendors, [vendor_id](const pci_ids::vendor& v) { return v.vid == vendor_id; });
-	return ranges::find_if(v.devices, [device_id](const pci_ids::device& d) { return d.did == device_id; })->name;
+	{
+		vector<rostring> lines = id2.split<vector>("\n");
+		int stage = 0;
+		for (std::size_t i = 0; i < lines.size(); i++) {
+			rostring line = lines[i];
+			if (line.size() == 0)
+				continue;
+			if (line[0] == '#')
+				continue;
+			istringstream s(line);
+			if (s.peek() != '\t') {
+				if (stage > 0)
+					break;
+				uint16_t n = s.read_x();
+				s.ignore(2);
+				if (n == dev.class_id) {
+					stage++;
+					class_id = rostring(s.begin(), s.end());
+				}
+				continue;
+			}
+			s.get();
+			if (s.peek() != '\t') {
+				if (stage > 1)
+					break;
+				if (stage < 1)
+					continue;
+				uint16_t n = s.read_x();
+				s.ignore(2);
+				if (n == dev.subclass) {
+					stage++;
+					subclass = rostring(s.begin(), s.end());
+				}
+				continue;
+			}
+			s.get();
+			if (s.peek() != '\t') {
+				if (stage < 2)
+					continue;
+				uint16_t n = s.read_x();
+				s.ignore(2);
+				if (n == dev.prog_if) {
+					prog_if = rostring(s.begin(), s.end());
+					break;
+				}
+			}
+		}
+	}
+	return {vendor, device, subsystem, class_id, subclass, prog_if};
 }

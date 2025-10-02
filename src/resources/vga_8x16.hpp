@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // Same data as the Linux kernel uses, extracted from the PC VGA font.
-static uint8_t fontDims[] = { 8, 16 };
+static uint8_t fontDims[] = {8, 16};
 static uint8_t fontStart = ' ';
 
 static uint8_t fontBitmap[16 * 236] = {

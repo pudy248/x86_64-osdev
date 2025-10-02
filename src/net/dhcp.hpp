@@ -2,13 +2,13 @@
 #include <cstdint>
 #include <net/net.hpp>
 #include <net/udp.hpp>
+#include <stl/optional.hpp>
 #include <sys/ktime.hpp>
 
 constexpr uint16_t DHCP_CLIENT_PORT = 68;
 constexpr uint16_t DHCP_SERVER_PORT = 67;
 
-namespace DHCP_OPT {
-enum DHCP_OPT : uint8_t {
+enum class DHCP_OPT : uint8_t {
 	SUBNET = 0x01,
 	ROUTER = 0x03,
 	DNS_SERVER = 0x06,
@@ -25,16 +25,13 @@ enum DHCP_OPT : uint8_t {
 	CLIENT_DOMAIN_NAME = 0x51,
 	END = 0xff,
 };
-}
-namespace DHCP_MTYPE {
-enum DHCP_MTYPE : uint8_t {
+enum class DHCP_MTYPE : uint8_t {
 	DISCOVER = 0x01,
 	OFFER = 0x02,
 	REQUEST = 0x03,
 	ACK = 0x05,
 	RELEASE = 0x07,
 };
-}
 
 struct [[gnu::packed]] dhcp_header {
 	uint8_t op;
@@ -77,8 +74,8 @@ extern dhcp_lease active_lease;
 void dhcp_set_active(const dhcp_lease& l);
 dhcp_lease dhcp_query(ipv4_t preferred_ip = 0);
 
-bool dhcp_get(uint16_t port, uint32_t xid, dhcp_packet& out_packet);
-bool dhcp_get(udp_conn_t conn, uint32_t xid, dhcp_packet& out_packet);
+optional<dhcp_packet> dhcp_get(uint16_t port, uint32_t xid);
+optional<dhcp_packet> dhcp_get(udp_conn_t conn, uint32_t xid);
 void dhcp_discover(uint32_t xid, ipv4_t preferred_ip);
 void dhcp_request(uint32_t xid, const dhcp_lease& offer);
-dhcp_lease dhcp_parse_response(dhcp_packet packet, uint8_t expected_mtype);
+dhcp_lease dhcp_parse_response(dhcp_packet packet, DHCP_MTYPE expected_mtype);

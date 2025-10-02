@@ -16,7 +16,7 @@ public:
 	constexpr decltype(auto) operator[](this const Derived& self, ranges::difference_t<Derived> index) {
 		if constexpr (ranges::bounded_range<R>)
 			kassert(DEBUG_ONLY, WARNING, index >= 0 && index < (ranges::difference_t<Derived>)self.size(),
-					"Out of bounds access to view.");
+				"Out of bounds access to view.");
 		return *std::next(ranges::begin(self), index);
 	}
 	template <typename Derived>
@@ -97,6 +97,13 @@ public:
 	template <typename I2, typename S2>
 	constexpr bytespan(const I2& begin, const S2& end)
 		: view<pointer<std::byte, type_cast>, pointer<std::byte, type_cast>>(begin, end) {}
+	template <typename T>
+	constexpr bytespan(T& type) : bytespan(&type, ptr_offset(&type, sizeof(T))) {}
+	template <typename T>
+	constexpr T& as() const {
+		kassert(DEBUG_ONLY, ERROR, this->size() == sizeof(T), "cbytespan: Invalid size.");
+		return *reinterpret_cast<const T*>(this->begin());
+	}
 };
 class cbytespan : public view<pointer<const std::byte, type_cast>, pointer<const std::byte, type_cast>> {
 public:
@@ -109,6 +116,13 @@ public:
 	template <typename T>
 		requires(std::is_integral_v<T> || std::is_enum_v<T> || sizeof(T) == 1)
 	constexpr cbytespan(const std::initializer_list<T>& list) : cbytespan(list.begin(), list.end()) {}
+	template <typename T>
+	constexpr cbytespan(const T& type) : cbytespan(&type, ptr_offset(&type, sizeof(T))) {}
+	template <typename T>
+	constexpr const T& as() const {
+		kassert(DEBUG_ONLY, ERROR, this->size() == sizeof(T), "cbytespan: Invalid size.");
+		return *reinterpret_cast<const T*>(this->begin());
+	}
 };
 
 //template <container C>

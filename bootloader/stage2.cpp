@@ -17,10 +17,12 @@ extern "C" void* stage2_main() {
 #endif
 	init_libcpp();
 
-	e820_t* mem = (e820_t*)0x7000;
-	while (mem->base || mem->length) {
-		printf("E820: 0x%010x-0x%010x %i\n", mem->base, mem->base + mem->length, mem->type);
-		mem++;
+	if (0) {
+		e820_t* mem = paging::invariant_mem_address((e820_t*)0x6f000);
+		while (mem->base || mem->length) {
+			printf("%08x %08x %02x\n", mem->base, mem->length, mem->type);
+			mem++;
+		}
 	}
 
 	pci_init();
@@ -29,8 +31,6 @@ extern "C" void* stage2_main() {
 	//printf("Detected AHCI device: %04x:%04x\n", ahci_pci->vendor_id, ahci_pci->device_id);
 	ahci_init(*ahci_pci);
 
-	// mmap(0x100000000, 0x10000000, 0);
-
 	fat_init();
 	//load_debug_symbs("/symbols2.txt");
 	uint64_t kernel_main;
@@ -38,11 +38,10 @@ extern "C" void* stage2_main() {
 		file_t kernel = fs::open("/kernel.img");
 		kassert(UNMASKABLE, CATCH_FIRE, kernel.n, "Kernel image not found!\n");
 		uint64_t kernel_link_loc = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[0];
-		hexdump(kernel.rodata().cbegin(), 0x200);
 		uint64_t kernel_mem_end = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[1];
 		kernel_main = pointer<const uint64_t, reinterpret>(kernel.rodata().begin())[2];
 		mmap(kernel_link_loc, kernel_mem_end - kernel_link_loc, MAP_PINNED | MAP_PERMANENT);
-		kmemcpy<8>((void*)kernel_link_loc, kernel.rodata().cbegin(), kernel.n->filesize);
+		kmemcpy<8>((void*)kernel_link_loc, kernel.rodata().cbegin(), kernel.rodata().size());
 	}
 
 	disable_interrupts();

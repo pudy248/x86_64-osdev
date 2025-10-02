@@ -1,5 +1,4 @@
 #pragma once
-#include <kstddef.hpp>
 
 using cstr_t = char*;
 using ccstr_t = const char*;
@@ -12,10 +11,9 @@ constexpr int strlen(ccstr_t str) {
 }
 constexpr char streql(ccstr_t __restrict lhs, ccstr_t __restrict rhs) {
 	int i;
-	for (i = 0; lhs[i]; i++) {
+	for (i = 0; lhs[i]; i++)
 		if (rhs[i] != lhs[i])
 			return 0;
-	}
 	if (rhs[i] != lhs[i])
 		return 0;
 	return 1;

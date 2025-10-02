@@ -219,10 +219,8 @@ public:
 			neg = true;
 			this->ignore(1);
 		}
-		if (ranges::starts_with(*this, "NaN"_RO)) {
-			this->advance_buf();
+		if (ranges::starts_with(*this, "NaN"_RO))
 			return std::numeric_limits<double>::quiet_NaN();
-		}
 		//else if (view<I, S>(*this).starts_with("Inf"_RO))
 		//	return neg ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
 

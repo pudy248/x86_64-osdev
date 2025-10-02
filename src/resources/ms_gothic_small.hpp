@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-static uint8_t fontDims[] = { 6, 12 };
+static uint8_t fontDims[] = {6, 12};
 static uint8_t fontStart = ' ';
 
 static uint8_t fontBitmap[12 * 236] = {

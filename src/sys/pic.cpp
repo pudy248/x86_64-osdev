@@ -23,8 +23,6 @@
 
 #define PIC_EOI 0x20 /* End-of-interrupt command code */
 
-#define io_wait() outb(0x80, 0)
-
 void pic_init() {
 	uint8_t a1, a2;
 

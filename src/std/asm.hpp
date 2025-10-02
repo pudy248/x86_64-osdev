@@ -22,6 +22,8 @@ static inline void outb(uint16_t port, uint8_t val) { asmv("outb %0, %1\n" : : "
 static inline void outw(uint16_t port, uint16_t val) { asmv("outw %0, %1\n" : : "a"(val), "Nd"(port) : "memory"); }
 static inline void outl(uint16_t port, uint32_t val) { asmv("outl %0, %1\n" : : "a"(val), "Nd"(port) : "memory"); }
 
+static inline void io_wait() { outb(0x80, 0); }
+
 static inline uint64_t read_cr0(void) {
 	uint64_t val;
 	asmv("mov %%cr0, %0\n" : "=r"(val));
@@ -64,13 +66,17 @@ static inline void wrmsr(uint32_t msr, uint64_t val) {
 
 static inline void cpu_relax() { asm("rep nop\n" : : : "memory"); }
 [[noreturn]] static inline void cpu_halt(void) {
-	asmv("cli\nhlt\nnop\n");
-	__builtin_unreachable();
-}
-[[noreturn]] static inline void inf_wait(void) {
 	for (;;)
 		;
-	//cpu_halt();
+	//asmv("cli\nhlt\nnop\n");
+	__builtin_unreachable();
+}
+extern void thread_yield();
+[[noreturn]] static inline void inf_wait(void) {
+	for (;;)
+		thread_yield();
+	cpu_halt();
+	__builtin_unreachable();
 }
 
 template <int N>

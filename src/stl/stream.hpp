@@ -21,68 +21,106 @@ concept ostream = requires(S s) {
 	requires requires(CharT c) { s.write(c); };
 };
 template <std::input_iterator I>
-class istreambuf_iterator;
+class istreambuf_sp_iterator;
+template <std::input_iterator I>
+class istreambuf_mp_iterator;
 
 template <std::input_iterator I>
-class istream_buffer : protected vector<std::iter_value_t<I>> {
-	friend class istreambuf_iterator<I>;
+class istream_buffer : public vector<std::iter_value_t<I>> {
+protected:
+	friend class istreambuf_sp_iterator<I>;
+	friend class istreambuf_mp_iterator<I>;
+
+public:
 	I backing_iter;
 	std::ptrdiff_t base_offset;
 	std::ptrdiff_t create_offset;
+	using vector<std::iter_value_t<I>>::size;
 
-public:
 	constexpr explicit istream_buffer(I begin)
 		: vector<std::iter_value_t<I>>(0), backing_iter(std::move(begin)), base_offset(0), create_offset(0) {}
-	constexpr istreambuf_iterator<I> begin() { return istreambuf_iterator(*this); }
-	constexpr istreambuf_iterator<I> end() {
-		istreambuf_iterator it = istreambuf_iterator(*this);
-		it.offset = this->size() + 1;
-		return it;
-	}
-	constexpr void advance_to(istreambuf_iterator<I> it) {
-		this->erase(0, min(std::ptrdiff_t(this->size()), it.offset - base_offset));
-		base_offset = it.offset;
+	constexpr istreambuf_sp_iterator<I> spbegin() { return istreambuf_sp_iterator(*this); }
+	constexpr istreambuf_mp_iterator<I> mpbegin() { return istreambuf_mp_iterator(*this); }
+	constexpr void advance_to(std::ptrdiff_t count) {
+		this->erase(0, min(std::ptrdiff_t(this->size()), base_offset + count));
+		base_offset = base_offset + count;
 		create_offset = max(create_offset, base_offset);
 	}
-	constexpr void advance_creation(istreambuf_iterator<I> it) { create_offset = it.offset; }
+	constexpr void advance_to(istreambuf_mp_iterator<I> it) { advance_to(it.offset - base_offset); }
+	constexpr void advance_to() { advance_to(this->size()); }
+	constexpr void advance_creation(istreambuf_mp_iterator<I> it) { create_offset = it.offset; }
 };
 template <typename I>
-struct std::indirectly_readable_traits<istreambuf_iterator<I>> {
+struct std::indirectly_readable_traits<istreambuf_sp_iterator<I>> {
 	using value_type = std::iter_value_t<I>;
 };
 template <std::input_iterator I>
-class istreambuf_iterator : public forward_iterator_interface<istreambuf_iterator<I>> {
+class istreambuf_sp_iterator : public pure_input_iterator_interface<istreambuf_sp_iterator<I>, std::iter_value_t<I>> {
+	friend class istream_buffer<I>;
+	istream_buffer<I>* buf;
+
+public:
+	using pure_input_iterator_interface<istreambuf_sp_iterator<I>, std::iter_value_t<I>>::operator++;
+
+	constexpr istreambuf_sp_iterator(istream_buffer<I>& b) : buf(&b) {}
+	constexpr std::iter_value_t<I> operator*() const {
+		if (!buf->size())
+			return *buf->backing_iter;
+		else
+			return buf->at(0);
+	}
+	constexpr istreambuf_sp_iterator& operator++() {
+		if (buf->size())
+			buf->advance_to(1);
+		else
+			++buf->backing_iter;
+		return *this;
+	}
+	constexpr bool operator==(const istreambuf_sp_iterator& iter) const { return buf == iter.buf; }
+	template <typename R>
+		requires(!std::same_as<R, null_sentinel>)
+	constexpr bool operator==(const R& sent) const {
+		return buf->backing_iter == sent;
+	}
+	constexpr std::ptrdiff_t operator-(const istreambuf_sp_iterator&) const { return 0; }
+};
+template <typename I>
+struct std::indirectly_readable_traits<istreambuf_mp_iterator<I>> {
+	using value_type = std::iter_value_t<I>;
+};
+template <std::input_iterator I>
+class istreambuf_mp_iterator : public forward_iterator_interface<istreambuf_mp_iterator<I>> {
 	friend class istream_buffer<I>;
 	istream_buffer<I>* buf;
 	std::ptrdiff_t offset;
 
 public:
-	using forward_iterator_interface<istreambuf_iterator<I>>::operator++;
+	using forward_iterator_interface<istreambuf_mp_iterator<I>>::operator++;
 
-	constexpr istreambuf_iterator(istream_buffer<I>& b) : buf(&b), offset(b.create_offset) {}
-	constexpr std::iter_value_t<I>& operator*() const {
+	constexpr istreambuf_mp_iterator(istream_buffer<I>& b) : buf(&b), offset(b.create_offset) {}
+	constexpr const std::iter_value_t<I>& operator*() const {
 		while (offset >= buf->base_offset + buf->size()) {
 			buf->emplace_back(*buf->backing_iter);
 			++buf->backing_iter;
 		}
 		return buf->iat(offset - buf->base_offset);
 	}
-	constexpr istreambuf_iterator& operator++() {
+	constexpr istreambuf_mp_iterator& operator++() {
 		++offset;
 		return *this;
 	}
-	constexpr bool operator==(const istreambuf_iterator& iter) const { return offset == iter.offset; }
+	constexpr bool operator==(const istreambuf_mp_iterator& iter) const { return offset == iter.offset; }
 	template <typename R>
 		requires(!std::same_as<R, null_sentinel>)
 	constexpr bool operator==(const R& sent) const {
 		return buf->backing_iter == sent;
 	}
-	constexpr std::ptrdiff_t operator-(const istreambuf_iterator& iter) const { return offset - iter.offset; }
+	constexpr std::ptrdiff_t operator-(const istreambuf_mp_iterator& iter) const { return offset - iter.offset; }
 };
 
 template <std::input_iterator I, std::sentinel_for<I> S = null_sentinel>
 class basic_istream {
-protected:
+public:
 	mutable istream_buffer<I> buffer;
 	S sentinel;
 
@@ -94,33 +132,35 @@ public:
 	template <typename Derived>
 		requires(!std::is_const_v<Derived>)
 	constexpr auto begin(this Derived& self) {
-		return self.buffer.begin();
+		return self.buffer.spbegin();
+	}
+	template <typename Derived>
+		requires(!std::is_const_v<Derived>)
+	constexpr auto mpbegin(this Derived& self) {
+		return self.buffer.mpbegin();
 	}
 	template <typename Derived>
 	constexpr const auto& end(this const Derived& self) {
 		return self.sentinel;
 	}
-	constexpr void advance_buf() { buffer.advance_to(buffer.end()); }
-	constexpr void advance_buf(istreambuf_iterator<I> it) { buffer.advance_to(it); }
+	constexpr void advance_buf() { buffer.advance_to(); }
+	constexpr void advance_buf(istreambuf_mp_iterator<I> it) { buffer.advance_to(it); }
 
-	constexpr bool readable() const { return sentinel != buffer.begin(); }
-	constexpr auto peek() { return *buffer.begin(); }
+	constexpr bool readable() const { return sentinel != buffer.backing_iter; }
+	constexpr auto peek() { return *begin(); }
 	constexpr auto get() {
-		auto it = buffer.begin();
+		auto it = begin();
 		auto val = *it++;
-		buffer.advance_to(it);
 		return val;
 	}
 	constexpr operator bool() const { return readable(); }
 
-	constexpr void ignore(std::size_t sz) { buffer.advance_to(std::next(buffer.begin(), sz)); }
+	constexpr void ignore(std::size_t sz) { buffer.advance_to(sz); }
 
 	template <typename OutI>
 		requires impl::output_for<OutI, I>
 	constexpr void read(OutI&& out, std::size_t sz) {
-		auto it = buffer.begin();
-		algo::mut::copy_n(decay(out), it, end(), sz);
-		buffer.advance_to(it);
+		algo::mut::copy_n(decay(out), null_sentinel{}, begin(), end(), sz);
 	}
 
 	template <ranges::range R>
@@ -129,9 +169,7 @@ public:
 		auto i2 = ranges::find_first_of(*this, range);
 		if (inclusive)
 			++i2;
-		vector<std::remove_reference_t<std::iter_reference_t<I>>> v(i1, i2);
-		buffer.advance_to(i2);
-		return v;
+		return vector<std::remove_reference_t<std::iter_reference_t<I>>>(i1, i2);
 	}
 
 	template <ranges::range R>
@@ -159,6 +197,10 @@ public:
 		return self.iter;
 	}
 	template <typename Derived>
+	constexpr auto& mpbegin(this Derived& self) {
+		return self.iter;
+	}
+	template <typename Derived>
 	constexpr const auto& end(this const Derived& self) {
 		return self.sentinel;
 	}
@@ -178,7 +220,7 @@ public:
 	template <typename OutI>
 		requires impl::output_for<OutI, I>
 	constexpr void read(OutI&& out, std::size_t sz) {
-		algo::mut::copy_n(decay(out), begin(), end(), sz);
+		algo::mut::copy_n(decay(out), null_sentinel{}, begin(), end(), sz);
 	}
 	constexpr span<std::iter_value_t<I>> reference_read(std::size_t sz)
 		requires std::contiguous_iterator<I>

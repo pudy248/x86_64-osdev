@@ -1,10 +1,12 @@
+#include "ahci.hpp"
 #include <asm.hpp>
 #include <cstdint>
-#include <drivers/ahci.hpp>
 #include <drivers/pci.hpp>
+#include <kstddef.hpp>
 #include <kstdio.hpp>
 #include <kstdlib.hpp>
 #include <sys/global.hpp>
+#include <sys/ktime.hpp>
 #include <sys/memory/paging.hpp>
 
 void ahci_init(pci_device ahci_pci) {
@@ -21,6 +23,15 @@ void ahci_init(pci_device ahci_pci) {
 	pci_enable_mem(ahci_pci.address);
 	printf("Using AHCI MMIO at %08x=>%08x\n", ahci_pci.bars[5], ahci_vmem);
 	volatile hba_port* ports = (volatile hba_port*)ptr_offset(ahci_vmem, 0x100);
+
+	if (ahci_vmem->cap2 & 1) {
+		ahci_vmem->bohc |= 2;
+		while (ahci_vmem->bohc & 1)
+			;
+		print("BIOS handoff done!\n");
+	}
+
+	tsc_delay(10000000);
 
 	int port_idx = -1;
 	for (int i = 0; i < 32; i++) {
@@ -63,10 +74,8 @@ void ahci_init(pci_device ahci_pci) {
 	*globals->ahci = {ahci_vmem, &ports[port_idx], cmd_list, fis, ctbas};
 }
 
-void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
-	void* mem = mmap(nullptr, sectors * 512llu, MAP_CONTIGUOUS);
-
-	uint32_t slots = dev.port->sact | dev.port->ci;
+void ahci_read(uint64_t LBA, uint16_t sectors, void* buffer) {
+	uint32_t slots = globals->ahci->port->sact | globals->ahci->port->ci;
 	int slot;
 	for (slot = 0; slot < 32; slot++)
 		if (((slots >> slot) & 1) == 0)
@@ -76,15 +85,15 @@ void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 		return;
 	}
 
-	dev.clb[slot].cfl = sizeof(fis_reg_h2d) / 4;
-	dev.clb[slot].w = 0;
-	dev.ctba[slot].prdt_entry[0].dba = (uint64_t)virt2phys(mem);
-	dev.ctba[slot].prdt_entry[0].dbau = 0;
-	dev.ctba[slot].prdt_entry[0].dbc = sectors * 512llu - 1;
-	dev.ctba[slot].prdt_entry[0].i = 1;
+	globals->ahci->clb[slot].cfl = sizeof(fis_reg_h2d) / 4;
+	globals->ahci->clb[slot].w = 0;
+	globals->ahci->ctba[slot].prdt_entry[0].dba = (uint64_t)virt2phys(buffer);
+	globals->ahci->ctba[slot].prdt_entry[0].dbau = 0;
+	globals->ahci->ctba[slot].prdt_entry[0].dbc = sectors * 512llu - 1;
+	globals->ahci->ctba[slot].prdt_entry[0].i = 0;
 
-	//printf("%08x ", dev.port->cmd);
-	fis_reg_h2d* cmdfis = (fis_reg_h2d*)&dev.ctba[0].cfis;
+	//printf("%08x ", globals->ahci->port->cmd);
+	fis_reg_h2d* cmdfis = (fis_reg_h2d*)&globals->ahci->ctba[slot].cfis;
 	cmdfis->fis_type = 0x27;
 	cmdfis->c = 1;
 	cmdfis->command = 0x25;
@@ -98,26 +107,20 @@ void ahci_read(ahci_device dev, uint64_t LBA, uint16_t sectors, void* buffer) {
 	cmdfis->countl = sectors & 0xff;
 	cmdfis->counth = (sectors >> 8) & 0xff;
 	//print("2 ");
-	while (*(volatile uint32_t*)&dev.port->tfd & 0x84)
+	while (*(volatile uint32_t*)&globals->ahci->port->tfd & 0x84)
 		;
-	dev.port->ci |= 1 << slot;
+	globals->ahci->port->ci |= 1 << slot;
 	//print("3\n");
-	while ((*(volatile uint32_t*)&dev.port->ci & (1 << slot)) && !(*(volatile uint32_t*)&dev.port->is & 0x40000000)) {
-		//printf("Write: %08x %08x\n", dev.port->cmd, dev.port->serr); //4017 800
+	while ((*(volatile uint32_t*)&globals->ahci->port->ci & (1 << slot)) &&
+		   !(*(volatile uint32_t*)&globals->ahci->port->is & 0x40000000)) {
+		//printf("Write: %08x %08x\n", globals->ahci->port->cmd, globals->ahci->port->serr); //4017 800
 	}
-	if (dev.port->is & 0x40000000)
+	if (globals->ahci->port->is & 0x40000000)
 		print("Disk read error!\n");
-	kmemcpy<16>(buffer, mem, sectors * 512llu);
-	hexdump(mem, 0x20);
-	hexdump(buffer, 0x20);
-	// munmap(mem, sectors * 512llu);
 }
 
-void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, const void* buffer) {
-	void* mem = mmap(nullptr, sectors * 512llu, MAP_CONTIGUOUS);
-	kmemcpy<16>(mem, buffer, sectors * 512llu);
-
-	uint32_t slots = dev.port->sact | dev.port->ci;
+void ahci_write(uint64_t LBA, uint16_t sectors, const void* buffer) {
+	uint32_t slots = globals->ahci->port->sact | globals->ahci->port->ci;
 	int slot;
 	for (slot = 0; slot < 32; slot++)
 		if (((slots >> slot) & 1) == 0)
@@ -127,14 +130,15 @@ void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, const void* buf
 		return;
 	}
 
-	dev.clb[slot].cfl = sizeof(fis_reg_h2d) / 4;
-	dev.clb[slot].w = 1;
-	dev.ctba[slot].prdt_entry[0].dba = (uint64_t)virt2phys(mem);
-	dev.ctba[slot].prdt_entry[0].dbau = 0;
-	dev.ctba[slot].prdt_entry[0].dbc = sectors * 512llu - 1;
-	dev.ctba[slot].prdt_entry[0].i = 1;
+	globals->ahci->clb[slot].cfl = sizeof(fis_reg_h2d) / 4;
+	globals->ahci->clb[slot].w = 1;
+	globals->ahci->ctba[slot].prdt_entry[0].dba = (uint64_t)virt2phys(buffer);
+	//qprintf<80>("ADDR: %08x -> %08x # %08x\n", globals->ahci->ctba[slot].prdt_entry[0].dba, LBA, sectors);
+	globals->ahci->ctba[slot].prdt_entry[0].dbau = 0;
+	globals->ahci->ctba[slot].prdt_entry[0].dbc = sectors * 512llu - 1;
+	globals->ahci->ctba[slot].prdt_entry[0].i = 0;
 
-	fis_reg_h2d* cmdfis = (fis_reg_h2d*)&dev.ctba[0].cfis;
+	fis_reg_h2d* cmdfis = (fis_reg_h2d*)&globals->ahci->ctba[slot].cfis;
 	cmdfis->fis_type = 0x27;
 	cmdfis->c = 1;
 	cmdfis->command = 0x35;
@@ -147,20 +151,39 @@ void ahci_write(ahci_device dev, uint64_t LBA, uint16_t sectors, const void* buf
 	cmdfis->lba5 = (LBA >> 40) & 0xff;
 	cmdfis->countl = sectors & 0xff;
 	cmdfis->counth = (sectors >> 8) & 0xff;
-	while (dev.port->tfd & 0x84)
+	while (globals->ahci->port->tfd & 0x84)
 		;
-	dev.port->ci |= 1 << slot;
-	while ((*(volatile uint32_t*)&dev.port->ci & (1 << slot)) && (dev.port->is & 0x40000000) == 0)
-		;
-	if (dev.port->is & 0x40000000)
+	globals->ahci->port->ci |= 1 << slot;
+	std::size_t i = 0;
+	while (
+		(*(volatile uint32_t*)&globals->ahci->port->ci & (1 << slot)) && (globals->ahci->port->is & 0x40000000) == 0) {
+		i++;
+		if (i == 500000)
+			qprintf<80>("Slow write: %08x %08x %08x %08x %08x\n", globals->ahci->port->cmd, globals->ahci->port->serr,
+				globals->ahci->port->ci, globals->ahci->port->is, globals->ahci->port->tfd,
+				globals->ahci->port->ssts); //4017 800
+		if (i > 10000000) {
+			print("Write failed!\n");
+			inf_wait();
+		}
+	}
+	if (globals->ahci->port->is & 0x40000000)
 		print("Disk write error!\n");
-	// munmap(mem, sectors * 512llu);
 }
 
-void read_disk(void* address, uint32_t lbaStart, uint16_t lbaCount) {
-	ahci_read(*globals->ahci, lbaStart, lbaCount, address);
+void read_disk(void* buffer, uint32_t lbaStart, uint16_t lbaCount, uint64_t bufSize) {
+	void* mem = mmap(nullptr, lbaCount * 512llu, MAP_CONTIGUOUS);
+	ahci_read(lbaStart, lbaCount, mem);
+	memcpy(buffer, mem, bufSize);
+	kbzero(ptr_offset(mem, bufSize), lbaCount * 512llu - bufSize);
+	munmap(mem, lbaCount * 512llu);
 }
 
-void write_disk(void* address, uint32_t lbaStart, uint16_t lbaCount) {
-	ahci_write(*globals->ahci, lbaStart, lbaCount, address);
+void write_disk(void* buffer, uint32_t lbaStart, uint16_t lbaCount, uint64_t bufSize) {
+	void* mem = mmap(0x10000000, lbaCount * 512llu, MAP_CONTIGUOUS | MAP_PHYSICAL);
+	memcpy(mem, buffer, bufSize);
+	kbzero(ptr_offset(mem, bufSize), lbaCount * 512llu - bufSize);
+	for (int i = 0; i < lbaCount; i += 8)
+		ahci_write(lbaStart + i, min(8, lbaCount - i), ptr_offset(mem, i * 512llu));
+	munmap(mem, lbaCount * 512llu);
 }

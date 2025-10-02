@@ -10,7 +10,7 @@ template <template <typename> typename C, std::forward_iterator I2, typename S2,
 	requires container_template<C>
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, I2 begin2, S2 end2) {
 	std::size_t sz = ranges::count_all(self, view(begin2, end2)) + 1;
-	C<Derived> container{ sz };
+	C<Derived> container{sz};
 	istringstream stream(self);
 	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();
@@ -27,7 +27,7 @@ template <template <typename> typename C, ranges::forward_range R, typename Deri
 	requires container_template<C>
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, const R& range) {
 	std::size_t sz = ranges::count_all(self, range) + 1;
-	C<Derived> container{ sz };
+	C<Derived> container{sz};
 	istringstream stream(self);
 	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();
@@ -44,7 +44,7 @@ template <template <typename...> typename C, typename Derived>
 	requires container_template<C>
 C<Derived> basic_string_interface<CharT, I, S>::split(this const Derived& self, CharT c) {
 	std::size_t sz = ranges::count(self, c) + 1;
-	C<Derived> container{ sz };
+	C<Derived> container{sz};
 	istringstream stream(self);
 	for (std::size_t i = 0; i < sz; i++) {
 		I i1 = stream.begin();

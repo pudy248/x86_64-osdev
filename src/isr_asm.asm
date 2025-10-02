@@ -155,6 +155,9 @@ handle_interrupt:
     iretq
 
 isr_30:
+    mov qword [rsp - 0x10], 30
+    mov qword [rsp - 0x18], 0
+    mov qword [rsp - 0x20], 0
     call save_regs
     mov rax, qword [REGISTER_FILE_PTR]
     xchg rax, qword [REGISTER_FILE_PTR_SWAP]

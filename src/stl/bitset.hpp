@@ -43,8 +43,8 @@ class bitset_iterator : random_access_iterator_interface<bitset_iterator> {
 public:
 	uint8_t* ptr;
 	uint8_t offset;
-	constexpr bitset_reference operator*() { return { ptr, offset }; }
-	constexpr const bitset_reference operator*() const { return { ptr, offset }; }
+	constexpr bitset_reference operator*() { return {ptr, offset}; }
+	constexpr const bitset_reference operator*() const { return {ptr, offset}; }
 	constexpr bitset_iterator& operator+=(std::ptrdiff_t v) {
 		ptr += v >> 3;
 		offset += v & 7;
@@ -104,11 +104,11 @@ public:
 
 	constexpr bitset_reference at(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
-		return bitset_reference{ m_arr + (idx >> 3), (uint8_t)(idx & 7) };
+		return bitset_reference{m_arr + (idx >> 3), (uint8_t)(idx & 7)};
 	}
 	constexpr bitset_reference at(std::ptrdiff_t idx) const {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
-		return bitset_reference{ m_arr + (idx >> 3), (uint8_t)(idx & 7) };
+		return bitset_reference{m_arr + (idx >> 3), (uint8_t)(idx & 7)};
 	}
 	template <typename Derived>
 	constexpr const bitset_reference operator[](this Derived& self, std::ptrdiff_t idx) {
@@ -126,10 +126,9 @@ public:
 		m_arr[idx >> 3] ^= 1 << (idx & 7);
 	}
 	constexpr std::ptrdiff_t first_equal(bool value = false) const {
-		for (std::ptrdiff_t i = 0; i < size(); i++) {
+		for (std::ptrdiff_t i = 0; i < size(); i++)
 			if (m_arr[i] == value)
 				return i;
-		}
 		return -1;
 	}
 	constexpr std::ptrdiff_t contiguous_span_equal(std::ptrdiff_t how_many, bool value = false) {
@@ -194,11 +193,11 @@ public:
 
 	constexpr bitset_reference at(std::ptrdiff_t idx) {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
-		return bitset_reference{ m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7) };
+		return bitset_reference{m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7)};
 	}
 	constexpr bitset_reference at(std::ptrdiff_t idx) const {
 		kassert(DEBUG_ONLY, WARNING, idx >= 0 && idx < size(), "OOB access in bitset.at()\n");
-		return bitset_reference{ m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7) };
+		return bitset_reference{m_vec.begin() + (idx >> 3), (uint8_t)(idx & 7)};
 	}
 	template <typename Derived>
 	constexpr const bitset_reference operator[](this Derived& self, std::ptrdiff_t idx) {
@@ -216,10 +215,9 @@ public:
 		m_vec[idx >> 3] ^= 1 << (idx & 7);
 	}
 	constexpr std::ptrdiff_t first_equal(bool value = false) const {
-		for (std::ptrdiff_t i = 0; i < size(); i++) {
+		for (std::ptrdiff_t i = 0; i < size(); i++)
 			if (m_vec[i] == value)
 				return i;
-		}
 		return -1;
 	}
 	constexpr std::ptrdiff_t contiguous_span_equal(std::ptrdiff_t how_many, bool value = false) {

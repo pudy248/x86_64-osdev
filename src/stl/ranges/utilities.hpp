@@ -1,10 +1,25 @@
 #pragma once
 #include "concepts.hpp"
 #include "stl/iterator/utilities.hpp"
+#include <concepts>
 #include <iterator>
 #include <stl/iterator.hpp>
 
 namespace ranges {
+template <std::indirectly_readable I, std::sentinel_for<I> S>
+struct iter_range {
+	I iter;
+	S sentinel;
+	template <typename... Args>
+		requires std::constructible_from<I, Args...>
+	constexpr iter_range(const Args&... args) : iter(args...), sentinel() {}
+	constexpr iter_range(const I& i, const S& s = {}) : iter(i), sentinel(s) {}
+	template <ranges::range R>
+	constexpr iter_range(const R& r) : iter(ranges::begin(r)), sentinel(ranges::end(r)) {}
+	constexpr I& begin() { return iter; }
+	constexpr const I& begin() const { return iter; }
+	constexpr const S& end() const { return sentinel; }
+};
 template <typename I>
 struct unbounded_range {
 	I iter;

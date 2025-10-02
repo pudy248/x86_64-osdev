@@ -21,8 +21,8 @@ CFLAGS:=\
 -m64 -march=haswell -std=c++26 -stdlib=libstdc++ -ffreestanding -ffunction-sections -fdata-sections -flto=thin -funified-lto \
 -nostdlib -mno-red-zone -fno-pie -fno-rtti -fno-stack-protector -fno-use-cxa-atexit \
 -Oz -fwrapv -fno-finite-loops -felide-constructors -fno-exceptions \
--Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 -Werror=return-type \
--Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused-parameter -Wno-unused-function -Wno-nontrivial-memcall \
+-Isrc -Isrc/std -Wall -Wextra -ftemplate-backtrace-limit=0 -ferror-limit=0 -Werror=return-type -Wimplicit-fallthrough \
+-Wno-pointer-arith -Wstrict-aliasing -Wno-writable-strings -Wno-unused -Wno-unused-parameter -Wno-nontrivial-memcall \
 $(CFLAGS_CC_SPECIFIC) $(CFLAGS_DBG) $(CFLAGS_OPT_TARGETS)
 # -fsanitize=alignment,nonnull-attribute,object-size,return,shift,unreachable -fsanitize-trap=alignment,nonnull-attribute,object-size,return,shift,unreachable \
 
@@ -46,14 +46,13 @@ DISK_INCLUDES=$(shell cd disk_include && echo * && cd ..)
 
 QEMU_STORAGE:=-drive id=disk,format=raw,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 QEMU_STORAGE_AUX:=-drive id=disk2,format=raw,file=disk_2.img,if=ide
-QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:80,hostfwd=udp::5556-:80 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=tmp/dump.pcap
+QEMU_NETWORK:=-netdev user,id=u1,hostfwd=tcp::5555-:23,hostfwd=udp::5556-:23 -device e1000,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=tmp/dump.pcap
 QEMU_VIDEO:=-vga vmware
-QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1 -device AC97
+QEMU_AUDIO:=-audiodev sdl,id=pa1 -machine pcspk-audiodev=pa1
 QEMU_MISC:=-m 4G -cpu Haswell -smp 1
 QEMU_FLAGS:=$(QEMU_STORAGE) $(QEMU_NETWORK) $(QEMU_VIDEO) $(QEMU_AUDIO) $(QEMU_MISC)
 
-LOCAL_IP:=192.168.0.28
-#192.168.1.2
+LOCAL_IP:=172.29.247.67
 
 .PHONY: default clean start start-trace start-trace-2 start-dbg iwyu tidy format
 default: disk.img
@@ -69,8 +68,8 @@ disk.img: tmp/fattener tmp/kernel.img tmp/bootloader.img tmp/fat32.img tmp/fsinf
 	@cp tmp/symbols.txt tmp/root
 	@cp tmp/symbols2.txt tmp/root
 	./tmp/fattener tmp/root
-	@truncate -s 128M disk.img
-#	cat tmp/flash.img disk.img > disk_2.img
+	@truncate -s 4M disk.img
+	cat tmp/flash.img disk.img > disk_2.img
 
 start: disk.img
 	qemu-system-x86_64.exe $(QEMU_FLAGS) &
@@ -93,16 +92,24 @@ attatch:
 monitor:
 	telnet $(LOCAL_IP) 5557 | tee -a tmp/monitor.log
 
+net-flash: disk.img
+	cat tmp/root/kernel.img | nc -N 192.168.1.108 20
+
 $(ASM_OBJ) : tmp/%.o : src/%.asm
 	$(ASM) -f elf64 -o $@ $<
-tmp/obj.o : $(C_SRC) $(C_HDR)
+tmp/kobj.o : $(C_SRC) $(C_HDR)
 	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
 	$(CC) $(CFLAGS) -DKERNEL -o $@ -c tmp/all.cpp
+tmp/bobj.o : $(C_SRC) $(C_HDR)
+	echo "$(patsubst %,#include \"../%\"\n,$(C_SRC))\n#include \"../bootloader/stage2.cpp\"" > tmp/all.cpp
+	$(CC) $(CFLAGS) -o $@ -c tmp/all.cpp
 
-tmp/kernel.elf: $(ASM_OBJ) tmp/obj.o
+tmp/kernel.elf: $(ASM_OBJ) tmp/kobj.o
 	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
 #	llvm-objdump $(OBJDUMP_FLAGS) $@ > tmp/base.S
-tmp/kernel_noentry.elf: tmp/kernel.elf
+tmp/bootloader_entry.elf: $(ASM_OBJ) tmp/bobj.o
+	$(LD) $(LDFLAGS_INC) -e kernel_main -r -o $@ $^
+tmp/bootloader.elf: tmp/bootloader_entry.elf
 	llvm-objcopy$(LLVM_TOOLS_SUFFIX) --weaken -N kernel_main $^ $@
 tmp/kernel.img.elf: tmp/kernel.elf link.ld
 	$(LD) $(LDFLAGS_FIN) -e kernel_main -T link.ld -o $@ tmp/kernel.elf
@@ -112,9 +119,9 @@ tmp/kernel.img: tmp/kernel.img.elf
 	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle $^ > tmp/symbols.txt
 	llvm-objcopy$(LLVM_TOOLS_SUFFIX) -O binary $^ $@
 
-tmp/bootloader.img: tmp/kernel_noentry.elf tmp/stage0.o tmp/stage1.o tmp/stage2.o
+tmp/bootloader.img: tmp/bootloader.elf tmp/stage0.o tmp/stage1.o tmp/stage2.o
 	$(LD) $(LDFLAGS_FIN) -e stage2_main -T bootloader/bootloader.ld $^ -o $@.elf 
-	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) $@.elf > tmp/bootloader.S
+#	llvm-objdump$(LLVM_TOOLS_SUFFIX) $(OBJDUMP_FLAGS) $@.elf > tmp/bootloader.S
 	llvm-objdump$(LLVM_TOOLS_SUFFIX) --syms --demangle $@.elf > tmp/symbols2.txt
 	objcopy -O binary $@.elf $@
 

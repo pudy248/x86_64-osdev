@@ -40,12 +40,12 @@ public:
 		return range;
 	}
 	constexpr R base() && { return std::move(range); }
-	constexpr cast_iterator<false> begin() { return cast_iterator<false>{ ranges::begin(range) }; }
-	constexpr cast_iterator<false> end() { return cast_iterator<false>{ ranges::end(range) }; }
-	constexpr cast_iterator<true> begin() const { return cast_iterator<true>{ ranges::begin(range) }; }
-	constexpr cast_iterator<true> end() const { return cast_iterator<true>{ ranges::end(range) }; }
-	constexpr cast_iterator<true> cbegin() const { return cast_iterator<true>{ std::cbegin(range) }; }
-	constexpr cast_iterator<true> cend() const { return cast_iterator<true>{ std::cend(range) }; }
+	constexpr cast_iterator<false> begin() { return cast_iterator<false>{ranges::begin(range)}; }
+	constexpr cast_iterator<false> end() { return cast_iterator<false>{ranges::end(range)}; }
+	constexpr cast_iterator<true> begin() const { return cast_iterator<true>{ranges::begin(range)}; }
+	constexpr cast_iterator<true> end() const { return cast_iterator<true>{ranges::end(range)}; }
+	constexpr cast_iterator<true> cbegin() const { return cast_iterator<true>{std::cbegin(range)}; }
+	constexpr cast_iterator<true> cend() const { return cast_iterator<true>{std::cend(range)}; }
 };
 
 template <typename T>
@@ -53,7 +53,7 @@ struct cast : public ranges::range_adaptor_interface<cast<T>> {
 	using ranges::range_adaptor_interface<cast<T>>::operator|;
 	template <ranges::range R>
 	constexpr auto operator()(R&& r) const {
-		return cast_view<std::views::all_t<R>, T>{ std::forward<R>(r) };
+		return cast_view<std::views::all_t<R>, T>{std::forward<R>(r)};
 	}
 };
 }

@@ -55,8 +55,8 @@ public:
 		, margins(ranges::at(margins, 0), ranges::at(margins, 1), ranges::at(margins, 2), ranges::at(margins, 3)) {
 		ranges::fill(buffer, 0);
 	}
-	constexpr text_layer(std::initializer_list<int> offset, std::initializer_list<int> dims,
-						 std::initializer_list<int> margins)
+	constexpr text_layer(
+		std::initializer_list<int> offset, std::initializer_list<int> dims, std::initializer_list<int> margins)
 		: text_layer(span<const int>(offset), dims, margins) {};
 
 	constexpr text_layer& clear() {
@@ -70,11 +70,9 @@ public:
 		set_if_not_dest(y1, 0);
 		set_if_not_dest(x2, dims[0]);
 		set_if_not_dest(y2, dims[1]);
-		for (int y = y1; y < y2; y++) {
-			for (int x = x1; x < x2; x++) {
+		for (int y = y1; y < y2; y++)
+			for (int x = x1; x < x2; x++)
 				buffer[y * dims[0] + x] = c;
-			}
-		}
 		return *this;
 	}
 	constexpr text_layer& fill_zeroes(char c, int x1 = -1, int x2 = -1, int y1 = -1, int y2 = -1) {
@@ -83,10 +81,9 @@ public:
 		set_if_not_dest(x2, dims[0]);
 		set_if_not_dest(y2, dims[1]);
 		for (int y = y1; y < y2; y++) {
-			for (int x = x1; x < x2; x++) {
+			for (int x = x1; x < x2; x++)
 				if (!buffer[y * dims[0] + x])
 					buffer[y * dims[0] + x] = c;
-			}
 		}
 		return *this;
 	}
@@ -122,8 +119,8 @@ public:
 		}
 		return *this;
 	}
-	constexpr text_layer& hexdump(const void* ptr, uint32_t bytes, uint32_t block_width = 4, uint32_t num_columns = 8,
-								  bool reversed = false) {
+	constexpr text_layer& hexdump(
+		const void* ptr, uint32_t bytes, uint32_t block_width = 4, uint32_t num_columns = 8, bool reversed = false) {
 		const char* hextable = "0123456789ABCDEF";
 		uint8_t* data = (uint8_t*)ptr;
 		for (uint32_t off = 0; off < bytes; off += block_width) {

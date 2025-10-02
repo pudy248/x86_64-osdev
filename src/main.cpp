@@ -1,26 +1,26 @@
-#include "asm.hpp"
-#include "stl/algorithms/operators.hpp"
-#include "stl/ranges/utilities.hpp"
-#include "sys/memory/paging.hpp"
+#include <asm.hpp>
 #include <cstdint>
+#include <drivers/ahci.hpp>
+#include <drivers/ihd.cpp>
+#include <drivers/ihd.hpp>
 #include <drivers/pci.hpp>
 #include <drivers/vmware_svga.hpp>
-#include <graphics/pipeline.hpp>
-#include <graphics/vectypes.hpp>
-#include <initializer_list>
 #include <kassert.hpp>
 #include <kfile.hpp>
 #include <kstdio.hpp>
 #include <kstring.hpp>
 #include <lib/cmd/commandline.hpp>
+#include <lib/cmd/rsh.hpp>
 #include <lib/filesystems/fat.hpp>
+#include <lib/flash.hpp>
 #include <lib/profile.hpp>
 #include <net/dhcp.hpp>
 #include <net/dns.hpp>
 #include <net/http.hpp>
 #include <net/net.hpp>
 #include <net/tcp.hpp>
-#include <stl/iterator/utilities.hpp>
+#include <stl/iterator.hpp>
+#include <stl/map.hpp>
 #include <stl/vector.hpp>
 #include <sys/global.hpp>
 #include <sys/init.hpp>
@@ -66,22 +66,6 @@ static void http_main() {
 			}
 		}
 	}
-}
-static void dhcp_main() {
-	net_init();
-	dhcp_set_active(dhcp_query());
-	// ping(new_ipv4(8, 8, 8, 8));
-	// ping("www.google.com");
-	rostring s("www.google.com");
-	ipv4_t ip = dns_query(s);
-	tcp_conn_t conn = tcp_connect(ip, 54321, HTTP_PORT);
-	http_response r = http_req_get(conn, s);
-	conn->close();
-	tcp_destroy(conn);
-	printf("[HTTP] GET / from %S returned code %i and %i bytes.\n", &s, r.code, r.content.size());
-	r = {};
-	while (1)
-		net_fwdall();
 }
 /*
 static void graphics_main() {
@@ -185,6 +169,16 @@ static void dealloc_fat() {
 
 static void console_init() {
 	do_pit_readout = false;
+
+	if (pci_device* svga_pci = pci_match_id(0x15AD, 0x0405))
+		svga_init(*svga_pci, 1366, 768);
+	else {
+		pci_device* ihd_gfx_pci = pci_match(PCI_CLASS::DISPLAY, PCI_SUBCLASS::DISPLAY_VGA, 0);
+		kassert(ALWAYS_ACTIVE, TASK_EXCEPTION, ihd_gfx_pci && ihd_gfx_pci->vendor_id == 0x8086,
+			"Intel HD Graphics PCI device not found!\n");
+		ihd_gfx_init(*ihd_gfx_pci);
+		ihd_gfx_modeset();
+	}
 	graphics_text_init();
 	replace_console(console(&graphics_text_set_char, &graphics_text_update, graphics_text_dimensions));
 	do_pit_readout = true;
@@ -199,14 +193,38 @@ static void thread_main() {
 	threading_init();
 	thread<int> t = thread_create(&generator, 123);
 	timepoint time1, time2;
-	PROFILE_LOOP(thread_switch(t), time1 = timepoint::now(), time2 = timepoint::now(), 50000000)
+	PROFILE_LOOP(thread_switch(t), time1 = timepoint::now(), time2 = timepoint::now(), 500000)
 	uint64_t t1, t2;
 	PROFILE_PRECISE(thread_switch(t), t1, t2, 50);
-	//thread_kill(t);
-	printf("Thread exited. Ran 100 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
+	thread_kill(t);
+	printf("Thread exited. Ran 1 million context swaps in %f sec.\n100 swaps took an average of %i cycles each.\n",
 		units::seconds(time2 - time1).rep, (t2 - t1) / 100);
 	inf_wait();
 }
+
+int cmd_http_fetch(int argc, const ccstr_t* argv) {
+	if (argc != 2) {
+		print("Bad argument count.\n");
+		return -1;
+	}
+	rostring s(argv[1]);
+	ipv4_t ip = dns_query(s);
+	tcp_conn_t conn = tcp_connect(ip, 54321, HTTP_PORT);
+	http_response r = http_req_get(conn, s);
+	conn->close();
+	tcp_destroy(conn);
+	printf("[HTTP] GET / from %S returned code %i and %i bytes.\n", &s, r.code, r.content.size());
+	return 0;
+}
+
+void net_fwd_loop() {
+	while (true) {
+		net_fwdall();
+		thread_yield();
+	}
+}
+
+extern bool do_logging;
 
 extern "C" void kernel_main(void) {
 	kernel_reinit();
@@ -216,16 +234,29 @@ extern "C" void kernel_main(void) {
 
 	//graphics_main();
 	//dealloc_fat();
-	console_init();
-	//inf_wait();
-	//http_main();
-	dhcp_main();
 	//thread_main();
-	//threading_init();
+	threading_init();
+	//net_init();
+	//dhcp_set_active(dhcp_query());
+	//cli_init();
+	//cli_loop();
+	//http_main();
+
+	//thread_create(&rsh_loop);
+	//thread_create(&tcp_flash_loop, 20);
+	//thread_create(&net_fwd_loop);
+
+	console_init();
 	cli_init();
+	thread_create(&cli_loop);
 
 	//tag_dump();
-	print("Kernel reached end of execution.\n");
+
+	print("Kernel initialization thread reached end of execution.\n");
+	thread_exit(0);
+	while (num_thread_contexts() > 1)
+		thread_yield();
+
 	global_dtors();
 	inf_wait();
 }

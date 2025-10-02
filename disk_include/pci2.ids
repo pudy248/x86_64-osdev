@@ -1,0 +1,203 @@
+0  Unclassified
+	0  Non-VGA-Compatible Unclassified Device
+	1  VGA-Compatible Unclassified Device
+1  Mass Storage Controller
+	0  SCSI Bus Controller
+	1  IDE Controller
+		0  ISA Compatibility mode-only controller
+		5  PCI native mode-only controller
+		A  ISA Compatibility mode controller, supports both channels switched to PCI native mode
+		F  PCI native mode controller, supports both channels switched to ISA compatibility mode
+		80  ISA Compatibility mode-only controller, supports bus mastering
+		85  PCI native mode-only controller, supports bus mastering
+		8A  ISA Compatibility mode controller, supports both channels switched to PCI native mode, supports bus mastering
+		8F  PCI native mode controller, supports both channels switched to ISA compatibility mode, supports bus mastering
+	2  Floppy Disk Controller
+	3  IPI Bus Controller
+	4  RAID Controller
+	5  ATA Controller
+		20  Single DMA
+		30  Chained DMA
+	6  Serial ATA Controller
+		0  Vendor Specific Interface
+		1  AHCI 1.0
+		2  Serial Storage Bus
+	7  Serial Attached SCSI Controller
+		0  SAS
+		1  Serial Storage Bus
+	8  Non-Volatile Memory Controller
+		1  NVMHCI
+		2  NVM Express
+	80  Other
+2  Network Controller
+	0  Ethernet Controller
+	1  Token Ring Controller
+	2  FDDI Controller
+	3  ATM Controller
+	4  ISDN Controller
+	5  WorldFip Controller
+	6  PICMG 2.14 Multi Computing Controller
+	7  Infiniband Controller
+	8  Fabric Controller
+	80  Other
+3  Display Controller
+	0  VGA Compatible Controller
+		0  VGA Controller
+		1  8514-Compatible Controller
+	1  XGA Controller
+	2  3D Controller (Not VGA-Compatible)
+	80  Other
+4  Multimedia Controller
+	0  Multimedia Video Controller
+	1  Multimedia Audio Controller
+	2  Computer Telephony Device
+	3  Audio Device
+	80  Other
+5  Memory Controller
+	0  RAM Controller
+	1  Flash Controller
+	80  Other
+6  Bridge
+	0  Host Bridge
+	1  ISA Bridge
+	2  EISA Bridge
+	3  MCA Bridge
+	4  PCI-to-PCI Bridge
+		0  Normal Decode
+		1  Subtractive Decode
+	5  PCMCIA Bridge
+	6  NuBus Bridge
+	7  CardBus Bridge
+	8  RACEway Bridge
+		0  Transparent Mode
+		1  Endpoint Mode
+	9  PCI-to-PCI Bridge
+		40  Semi-Transparent, Primary bus towards host CPU
+		80  Semi-Transparent, Secondary bus towards host CPU
+	0A  InfiniBand-to-PCI Host Bridge
+	80  Other
+7  Simple Communication Controller
+	0  Serial Controller
+		0  8250-Compatible (Generic XT)
+		1  16450-Compatible
+		2  16550-Compatible
+		3  16650-Compatible
+		4  16750-Compatible
+		5  16850-Compatible
+		6  16950-Compatible
+	1  Parallel Controller
+		0  Standard Parallel Port
+		1  Bi-Directional Parallel Port
+		2  ECP 1.X Compliant Parallel Port
+		3  IEEE 1284 Controller
+		FE  IEEE 1284 Target Device
+	2  Multiport Serial Controller
+	3  Modem
+		0  Generic Modem
+		1  Hayes 16450-Compatible Interface
+		2  Hayes 16550-Compatible Interface
+		3  Hayes 16650-Compatible Interface
+		4  Hayes 16750-Compatible Interface
+	4  IEEE 488.1/2 (GPIB) Controller
+	5  Smart Card Controller
+	80  Other
+8  Base System Peripheral
+	0  PIC
+		0  Generic 8259-Compatible
+		1  ISA-Compatible
+		2  EISA-Compatible
+		10  I/O APIC Interrupt Controller
+		20  I/O(x) APIC Interrupt Controller
+	01  DMA Controller
+		00  Generic 8237-Compatible
+		01  ISA-Compatible
+		02  EISA-Compatible
+	02  Timer
+		00  Generic 8254-Compatible
+		01  ISA-Compatible
+		02  EISA-Compatible
+		03  HPET
+	3  RTC Controller
+		0  Generic RTC
+		1  ISA-Compatible
+	4  PCI Hot-Plug Controller
+	5  SD Host controller
+	6  IOMMU
+	80  Other
+9  Input Device Controller
+	0  Keyboard Controller
+	1  Digitizer Pen
+	2  Mouse Controller
+	3  Scanner Controller
+	4  Gameport Controller
+		0  Generic
+		10  Extended
+	80  Other
+A  Docking Station
+	0  Generic
+	80  Other
+B  Processor
+	0  386
+	1  486
+	2  Pentium
+	3  Pentium Pro
+	10  Alpha
+	20  PowerPC
+	30  MIPS
+	40  Co-Processor
+	80  Other
+C  Serial Bus Controller
+	0  FireWire (IEEE 1394) Controller
+		0  Generic
+		10  OHCI
+	1  ACCESS Bus Controller
+	2  SSA
+	3  USB Controller
+		0  UHCI Controller
+		10  OHCI Controller
+		20  EHCI (USB2) Controller
+		30  XHCI (USB3) Controller
+		80  Unspecified
+		FE  USB Device (Not a host controller)
+	4  Fibre Channel
+	5  SMBus Controller
+	6  InfiniBand Controller
+	7  IPMI Interface
+		0  SMIC
+		1  Keyboard Controller Style
+		2  Block Transfer
+	8  SERCOS Interface (IEC 61491)
+	9  CANbus Controller
+	80  Other
+D  Wireless Controller
+	0  iRDA Compatible Controller
+	1  Consumer IR Controller
+	10  RF Controller
+	11  Bluetooth Controller
+	12  Broadband Controller
+	20  Ethernet Controller (802.1a)
+	21  Ethernet Controller (802.1b)
+	80  Other
+E  Intelligent Controller
+	0  I20
+F  Satellite Communication Controller
+	1  Satellite TV Controller
+	2  Satellite Audio Controller
+	3  Satellite Voice Controller
+	4  Satellite Data Controller
+10  Encryption Controller
+	0  Network and Computing Encrpytion/Decryption
+	10  Entertainment Encryption/Decryption
+	80  Other
+11  Signal Processing Controller
+	0  DPIO Modules
+	1  Performance Counters
+	10  Communication Synchronizer
+	20  Signal Processing Management
+	80  Other
+12  Processing Accelerator
+13  Non-Essential Instrumentation
+14  3F (Reserved)
+40  Co-Processor
+41  FE (Reserved)
+FF  Unassigned Class (Vendor specific)
